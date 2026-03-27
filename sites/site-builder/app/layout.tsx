@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Site Builder — AI Agents Studio",
-  description: "Build websites using AI agents with Firecrawl and Tavily research",
+  description: "Build websites using AI agents with Firecrawl, Tavily, Imagen and Claude",
 };
 
 export default function RootLayout({

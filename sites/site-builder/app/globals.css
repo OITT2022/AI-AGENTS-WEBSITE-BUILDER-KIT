@@ -478,6 +478,137 @@ textarea.form-input {
   border-top: 1px solid var(--border);
 }
 
+/* ── Auth modal ── */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 1rem;
+}
+
+.auth-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 2rem 2.25rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+}
+
+.auth-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+}
+
+.auth-subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.auth-field {
+  margin-bottom: 0.85rem;
+}
+
+.auth-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.auth-error {
+  color: var(--error);
+  font-size: 0.8rem;
+  text-align: center;
+  margin: 0.5rem 0;
+  padding: 0.4rem;
+  background: var(--error-bg);
+  border-radius: 0.5rem;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 1rem;
+}
+
+.auth-switch button {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+.auth-resend {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 1rem;
+}
+
+.auth-resend button {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+/* ── OTP inputs ── */
+.otp-inputs {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin: 1.5rem 0;
+  direction: ltr;
+}
+
+.otp-box {
+  width: 48px;
+  height: 56px;
+  border: 2px solid var(--border);
+  border-radius: 0.625rem;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-input);
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.otp-box:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .app-layout { flex-direction: column; }

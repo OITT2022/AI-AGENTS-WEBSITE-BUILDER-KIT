@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSession } from "../../lib/auth";
 
 interface MediaRequest {
   prompt: string;
@@ -8,6 +9,9 @@ interface MediaRequest {
 }
 
 export async function POST(req: Request) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body: MediaRequest = await req.json();
   const { prompt, type = "image", width = 1024, height = 1024 } = body;
 

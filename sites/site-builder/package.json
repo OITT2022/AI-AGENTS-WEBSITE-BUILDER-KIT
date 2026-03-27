@@ -8,10 +8,13 @@
     "start": "next start -p 3100"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@neondatabase/serverless": "^1.0.2",
+    "jose": "^6.2.2",
     "next": "^15.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@anthropic-ai/sdk": "^0.39.0"
+    "resend": "^6.9.4"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

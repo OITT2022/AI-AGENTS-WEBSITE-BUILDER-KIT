@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { getSession } from "../../lib/auth";
 
 export async function POST(req: Request) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { scrapeData, researchData, mediaData, mediaPrompt, siteDescription, siteName } = await req.json();
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

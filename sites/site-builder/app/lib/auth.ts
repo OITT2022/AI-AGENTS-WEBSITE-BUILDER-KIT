@@ -1,6 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { randomInt } from "node:crypto";
 
 const COOKIE_NAME = "session";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
@@ -19,7 +18,7 @@ function getSecret() {
 }
 
 export function generateOTP(): string {
-  return String(randomInt(100000, 999999));
+  return String(100000 + Math.floor(Math.random() * 900000));
 }
 
 export async function signToken(payload: SessionUser): Promise<string> {

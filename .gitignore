@@ -7,8 +7,11 @@ coverage
 *.log
 .DS_Store
 .turbo
+.vercel
+.firecrawl
 artifacts/*
 !artifacts/.gitkeep
 package-lock.json
 screenshot*.png
 reports/
+test-results/

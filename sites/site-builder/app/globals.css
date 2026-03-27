@@ -609,6 +609,95 @@ textarea.form-input {
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
+/* ── Admin page ── */
+.admin-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.admin-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.admin-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.admin-table-wrapper {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.admin-table thead {
+  background: var(--bg-input);
+}
+
+.admin-table th {
+  text-align: right;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-table td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--bg-input);
+}
+
+.admin-cell-num {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  width: 40px;
+}
+
+.admin-cell-email {
+  font-family: "Cascadia Code", "Fira Code", monospace;
+  font-size: 0.8rem;
+  color: var(--primary);
+}
+
+.admin-cell-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .app-layout { flex-direction: column; }

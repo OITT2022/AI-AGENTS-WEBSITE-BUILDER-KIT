@@ -153,6 +153,27 @@ export default function AuthGate() {
     }
   }
 
+  function handleOtpPaste(e: React.ClipboardEvent) {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted.length === 0) return;
+
+    const newOtp = [...otp];
+    for (let i = 0; i < 6; i++) {
+      newOtp[i] = pasted[i] ?? "";
+    }
+    setOtp(newOtp);
+
+    // Focus last filled input
+    const lastIndex = Math.min(pasted.length, 6) - 1;
+    otpRefs.current[lastIndex]?.focus();
+
+    // Auto-submit if full code pasted
+    if (pasted.length === 6) {
+      setTimeout(() => handleVerify(), 100);
+    }
+  }
+
   function handleOtpKeyDown(index: number, key: string) {
     if (key === "Backspace" && !otp[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
@@ -233,6 +254,7 @@ export default function AuthGate() {
                   value={digit}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(i, e.key)}
+                  onPaste={handleOtpPaste}
                   autoFocus={i === 0}
                 />
               ))}

@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+coverage
+.env
+.env.local
+*.log
+.DS_Store
+.turbo
+artifacts/*
+!artifacts/.gitkeep
+package-lock.json
+screenshot*.png
+reports/

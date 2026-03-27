@@ -1,0 +1,20 @@
+{
+  "name": "@agents/qa-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "playwright test",
+    "test:report": "playwright show-report reports/html"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.50.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0"
+  }
+}

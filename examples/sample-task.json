@@ -1,0 +1,8 @@
+{
+  "taskId": "task_demo_001",
+  "workflow": "site_build",
+  "agent": "site-agent",
+  "input": {"brief": "Build a bilingual art gallery website", "language": "he"},
+  "context": {"projectId": "proj_demo_001", "artifacts": []},
+  "constraints": {"framework": "nextjs", "database": "postgresql"}
+}

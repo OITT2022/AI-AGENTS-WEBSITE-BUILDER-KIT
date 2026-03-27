@@ -1,0 +1,5 @@
+{
+  "extends": "../../../scaffold/tsconfig.base.json",
+  "compilerOptions": {"rootDir": "src"},
+  "include": ["src"]
+}

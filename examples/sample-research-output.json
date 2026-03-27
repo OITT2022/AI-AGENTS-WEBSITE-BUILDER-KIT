@@ -1,0 +1,10 @@
+{
+  "summary": "Normalized research output example.",
+  "findings": [
+    {"title": "Competitor positioning", "detail": "Large images and minimal navigation are common."}
+  ],
+  "sources": [
+    {"provider": "example", "url": "https://example.com", "confidence": 0.7}
+  ],
+  "confidence": 0.78
+}

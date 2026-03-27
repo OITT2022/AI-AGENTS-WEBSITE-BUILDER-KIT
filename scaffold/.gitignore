@@ -1,0 +1,10 @@
+node_modules
+dist
+.next
+coverage
+.env
+.env.local
+*.log
+.DS_Store
+artifacts/*
+!artifacts/.gitkeep

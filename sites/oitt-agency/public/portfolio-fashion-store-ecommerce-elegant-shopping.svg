@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2e1065"/>
+      <stop offset="100%" style="stop-color:#4a044e"/>
+    </linearGradient>
+    <filter id="blur1"><feGaussianBlur stdDeviation="40"/></filter>
+    <filter id="blur2"><feGaussianBlur stdDeviation="20"/></filter>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <circle cx="126" cy="97" r="252" fill="#c084fc" opacity="0.21" filter="url(#blur1)"/>
+  <circle cx="270" cy="215" r="100" fill="#f472b6" opacity="0.28" filter="url(#blur1)"/>
+  <circle cx="9" cy="452" r="122" fill="#fb923c" opacity="0.28" filter="url(#blur1)"/>
+  <circle cx="312" cy="110" r="74" fill="#c084fc" opacity="0.19" filter="url(#blur2)"/>
+  <circle cx="70" cy="343" r="120" fill="#f472b6" opacity="0.15" filter="url(#blur2)"/>
+  <circle cx="447" cy="237" r="119" fill="#fb923c" opacity="0.13" filter="url(#blur2)"/>
+  <circle cx="640" cy="317" r="110" fill="#c084fc" opacity="0.18" filter="url(#blur2)"/>
+  <circle cx="696" cy="346" r="103" fill="#f472b6" opacity="0.09" filter="url(#blur2)"/>
+  <g opacity="0.03" stroke="#fff" stroke-width="1">
+    <line x1="0" y1="0" x2="0" y2="500"/>
+    <line x1="60" y1="0" x2="60" y2="500"/>
+    <line x1="120" y1="0" x2="120" y2="500"/>
+    <line x1="180" y1="0" x2="180" y2="500"/>
+    <line x1="240" y1="0" x2="240" y2="500"/>
+    <line x1="300" y1="0" x2="300" y2="500"/>
+    <line x1="360" y1="0" x2="360" y2="500"/>
+    <line x1="420" y1="0" x2="420" y2="500"/>
+    <line x1="480" y1="0" x2="480" y2="500"/>
+    <line x1="540" y1="0" x2="540" y2="500"/>
+    <line x1="600" y1="0" x2="600" y2="500"/>
+    <line x1="660" y1="0" x2="660" y2="500"/>
+    <line x1="720" y1="0" x2="720" y2="500"/>
+    <line x1="780" y1="0" x2="780" y2="500"/>
+    <line x1="0" y1="0" x2="800" y2="0"/>
+    <line x1="0" y1="60" x2="800" y2="60"/>
+    <line x1="0" y1="120" x2="800" y2="120"/>
+    <line x1="0" y1="180" x2="800" y2="180"/>
+    <line x1="0" y1="240" x2="800" y2="240"/>
+    <line x1="0" y1="300" x2="800" y2="300"/>
+    <line x1="0" y1="360" x2="800" y2="360"/>
+    <line x1="0" y1="420" x2="800" y2="420"/>
+    <line x1="0" y1="480" x2="800" y2="480"/>
+  </g>
+  <circle cx="710" cy="500" r="4.1" fill="#c084fc" opacity="0.35"/>
+  <circle cx="693" cy="211" r="4.3" fill="#f472b6" opacity="0.43"/>
+  <circle cx="44" cy="60" r="4.0" fill="#fb923c" opacity="0.33"/>
+  <circle cx="551" cy="358" r="2.3" fill="#c084fc" opacity="0.64"/>
+  <circle cx="452" cy="485" r="2.7" fill="#f472b6" opacity="0.69"/>
+  <circle cx="18" cy="174" r="5.3" fill="#fb923c" opacity="0.32"/>
+  <circle cx="441" cy="357" r="4.9" fill="#c084fc" opacity="0.50"/>
+  <circle cx="363" cy="472" r="5.9" fill="#f472b6" opacity="0.45"/>
+  <circle cx="466" cy="142" r="3.5" fill="#fb923c" opacity="0.62"/>
+  <circle cx="681" cy="179" r="2.2" fill="#c084fc" opacity="0.35"/>
+  <circle cx="377" cy="122" r="2.7" fill="#f472b6" opacity="0.63"/>
+  <circle cx="345" cy="282" r="5.9" fill="#fb923c" opacity="0.59"/>
+</svg>

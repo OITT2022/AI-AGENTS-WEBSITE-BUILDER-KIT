@@ -81,7 +81,7 @@ ${
       .replace(/\n?```\s*$/i, "")
       .trim();
 
-    // Save to sites/ folder if siteName is provided
+    // Save to sites/ folder if siteName is provided (local dev only — skipped on Vercel)
     let savedPath = "";
     if (siteName) {
       const slug = siteName
@@ -91,10 +91,15 @@ ${
         .replace(/-+/g, "-")
         .trim();
 
-      const sitesDir = join(process.cwd(), "..", slug);
-      mkdirSync(sitesDir, { recursive: true });
-      writeFileSync(join(sitesDir, "index.html"), cleanHtml, "utf-8");
-      savedPath = `sites/${slug}/index.html`;
+      try {
+        const sitesDir = join(process.cwd(), "..", slug);
+        mkdirSync(sitesDir, { recursive: true });
+        writeFileSync(join(sitesDir, "index.html"), cleanHtml, "utf-8");
+        savedPath = `sites/${slug}/index.html`;
+      } catch {
+        // Read-only filesystem (e.g. Vercel) — skip file save
+        savedPath = "";
+      }
     }
 
     return NextResponse.json({

@@ -1,23 +1,17 @@
-import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { writeFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
 import { getSession } from "../../lib/auth";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { scrapeData, researchData, mediaData, mediaPrompt, siteDescription, siteName } = await req.json();
+  const { scrapeData, researchData, mediaData, mediaPrompt, siteDescription } = await req.json();
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not configured" },
-      { status: 500 }
-    );
+    return Response.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
   }
 
   const client = new Anthropic({ apiKey });
@@ -72,49 +66,60 @@ ${
 - Output ONLY the HTML code, nothing else — no markdown fences, no explanation`;
 
   try {
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 16000,
-      messages: [{ role: "user", content: prompt }],
+    // Use streaming to avoid Vercel timeout on Hobby plan
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let fullText = "";
+
+        try {
+          const streamResponse = client.messages.stream({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 16000,
+            messages: [{ role: "user", content: prompt }],
+          });
+
+          for await (const event of streamResponse) {
+            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+              fullText += event.delta.text;
+              // Send a keep-alive chunk (space) to prevent timeout
+              controller.enqueue(encoder.encode(" "));
+            }
+          }
+
+          // Clean up markdown fences if present
+          const cleanHtml = fullText
+            .replace(/^```html?\s*\n?/i, "")
+            .replace(/\n?```\s*$/i, "")
+            .trim();
+
+          // Send the final JSON result
+          const result = JSON.stringify({
+            success: true,
+            html: cleanHtml,
+            savedPath: "",
+          });
+
+          controller.enqueue(encoder.encode("\n" + result));
+          controller.close();
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          const errResult = JSON.stringify({ error: errMsg });
+          controller.enqueue(encoder.encode("\n" + errResult));
+          controller.close();
+        }
+      },
     });
 
-    const htmlContent =
-      message.content[0].type === "text" ? message.content[0].text : "";
-
-    // Clean up — remove markdown fences if accidentally included
-    const cleanHtml = htmlContent
-      .replace(/^```html?\s*\n?/i, "")
-      .replace(/\n?```\s*$/i, "")
-      .trim();
-
-    // Save to sites/ folder if siteName is provided (local dev only — skipped on Vercel)
-    let savedPath = "";
-    if (siteName) {
-      const slug = siteName
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/[\s_]+/g, "-")
-        .replace(/-+/g, "-")
-        .trim();
-
-      try {
-        const sitesDir = join(process.cwd(), "..", slug);
-        mkdirSync(sitesDir, { recursive: true });
-        writeFileSync(join(sitesDir, "index.html"), cleanHtml, "utf-8");
-        savedPath = `sites/${slug}/index.html`;
-      } catch {
-        // Read-only filesystem (e.g. Vercel) — skip file save
-        savedPath = "";
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      html: cleanHtml,
-      savedPath,
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Transfer-Encoding": "chunked",
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return Response.json({ error: message }, { status: 500 });
   }
 }

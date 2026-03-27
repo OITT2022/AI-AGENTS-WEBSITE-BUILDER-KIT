@@ -124,13 +124,23 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
 
   async function handleGenerate() {
     if (!scrapeData && !researchData) { addLog("יש לסרוק אתר או לבצע מחקר קודם", "error"); return; }
-    setGenerateStatus("loading"); addLog("Claude: מייצר אתר...");
+    setGenerateStatus("loading"); addLog("Claude: מייצר אתר (streaming)...");
     try {
-      const res = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scrapeData, researchData, mediaData, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined, siteName: siteName || undefined }) });
-      const data = await res.json();
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scrapeData, researchData, mediaData, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined }),
+      });
+
+      // Read the streaming response
+      const text = await res.text();
+      // The JSON result is on the last non-empty line
+      const lines = text.trim().split("\n");
+      const jsonLine = lines[lines.length - 1].trim();
+      const data = JSON.parse(jsonLine);
+
       if (data.error) { setGenerateStatus("error"); addLog(`Claude: שגיאה — ${data.error}`, "error"); return; }
       setGeneratedHtml(data.html); setGenerateStatus("success"); setPreviewMode("site");
-      if (data.savedPath) { setSavedPath(data.savedPath); addLog(`נשמר: ${data.savedPath}`, "success"); }
       addLog("האתר נוצר בהצלחה!", "success");
       setTimeout(() => {
         if (iframeRef.current) { iframeRef.current.src = URL.createObjectURL(new Blob([data.html], { type: "text/html" })); }

@@ -521,6 +521,10 @@ textarea.form-input {
   margin-bottom: 0.85rem;
 }
 
+.auth-field .form-input {
+  width: 100%;
+}
+
 .auth-field label {
   display: block;
   font-size: 0.8rem;

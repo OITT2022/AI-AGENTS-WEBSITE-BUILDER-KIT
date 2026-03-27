@@ -9,6 +9,9 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test"
   },
+  "dependencies": {
+    "next": "^15.2.0"
+  },
   "devDependencies": {
     "turbo": "^2.5.0",
     "typescript": "^5.7.0"

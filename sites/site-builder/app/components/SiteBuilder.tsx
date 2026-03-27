@@ -124,21 +124,14 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
 
   async function handleGenerate() {
     if (!scrapeData && !researchData) { addLog("יש לסרוק אתר או לבצע מחקר קודם", "error"); return; }
-    setGenerateStatus("loading"); addLog("Claude: מייצר אתר (streaming)...");
+    setGenerateStatus("loading"); addLog("Claude: מייצר אתר...");
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scrapeData, researchData, mediaData, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined }),
       });
-
-      // Read the streaming response
-      const text = await res.text();
-      // The JSON result is on the last non-empty line
-      const lines = text.trim().split("\n");
-      const jsonLine = lines[lines.length - 1].trim();
-      const data = JSON.parse(jsonLine);
-
+      const data = await res.json();
       if (data.error) { setGenerateStatus("error"); addLog(`Claude: שגיאה — ${data.error}`, "error"); return; }
       setGeneratedHtml(data.html); setGenerateStatus("success"); setPreviewMode("site");
       addLog("האתר נוצר בהצלחה!", "success");

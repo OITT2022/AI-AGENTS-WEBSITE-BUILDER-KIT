@@ -1,6 +1,5 @@
 {
   "installCommand": "cd sites/site-builder && npm install",
-  "buildCommand": "cd sites/site-builder && npm run build",
-  "outputDirectory": "sites/site-builder/.next",
-  "framework": "nextjs"
+  "buildCommand": "cd sites/site-builder && npx next build",
+  "outputDirectory": "sites/site-builder/.next"
 }

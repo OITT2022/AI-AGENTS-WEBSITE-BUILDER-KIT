@@ -8,11 +8,10 @@ export async function GET(req: Request) {
   const cookieStore = await cookies();
   let accessToken = cookieStore.get("google_access_token")?.value;
 
-  // Try to refresh if no access token but refresh token exists
   if (!accessToken) {
     const refreshToken = cookieStore.get("google_refresh_token")?.value;
     if (!refreshToken) {
-      return Response.json({ error: "not_connected", message: "Google not connected" }, { status: 401 });
+      return Response.json({ error: "not_connected" }, { status: 401 });
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -33,7 +32,7 @@ export async function GET(req: Request) {
     });
 
     if (!refreshRes.ok) {
-      return Response.json({ error: "not_connected", message: "Token expired, reconnect" }, { status: 401 });
+      return Response.json({ error: "not_connected" }, { status: 401 });
     }
 
     const tokens = await refreshRes.json();
@@ -46,32 +45,28 @@ export async function GET(req: Request) {
   }
 
   const url = new URL(req.url);
-  const query = url.searchParams.get("q") || "";
+  const searchQuery = url.searchParams.get("q") || "";
   const folderId = url.searchParams.get("folderId") || "";
-  const pageToken = url.searchParams.get("pageToken") || "";
 
-  // Build Google Drive query
-  let driveQuery = "trashed = false";
-
+  // Build query
+  let q = "trashed = false";
   if (folderId) {
-    // Show everything inside this folder
-    driveQuery += ` and '${folderId}' in parents`;
-  } else if (query) {
-    // Search across all files
-    driveQuery += ` and name contains '${query.replace(/'/g, "\\'")}'`;
+    q += ` and '${folderId}' in parents`;
+  } else if (searchQuery) {
+    q += ` and name contains '${searchQuery.replace(/'/g, "\\'")}'`;
   } else {
-    // Root view: show top-level items (folders first, then recent files)
-    driveQuery += ` and 'root' in parents`;
+    q += ` and 'root' in parents`;
   }
 
   const params = new URLSearchParams({
-    q: driveQuery,
-    fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webContentLink,webViewLink,iconLink,size,modifiedTime,parents)",
-    pageSize: "50",
-    orderBy: "folder,name",
+    q,
+    fields: "files(id,name,mimeType,thumbnailLink,size,modifiedTime)",
+    pageSize: "100",
   });
 
-  if (pageToken) params.set("pageToken", pageToken);
+  // Include items from shared drives
+  params.set("includeItemsFromAllDrives", "true");
+  params.set("supportsAllDrives", "true");
 
   const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -79,13 +74,15 @@ export async function GET(req: Request) {
 
   if (!driveRes.ok) {
     const errText = await driveRes.text();
-    return Response.json({ error: `Drive error: ${driveRes.status} — ${errText.slice(0, 200)}` }, { status: driveRes.status });
+    return Response.json(
+      { error: `Drive API error (${driveRes.status}): ${errText.slice(0, 300)}` },
+      { status: driveRes.status }
+    );
   }
 
   const data = await driveRes.json();
 
   return Response.json({
     files: data.files ?? [],
-    nextPageToken: data.nextPageToken ?? null,
   });
 }

@@ -89,21 +89,26 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   async function loadFolder(folderId?: string, q?: string) {
     setLoading(true);
     setError("");
+    setFiles([]);
     try {
       const params = new URLSearchParams();
       if (folderId) params.set("folderId", folderId);
       if (q) params.set("q", q);
       const res = await fetch(`/api/drive/files?${params.toString()}`);
+      const data = await res.json();
       if (!res.ok) {
         if (res.status === 401) { setConnected(false); setShowBrowser(false); }
-        else { setError("שגיאה בטעינת קבצים"); }
+        else { setError(data.error || `שגיאה ${res.status}`); }
         setLoading(false);
         return;
       }
-      const data = await res.json();
-      setFiles(sortFiles(data.files ?? []));
-    } catch {
-      setError("שגיאת תקשורת");
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setFiles(sortFiles(data.files ?? []));
+      }
+    } catch (err) {
+      setError(`שגיאת תקשורת: ${err instanceof Error ? err.message : String(err)}`);
     }
     setLoading(false);
   }

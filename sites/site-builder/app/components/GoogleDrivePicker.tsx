@@ -246,10 +246,13 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search bar — inline with browse */}
       <div style={{ display: "flex", gap: "0.25rem", padding: "0.35rem 0.5rem", borderBottom: "1px solid var(--border)" }}>
-        <input className="form-input" placeholder="חיפוש קבצים..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} style={{ flex: 1, fontSize: "0.75rem", padding: "0.3rem 0.5rem" }} />
-        <button className="btn btn-secondary" onClick={handleSearch} style={{ fontSize: "0.7rem", padding: "0.25rem 0.4rem" }}>חפש</button>
+        <input className="form-input" placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} style={{ flex: 1, fontSize: "0.75rem", padding: "0.3rem 0.5rem" }} />
+        {search ? (
+          <button className="btn btn-secondary" onClick={handleSearch} style={{ fontSize: "0.7rem", padding: "0.25rem 0.4rem" }}>חפש</button>
+        ) : null}
+        <button className="btn btn-primary" onClick={() => { setSearch(""); setFolderStack([]); loadFiles(); }} style={{ fontSize: "0.7rem", padding: "0.25rem 0.4rem" }}>עיון</button>
       </div>
 
       {/* Breadcrumbs */}

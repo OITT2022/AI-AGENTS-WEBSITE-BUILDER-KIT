@@ -1,23 +1,24 @@
-import { cookies, headers } from "next/headers";
-
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
 
   if (error || !code) {
-    return new Response(`<html><body><script>window.close();alert("Google auth failed: ${error || "no code"}")</script></body></html>`, {
-      headers: { "Content-Type": "text/html" },
-    });
+    return new Response(
+      `<html><body><script>alert("Google auth failed: ${error || "no code"}");window.close();</script></body></html>`,
+      { headers: { "Content-Type": "text/html" } }
+    );
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-
   const redirectUri = "https://www.2op.co.il/api/auth/google/callback";
 
   if (!clientId || !clientSecret) {
-    return new Response("Google OAuth not configured", { status: 500 });
+    return new Response(
+      `<html><body><script>alert("Google OAuth not configured");window.close();</script></body></html>`,
+      { headers: { "Content-Type": "text/html" } }
+    );
   }
 
   // Exchange code for tokens
@@ -35,49 +36,44 @@ export async function GET(req: Request) {
 
   if (!tokenRes.ok) {
     const err = await tokenRes.text();
-    return new Response(`<html><body><script>alert("Token error: ${err.slice(0, 100)}");window.close();</script></body></html>`, {
-      headers: { "Content-Type": "text/html" },
-    });
+    return new Response(
+      `<html><body><script>alert("Token exchange error");window.close();</script><pre>${err.slice(0, 200)}</pre></body></html>`,
+      { headers: { "Content-Type": "text/html" } }
+    );
   }
 
   const tokens = await tokenRes.json();
 
-  // Store Google tokens in a cookie (httpOnly)
-  const cookieStore = await cookies();
-  cookieStore.set("google_access_token", tokens.access_token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    maxAge: tokens.expires_in || 3600,
-    path: "/",
-  });
+  // Set cookies via response headers (more reliable than next/headers cookies())
+  const cookieHeaders: string[] = [];
+
+  cookieHeaders.push(
+    `google_access_token=${tokens.access_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${tokens.expires_in || 3600}`
+  );
 
   if (tokens.refresh_token) {
-    cookieStore.set("google_refresh_token", tokens.refresh_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      path: "/",
-    });
+    cookieHeaders.push(
+      `google_refresh_token=${tokens.refresh_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`
+    );
   }
 
-  // Close popup and notify parent — delay to ensure cookies are set
+  const headers = new Headers();
+  headers.set("Content-Type", "text/html");
+  for (const cookie of cookieHeaders) {
+    headers.append("Set-Cookie", cookie);
+  }
+
   return new Response(
     `<!DOCTYPE html>
 <html><body>
-<p style="font-family:sans-serif;text-align:center;margin-top:40px;">Google Drive connected successfully!</p>
+<p style="font-family:sans-serif;text-align:center;margin-top:40px;">Google Drive מחובר בהצלחה!</p>
 <script>
   setTimeout(function() {
-    try {
-      if (window.opener) {
-        window.opener.postMessage({ type: "google-auth-success" }, "*");
-      }
-    } catch(e) {}
+    try { if (window.opener) window.opener.postMessage({ type: "google-auth-success" }, "*"); } catch(e) {}
     setTimeout(function() { window.close(); }, 500);
   }, 300);
 </script>
 </body></html>`,
-    { headers: { "Content-Type": "text/html" } }
+    { headers }
   );
 }

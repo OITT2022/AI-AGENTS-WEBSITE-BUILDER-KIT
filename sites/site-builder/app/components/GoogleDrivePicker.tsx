@@ -97,8 +97,7 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
       const res = await fetch(`/api/drive/files?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 401) { setConnected(false); setShowBrowser(false); }
-        else { setError(data.error || `שגיאה ${res.status}`); }
+        setError(data.error || `שגיאה ${res.status}`);
         setLoading(false);
         return;
       }

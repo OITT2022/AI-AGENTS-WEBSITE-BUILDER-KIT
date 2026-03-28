@@ -482,8 +482,7 @@ textarea.form-input {
 .auth-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(8px);
+  background: url('/bg.png') center/cover no-repeat;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -491,12 +490,23 @@ textarea.form-input {
   padding: 1rem;
 }
 
+.auth-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
 .auth-card {
+  position: relative;
+  z-index: 1;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 1rem;
   padding: 2rem 2.25rem;
   width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 420px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
 }

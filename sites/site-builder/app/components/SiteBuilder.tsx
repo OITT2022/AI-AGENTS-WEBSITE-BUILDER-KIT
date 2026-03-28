@@ -2,9 +2,17 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import GoogleDrivePicker from "./GoogleDrivePicker";
 
 interface LogEntry { text: string; type: "info" | "success" | "error"; }
 type PreviewMode = "empty" | "scrape" | "research" | "media" | "site";
+
+interface DriveSelectedFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  dataUrl?: string;
+}
 
 function downloadFile(content: string, filename: string, mime = "text/plain") {
   const blob = new Blob([content], { type: mime });
@@ -15,7 +23,7 @@ function downloadFile(content: string, filename: string, mime = "text/plain") {
 }
 
 interface SiteBuilderProps {
-  user: { firstName: string; lastName: string; email: string };
+  user: { firstName: string; lastName: string; email: string; admin?: boolean };
 }
 
 export default function SiteBuilder({ user }: SiteBuilderProps) {
@@ -34,6 +42,7 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
   const [scrapeData, setScrapeData] = useState<Record<string, unknown> | null>(null);
   const [researchData, setResearchData] = useState<Record<string, unknown> | null>(null);
   const [mediaData, setMediaData] = useState<Record<string, unknown>[] | null>(null);
+  const [driveFiles, setDriveFiles] = useState<DriveSelectedFile[]>([]);
   const [generatedHtml, setGeneratedHtml] = useState("");
   const [savedPath, setSavedPath] = useState("");
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -129,7 +138,7 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scrapeData, researchData, mediaData, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined }),
+        body: JSON.stringify({ scrapeData, researchData, mediaData, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined, driveFiles: driveFiles.length > 0 ? driveFiles : undefined }),
       });
       const data = await res.json();
       if (data.error) { setGenerateStatus("error"); addLog(`Claude: שגיאה — ${data.error}`, "error"); return; }
@@ -254,6 +263,9 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
           <div className="panel-title"><span>AI</span> Site Builder</div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>שלום, {user.firstName}</span>
+            {user.admin && (
+              <button className="btn btn-secondary" style={{ padding: "0.2rem 0.5rem", fontSize: "0.7rem" }} onClick={() => router.push("/admin")}>ניהול</button>
+            )}
             <button className="btn btn-secondary" style={{ padding: "0.2rem 0.5rem", fontSize: "0.7rem" }} onClick={handleLogout}>יציאה</button>
           </div>
         </div>
@@ -276,6 +288,24 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
           <textarea id="media" className="form-input" placeholder={"באנר ראשי — נוף עירוני מודרני\nאייקון — מגן אבטחה\nתמונה — צוות במשרד"} value={mediaPrompt} onChange={(e) => setMediaPrompt(e.target.value)} rows={2} />
           <button className="btn btn-primary" onClick={handleMedia} disabled={!mediaPrompt || mediaStatus === "loading"} style={{ alignSelf: "flex-start" }}>{mediaStatus === "loading" ? <span className="spinner" /> : "צור מדיות"}</button>
         </div>
+        <hr className="divider" />
+
+        {/* Google Drive */}
+        <GoogleDrivePicker onFilesSelected={(files) => {
+          setDriveFiles((prev) => [...prev, ...files]);
+          addLog(`Google Drive: ${files.length} קבצים נוספו`, "success");
+        }} />
+        {driveFiles.length > 0 && (
+          <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+            {driveFiles.map((f, i) => (
+              <span key={i} style={{ background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: "0.4rem", padding: "0.15rem 0.4rem", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
+                {f.name}
+                <button onClick={() => setDriveFiles((prev) => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)", fontSize: "0.7rem", fontFamily: "inherit" }}>✕</button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <hr className="divider" />
         <div className="form-group">
           <div className="step-header"><div className="step-title"><span className="step-number">4</span>הפקת אתר (Claude AI)</div><div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>{viewBtn("site", !!generatedHtml)}{badge(generateStatus)}</div></div>

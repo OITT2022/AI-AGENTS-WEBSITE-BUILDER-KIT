@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { scrapeData, researchData, mediaData, mediaPrompt, siteDescription } = await req.json();
+  const { scrapeData, researchData, mediaData, mediaPrompt, siteDescription, driveFiles } = await req.json();
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -46,6 +46,16 @@ ${
     : mediaPrompt
       ? `Create CSS gradient/SVG placeholders for:\n${mediaPrompt}`
       : "Use CSS gradients for visuals."
+}
+
+## Files from Google Drive
+${
+  driveFiles?.length
+    ? `The user uploaded these files from Google Drive:\n${driveFiles
+        .map((f: { name: string; mimeType: string; dataUrl?: string }) =>
+          `- ${f.name} (${f.mimeType})${f.dataUrl ? " → use this data URL as img src" : ""}`)
+        .join("\n")}\n\nUse the data URLs directly as image src attributes where appropriate (logos, backgrounds, etc).`
+    : "No files uploaded from Google Drive."
 }
 
 ## Instructions

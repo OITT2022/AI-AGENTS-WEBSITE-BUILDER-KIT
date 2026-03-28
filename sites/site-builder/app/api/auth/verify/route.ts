@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   // Get user
   const users = await sql`
-    SELECT id, first_name, last_name, email FROM users WHERE email = ${emailLower}
+    SELECT id, first_name, last_name, email, admin FROM users WHERE email = ${emailLower}
   `;
 
   if (users.length === 0) {
@@ -42,11 +42,14 @@ export async function POST(req: Request) {
   const user = users[0];
 
   // Sign JWT
+  const isAdmin = user.admin === 1;
+
   const token = await signToken({
     userId: user.id,
     email: user.email,
     firstName: user.first_name,
     lastName: user.last_name,
+    admin: isAdmin,
   });
 
   const res = NextResponse.json({
@@ -55,6 +58,7 @@ export async function POST(req: Request) {
       firstName: user.first_name,
       lastName: user.last_name,
       email: user.email,
+      admin: isAdmin,
     },
   });
 

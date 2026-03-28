@@ -7,7 +7,7 @@ export default async function Page() {
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value;
 
-  let user: { firstName: string; lastName: string; email: string } | null = null;
+  let user: { firstName: string; lastName: string; email: string; admin?: boolean } | null = null;
 
   if (token) {
     try {
@@ -16,6 +16,7 @@ export default async function Page() {
         firstName: session.firstName,
         lastName: session.lastName,
         email: session.email,
+        admin: session.admin === true,
       };
     } catch {
       // Invalid token — show auth

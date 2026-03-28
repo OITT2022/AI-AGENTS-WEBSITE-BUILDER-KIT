@@ -35,6 +35,9 @@ async function migrate() {
   await sql`CREATE INDEX IF NOT EXISTS idx_otp_email_code ON otp_codes(email, code)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`;
 
+  // Add admin column if not exists
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin SMALLINT DEFAULT NULL`;
+
   console.log("Migration complete!");
 }
 

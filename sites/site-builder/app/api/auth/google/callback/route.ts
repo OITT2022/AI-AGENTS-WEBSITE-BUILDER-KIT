@@ -14,11 +14,7 @@ export async function GET(req: Request) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-  // Derive redirect URI from request headers (same as the initial redirect)
-  const headersList = await headers();
-  const host = headersList.get("host") || "site-builder-v2-phi.vercel.app";
-  const proto = headersList.get("x-forwarded-proto") || "https";
-  const redirectUri = `${proto}://${host}/api/auth/google/callback`;
+  const redirectUri = "https://www.2op.co.il/api/auth/google/callback";
 
   if (!clientId || !clientSecret) {
     return new Response("Google OAuth not configured", { status: 500 });

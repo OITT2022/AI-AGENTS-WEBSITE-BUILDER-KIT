@@ -33,16 +33,16 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   const [showBrowser, setShowBrowser] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => { checkConn(); }, []);
-
-  async function checkConn() {
-    setChecking(true);
-    try {
-      const res = await fetch("/api/drive/files");
-      setConnected(res.ok);
-    } catch { setConnected(false); }
-    setChecking(false);
-  }
+  // Check if Google cookie exists (client-side only, no API call)
+  useEffect(() => {
+    // We can't read httpOnly cookies from JS, so check via a lightweight API
+    const controller = new AbortController();
+    fetch("/api/auth/google/status", { signal: controller.signal })
+      .then(res => res.json())
+      .then(data => { setConnected(data.connected === true); setChecking(false); })
+      .catch(() => { setConnected(false); setChecking(false); });
+    return () => controller.abort();
+  }, []);
 
   // Listen for popup message
   useEffect(() => {
@@ -59,12 +59,13 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
 
   // Open Google OAuth in popup
   function handleConnect() {
-    const popup = window.open("/api/auth/google", "google-auth", "width=500,height=700");
-    // Fallback: poll the API every 3 seconds (COOP blocks popup.closed)
+    window.open("/api/auth/google", "google-auth", "width=500,height=700");
+    // Poll lightweight status endpoint (no 401 spam in console)
     const timer = setInterval(async () => {
       try {
-        const res = await fetch("/api/drive/files");
-        if (res.ok) {
+        const res = await fetch("/api/auth/google/status");
+        const data = await res.json();
+        if (data.connected) {
           clearInterval(timer);
           setConnected(true);
           setShowBrowser(true);
@@ -72,7 +73,6 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
         }
       } catch { /* ignore */ }
     }, 3000);
-    // Stop polling after 2 minutes
     setTimeout(() => clearInterval(timer), 120000);
   }
 

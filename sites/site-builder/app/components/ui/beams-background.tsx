@@ -166,34 +166,52 @@ export function BeamsBackground({
 
     return (
         <div
-            className={cn(
-                "relative min-h-screen w-full overflow-hidden bg-neutral-950",
-                className
-            )}
+            style={{
+                position: "fixed",
+                inset: 0,
+                overflow: "hidden",
+                background: "#0a0a0a",
+                zIndex: 10000,
+            }}
+            className={className}
         >
             <canvas
                 ref={canvasRef}
-                className="absolute inset-0"
-                style={{ filter: "blur(15px)" }}
+                style={{
+                    position: "absolute",
+                    inset: 0,
+                    filter: "blur(15px)",
+                }}
             />
 
             <motion.div
-                className="absolute inset-0 bg-neutral-950/5"
-                animate={{
-                    opacity: [0.05, 0.15, 0.05],
+                style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "rgba(10,10,10,0.05)",
+                    backdropFilter: "blur(50px)",
                 }}
+                animate={{ opacity: [0.05, 0.15, 0.05] }}
                 transition={{
                     duration: 10,
                     ease: "easeInOut",
                     repeat: Number.POSITIVE_INFINITY,
                 }}
-                style={{
-                    backdropFilter: "blur(50px)",
-                }}
             />
 
             {children && (
-                <div className="relative z-10 flex h-screen w-full items-center justify-center">
+                <div
+                    style={{
+                        position: "relative",
+                        zIndex: 10,
+                        display: "flex",
+                        height: "100vh",
+                        width: "100%",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "1rem",
+                    }}
+                >
                     {children}
                 </div>
             )}

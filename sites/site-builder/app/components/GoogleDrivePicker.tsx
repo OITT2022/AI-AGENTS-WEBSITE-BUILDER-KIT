@@ -44,9 +44,36 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
     setChecking(false);
   }
 
-  // Redirect to Google OAuth (full page redirect, no popup)
+  // Listen for popup message
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.data?.type === "google-auth-success") {
+        setConnected(true);
+        setShowBrowser(true);
+        loadFolder();
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  // Open Google OAuth in popup
   function handleConnect() {
-    window.location.href = "/api/auth/google";
+    const popup = window.open("/api/auth/google", "google-auth", "width=500,height=700");
+    // Fallback: poll the API every 3 seconds (COOP blocks popup.closed)
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch("/api/drive/files");
+        if (res.ok) {
+          clearInterval(timer);
+          setConnected(true);
+          setShowBrowser(true);
+          loadFolder();
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+    // Stop polling after 2 minutes
+    setTimeout(() => clearInterval(timer), 120000);
   }
 
   async function handleDisconnect() {

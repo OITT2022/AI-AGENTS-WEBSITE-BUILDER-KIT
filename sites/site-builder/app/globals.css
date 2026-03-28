@@ -628,7 +628,7 @@ textarea.form-input {
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 0.625rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .drive-connect {
@@ -665,8 +665,10 @@ textarea.form-input {
 }
 
 .drive-files {
-  max-height: 180px;
+  min-height: 60px;
+  max-height: 300px;
   overflow-y: auto;
+  border-top: 1px solid var(--border);
 }
 
 .drive-file-row {

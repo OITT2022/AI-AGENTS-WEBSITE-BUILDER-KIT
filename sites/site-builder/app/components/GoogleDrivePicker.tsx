@@ -105,18 +105,53 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   function selectAllFiles() { const nf = files.filter(f => !isFolder(f.mimeType)); setSelected(selected.size === nf.length ? new Set() : new Set(nf.map(f => f.id))); }
 
   async function addSelected() {
+    const MAX_TOTAL_MB = 5;
+    const MAX_TOTAL_BYTES = MAX_TOTAL_MB * 1024 * 1024;
+    const MAX_SINGLE_MB = 2;
+    const MAX_SINGLE_BYTES = MAX_SINGLE_MB * 1024 * 1024;
+
     setLoadingFiles(true);
+    setError("");
     const result: SelectedFile[] = [];
+    let totalBytes = 0;
+
     for (const id of selected) {
       const file = files.find(f => f.id === id);
       if (!file) continue;
+
       if (file.mimeType.startsWith("image/")) {
-        try { const r = await fetch(`/api/drive/file?id=${id}`); const d = await r.json(); result.push({ id, name: file.name, mimeType: file.mimeType, dataUrl: d.dataUrl }); }
-        catch { result.push({ id, name: file.name, mimeType: file.mimeType }); }
-      } else { result.push({ id, name: file.name, mimeType: file.mimeType }); }
+        // Check single file size before downloading
+        const fileSize = file.size ? parseInt(file.size) : 0;
+        if (fileSize > MAX_SINGLE_BYTES) {
+          setError(`הקובץ "${file.name}" גדול מדי (${(fileSize / 1048576).toFixed(1)}MB). גודל מקסימלי לקובץ: ${MAX_SINGLE_MB}MB`);
+          continue;
+        }
+
+        try {
+          const r = await fetch(`/api/drive/file?id=${id}`);
+          const d = await r.json();
+          if (d.error) { setError(`שגיאה בהורדת "${file.name}": ${d.error}`); continue; }
+          if (d.dataUrl) {
+            const dataSize = d.dataUrl.length * 0.75; // base64 to bytes estimate
+            if (totalBytes + dataSize > MAX_TOTAL_BYTES) {
+              setError(`חריגה ממגבלת ${MAX_TOTAL_MB}MB סה״כ לכל הקבצים. "${file.name}" לא נוסף.`);
+              continue;
+            }
+            totalBytes += dataSize;
+            result.push({ id, name: file.name, mimeType: file.mimeType, dataUrl: d.dataUrl });
+          } else {
+            result.push({ id, name: file.name, mimeType: file.mimeType });
+          }
+        } catch {
+          result.push({ id, name: file.name, mimeType: file.mimeType });
+        }
+      } else {
+        result.push({ id, name: file.name, mimeType: file.mimeType });
+      }
     }
+
     setLoadingFiles(false);
-    onFilesSelected(result);
+    if (result.length > 0) onFilesSelected(result);
     setSelected(new Set());
   }
 

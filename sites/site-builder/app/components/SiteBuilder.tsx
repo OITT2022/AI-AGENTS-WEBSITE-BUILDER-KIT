@@ -134,12 +134,16 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
   async function handleGenerate() {
     if (!scrapeData && !researchData) { addLog("יש לסרוק אתר או לבצע מחקר קודם", "error"); return; }
     setGenerateStatus("loading");
-    // Log Drive files status
+    // Log Drive files status + size check
     if (driveFiles.length > 0) {
+      let totalSize = 0;
       addLog(`Drive: ${driveFiles.length} קבצים צורפו`);
       for (const f of driveFiles) {
-        addLog(`  → ${f.name} (${f.mimeType}) ${f.dataUrl ? "✓ יש נתונים" : "✗ אין נתונים"}`);
+        const size = f.dataUrl ? (f.dataUrl.length * 0.75 / 1048576).toFixed(1) : "0";
+        totalSize += f.dataUrl ? f.dataUrl.length * 0.75 : 0;
+        addLog(`  → ${f.name} (${size}MB) ${f.dataUrl ? "✓" : "✗ אין נתונים"}`);
       }
+      addLog(`  סה״כ: ${(totalSize / 1048576).toFixed(1)}MB`);
     }
     addLog("Claude: מייצר אתר (streaming)...");
     try {

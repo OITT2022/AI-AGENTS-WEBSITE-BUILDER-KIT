@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -13,7 +13,12 @@ export async function GET(req: Request) {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || "https://site-builder-v2-phi.vercel.app"}/api/auth/google/callback`;
+
+  // Derive redirect URI from request headers (same as the initial redirect)
+  const headersList = await headers();
+  const host = headersList.get("host") || "site-builder-v2-phi.vercel.app";
+  const proto = headersList.get("x-forwarded-proto") || "https";
+  const redirectUri = `${proto}://${host}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
     return new Response("Google OAuth not configured", { status: 500 });

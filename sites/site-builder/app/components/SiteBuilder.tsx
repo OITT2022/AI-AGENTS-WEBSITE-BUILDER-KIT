@@ -169,7 +169,7 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
       setGeneratedHtml(html); setGenerateStatus("success"); setPreviewMode("site");
       addLog("האתר נוצר בהצלחה!", "success");
       setTimeout(() => {
-        if (iframeRef.current) { iframeRef.current.src = URL.createObjectURL(new Blob([data.html], { type: "text/html" })); }
+        if (iframeRef.current) { iframeRef.current.src = URL.createObjectURL(new Blob([html], { type: "text/html" })); }
       }, 50);
     } catch (err) { setGenerateStatus("error"); addLog(`Claude: ${err instanceof Error ? err.message : "שגיאה"}`, "error"); }
   }

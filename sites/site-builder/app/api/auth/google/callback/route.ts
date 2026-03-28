@@ -62,17 +62,21 @@ export async function GET(req: Request) {
     });
   }
 
-  // Close popup and notify parent
+  // Close popup and notify parent — delay to ensure cookies are set
   return new Response(
     `<!DOCTYPE html>
 <html><body>
+<p style="font-family:sans-serif;text-align:center;margin-top:40px;">Google Drive connected successfully!</p>
 <script>
-  if (window.opener) {
-    window.opener.postMessage({ type: "google-auth-success" }, "*");
-  }
-  window.close();
+  setTimeout(function() {
+    try {
+      if (window.opener) {
+        window.opener.postMessage({ type: "google-auth-success" }, "*");
+      }
+    } catch(e) {}
+    setTimeout(function() { window.close(); }, 500);
+  }, 300);
 </script>
-<p>Connected! You can close this window.</p>
 </body></html>`,
     { headers: { "Content-Type": "text/html" } }
   );

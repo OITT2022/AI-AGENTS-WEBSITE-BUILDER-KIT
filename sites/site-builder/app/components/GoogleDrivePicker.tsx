@@ -55,7 +55,24 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   }
 
   function handleConnect() {
-    window.open("/api/auth/google", "google-auth", "width=500,height=700,popup=yes");
+    const popup = window.open("/api/auth/google", "google-auth", "width=500,height=700,popup=yes");
+    // Poll for popup close — in case postMessage doesn't work
+    if (popup) {
+      const poll = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(poll);
+          // Re-check connection after popup closes
+          setTimeout(async () => {
+            const res = await fetch("/api/drive/files?pageSize=1");
+            if (res.ok) {
+              setConnected(true);
+              setExpanded(true);
+              loadFiles();
+            }
+          }, 500);
+        }
+      }, 500);
+    }
   }
 
   const loadFiles = useCallback(async (folderId?: string, q?: string) => {

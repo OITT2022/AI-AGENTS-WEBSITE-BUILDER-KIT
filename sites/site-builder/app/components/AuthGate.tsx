@@ -2,6 +2,7 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { BeamsBackground } from "./ui/beams-background";
 
 type AuthStep = "register" | "login" | "verify";
 
@@ -181,7 +182,7 @@ export default function AuthGate() {
   }
 
   return (
-    <div className="auth-overlay">
+    <BeamsBackground intensity="medium">
       <div className="auth-card">
         {step === "register" && (
           <form onSubmit={handleRegister}>
@@ -279,6 +280,6 @@ export default function AuthGate() {
           </div>
         )}
       </div>
-    </div>
+    </BeamsBackground>
   );
 }

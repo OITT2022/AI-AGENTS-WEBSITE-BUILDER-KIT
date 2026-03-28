@@ -13,62 +13,63 @@ export async function POST(req: Request) {
     return Response.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
   }
 
-  const prompt = `You are a professional web developer. Generate a complete, single-file HTML website based on the following data.
+  // Build {{IMG_X}} placeholders — actual data URLs are injected client-side
+  let imgIndex = 0;
+
+  const mediaDescriptions: string[] = [];
+  if (mediaData?.length) {
+    for (const m of mediaData as Array<{ type?: string; prompt?: string; imageUrl?: string }>) {
+      if (m.imageUrl) {
+        imgIndex++;
+        mediaDescriptions.push(`- ${m.type ?? "image"}: "${m.prompt}" → use src="{{IMG_${imgIndex}}}"`);
+      } else {
+        mediaDescriptions.push(`- ${m.type ?? "image"}: "${m.prompt}" → use CSS gradient placeholder`);
+      }
+    }
+  }
+
+  const driveDescriptions: string[] = [];
+  if (driveFiles?.length) {
+    for (const f of driveFiles as Array<{ name: string; mimeType: string; dataUrl?: string }>) {
+      if (f.dataUrl && f.mimeType.startsWith("image/")) {
+        imgIndex++;
+        driveDescriptions.push(`- ${f.name} → use src="{{IMG_${imgIndex}}}" (logo/image from Google Drive)`);
+      } else {
+        driveDescriptions.push(`- ${f.name} (${f.mimeType})`);
+      }
+    }
+  }
+
+  const prompt = `You are a professional web developer. Generate a complete, single-file HTML website.
 
 ## Site Description
-${siteDescription ? siteDescription : "No specific description provided — infer from the scraped content and research."}
+${siteDescription || "Infer from the scraped content and research below."}
 
 ## Scraped Website Data
-${scrapeData?.title ? `**Source Site:** ${scrapeData.title}` : "No site scraped."}
-${scrapeData?.description ? `**Description:** ${scrapeData.description}` : ""}
-${scrapeData?.markdown ? `**Content:**\n${scrapeData.markdown.slice(0, 3000)}` : ""}
+${scrapeData?.title ? `Source: ${scrapeData.title}` : "No site scraped."}
+${scrapeData?.description ? `Description: ${scrapeData.description}` : ""}
+${scrapeData?.markdown ? `Content:\n${scrapeData.markdown.slice(0, 2500)}` : ""}
 
 ## Research Data
-${researchData?.answer ? `**Research Summary:** ${researchData.answer}` : "No research provided."}
-${
-  researchData?.results?.length
-    ? `**Sources:**\n${researchData.results
-        .slice(0, 4)
-        .map((r: { title: string; content: string }) => `- ${r.title}: ${r.content?.slice(0, 150)}`)
-        .join("\n")}`
-    : ""
-}
+${researchData?.answer ? `Summary: ${researchData.answer}` : "No research."}
+${researchData?.results?.length ? `Sources:\n${(researchData.results as Array<{ title: string; content: string }>).slice(0, 3).map((r) => `- ${r.title}: ${r.content?.slice(0, 120)}`).join("\n")}` : ""}
 
-## Media & Images
-${
-  mediaData?.length
-    ? `Generated images:\n${mediaData
-        .map(
-          (m: Record<string, unknown>) =>
-            `- ${m.type ?? "image"}: "${m.prompt}" → ${m.imageUrl ? "use this data URL as src" : "use CSS gradient"}`
-        )
-        .join("\n")}\n\nUse these as img src. For failed ones, use CSS gradient placeholders.`
-    : mediaPrompt
-      ? `Create CSS gradient/SVG placeholders for:\n${mediaPrompt}`
-      : "Use CSS gradients for visuals."
-}
+## Images
+${mediaDescriptions.length ? mediaDescriptions.join("\n") : mediaPrompt ? `Create CSS gradient placeholders for:\n${mediaPrompt}` : "Use CSS gradients for visuals."}
 
-## Files from Google Drive
-${
-  driveFiles?.length
-    ? `The user uploaded these files from Google Drive:\n${driveFiles
-        .map((f: { name: string; mimeType: string; dataUrl?: string }) =>
-          `- ${f.name} (${f.mimeType})${f.dataUrl ? " → use this data URL as img src" : ""}`)
-        .join("\n")}\n\nUse the data URLs directly as image src attributes where appropriate (logos, backgrounds, etc).`
-    : "No files uploaded from Google Drive."
-}
+## Google Drive Files
+${driveDescriptions.length ? driveDescriptions.join("\n") : "None."}
 
 ## Instructions
-- Create a COMPLETE standalone HTML file with embedded CSS and JS
-- Modern professional design, dark theme, fully responsive
+- Complete standalone HTML with embedded CSS and JS
+- Modern professional design, dark theme, responsive
 - Hebrew RTL if content is Hebrew, otherwise English
-- Proper meta tags, clean typography, hover effects
-- CSS Grid/Flexbox layout
-- No external dependencies
-- Output ONLY HTML — no markdown fences, no explanation`;
+- Use the {{IMG_X}} placeholders exactly as shown for image src attributes
+- Use CSS Grid/Flexbox, clean typography, hover effects
+- No external dependencies or CDN links
+- Output ONLY HTML code, no markdown fences`;
 
   try {
-    // Call Anthropic API directly with streaming via fetch (Edge-compatible)
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -86,10 +87,9 @@ ${
 
     if (!response.ok) {
       const errorText = await response.text();
-      return Response.json({ error: `Anthropic ${response.status}: ${errorText.slice(0, 200)}` }, { status: 500 });
+      return Response.json({ error: `Anthropic ${response.status}: ${errorText.slice(0, 300)}` }, { status: 500 });
     }
 
-    // Parse SSE stream, collect text, then return final JSON
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let fullText = "";
@@ -98,33 +98,29 @@ ${
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
-
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const data = line.slice(6).trim();
         if (data === "[DONE]") continue;
-
         try {
           const parsed = JSON.parse(data);
           if (parsed.type === "content_block_delta" && parsed.delta?.text) {
             fullText += parsed.delta.text;
           }
-        } catch {
-          // skip unparseable lines
-        }
+        } catch { /* skip */ }
       }
     }
 
-    const cleanHtml = fullText
+    let html = fullText
       .replace(/^```html?\s*\n?/i, "")
       .replace(/\n?```\s*$/i, "")
       .trim();
 
-    return Response.json({ success: true, html: cleanHtml });
+    // {{IMG_X}} placeholders are replaced client-side with actual data URLs
+    return Response.json({ success: true, html });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 500 });

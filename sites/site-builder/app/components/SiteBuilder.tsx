@@ -135,14 +135,36 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
     if (!scrapeData && !researchData) { addLog("יש לסרוק אתר או לבצע מחקר קודם", "error"); return; }
     setGenerateStatus("loading"); addLog("Claude: מייצר אתר...");
     try {
+      // Strip data URLs from media/drive to keep request small
+      // The API will use {{IMG_X}} placeholders, we replace them client-side
+      const lightMedia = mediaData?.map((m: Record<string, unknown>) => ({
+        type: m.type, prompt: m.prompt, imageUrl: m.imageUrl ? "HAS_IMAGE" : undefined, error: m.error,
+      }));
+      const lightDrive = driveFiles.length > 0 ? driveFiles.map((f: { id: string; name: string; mimeType: string; dataUrl?: string }) => ({
+        name: f.name, mimeType: f.mimeType, dataUrl: f.dataUrl ? "HAS_IMAGE" : undefined,
+      })) : undefined;
+
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scrapeData, researchData, mediaData, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined, driveFiles: driveFiles.length > 0 ? driveFiles : undefined }),
+        body: JSON.stringify({ scrapeData, researchData, mediaData: lightMedia, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined, driveFiles: lightDrive }),
       });
       const data = await res.json();
       if (data.error) { setGenerateStatus("error"); addLog(`Claude: שגיאה — ${data.error}`, "error"); return; }
-      setGeneratedHtml(data.html); setGenerateStatus("success"); setPreviewMode("site");
+
+      // Replace {{IMG_X}} placeholders with actual data URLs client-side
+      let html = data.html as string;
+      let idx = 0;
+      if (mediaData) {
+        for (const m of mediaData as Array<{ imageUrl?: string }>) {
+          if (m.imageUrl) { idx++; html = html.replaceAll(`{{IMG_${idx}}}`, String(m.imageUrl)); }
+        }
+      }
+      for (const f of driveFiles) {
+        if (f.dataUrl && f.mimeType.startsWith("image/")) { idx++; html = html.replaceAll(`{{IMG_${idx}}}`, f.dataUrl); }
+      }
+
+      setGeneratedHtml(html); setGenerateStatus("success"); setPreviewMode("site");
       addLog("האתר נוצר בהצלחה!", "success");
       setTimeout(() => {
         if (iframeRef.current) { iframeRef.current.src = URL.createObjectURL(new Blob([data.html], { type: "text/html" })); }

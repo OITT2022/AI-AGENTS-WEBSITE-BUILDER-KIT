@@ -73,6 +73,7 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   }
 
   async function loadFolder(folderId?: string, q?: string) {
+    console.log("[Drive] loadFolder called", { folderId, q });
     setLoading(true);
     setError("");
     setFiles([]);
@@ -80,16 +81,23 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
       const params = new URLSearchParams();
       if (folderId) params.set("folderId", folderId);
       if (q) params.set("q", q);
-      const res = await fetch(`/api/drive/files?${params.toString()}`);
+      const url = `/api/drive/files?${params.toString()}`;
+      console.log("[Drive] fetching", url);
+      const res = await fetch(url);
+      console.log("[Drive] response status", res.status);
       const data = await res.json();
+      console.log("[Drive] response data", data);
       if (!res.ok) { setError(data.error || `שגיאה ${res.status}`); setLoading(false); return; }
       if (data.error) { setError(data.error); }
-      else { setFiles(sortFiles(data.files ?? [])); }
-    } catch (err) { setError(`שגיאת תקשורת: ${err instanceof Error ? err.message : String(err)}`); }
+      else { setFiles(sortFiles(data.files ?? [])); console.log("[Drive] files loaded:", (data.files ?? []).length); }
+    } catch (err) {
+      console.error("[Drive] fetch error", err);
+      setError(`שגיאת תקשורת: ${err instanceof Error ? err.message : String(err)}`);
+    }
     setLoading(false);
   }
 
-  function handleBrowse() { setShowBrowser(true); setSearch(""); setFolderStack([]); loadFolder(); }
+  function handleBrowse() { console.log("[Drive] handleBrowse clicked"); setShowBrowser(true); setSearch(""); setFolderStack([]); loadFolder(); }
   function handleSearchSubmit() { if (!search.trim()) return; setFolderStack([]); loadFolder(undefined, search); }
   function openFolder(id: string, name: string) { setFolderStack(p => [...p, { id, name }]); setSelected(new Set()); loadFolder(id); }
   function navTo(i: number) { if (i === -1) { setFolderStack([]); loadFolder(); } else { const s = folderStack.slice(0, i + 1); setFolderStack(s); loadFolder(s[s.length - 1].id); } setSelected(new Set()); }

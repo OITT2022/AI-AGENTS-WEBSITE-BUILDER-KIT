@@ -3,17 +3,18 @@ export async function GET(req: Request) {
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
 
-  if (error || !code) {
-    return Response.redirect(new URL("/?drive_error=" + encodeURIComponent(error || "no_code"), url.origin));
-  }
+  const html = (msg: string) => new Response(
+    `<!DOCTYPE html><html><body style="font-family:sans-serif;text-align:center;padding:40px;"><p>${msg}</p><script>setTimeout(function(){window.close()},2000)</script></body></html>`,
+    { headers: { "Content-Type": "text/html" } }
+  );
+
+  if (error || !code) return html("שגיאה בהתחברות: " + (error || "no code"));
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri = "https://www.2op.co.il/api/auth/google/callback";
 
-  if (!clientId || !clientSecret) {
-    return Response.redirect(new URL("/?drive_error=not_configured", url.origin));
-  }
+  if (!clientId || !clientSecret) return html("Google OAuth לא מוגדר");
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -27,15 +28,12 @@ export async function GET(req: Request) {
     }),
   });
 
-  if (!tokenRes.ok) {
-    return Response.redirect(new URL("/?drive_error=token_failed", url.origin));
-  }
+  if (!tokenRes.ok) return html("שגיאה בקבלת טוקן מגוגל");
 
   const tokens = await tokenRes.json();
 
-  // Redirect back to home with cookies set
   const headers = new Headers();
-  headers.set("Location", "/");
+  headers.set("Content-Type", "text/html");
   headers.append("Set-Cookie",
     `google_access_token=${tokens.access_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${tokens.expires_in || 3600}`
   );
@@ -45,5 +43,12 @@ export async function GET(req: Request) {
     );
   }
 
-  return new Response(null, { status: 302, headers });
+  return new Response(
+    `<!DOCTYPE html><html><body style="font-family:sans-serif;text-align:center;padding:40px;">
+<p style="font-size:18px;color:#10b981;">✓ Google Drive מחובר בהצלחה</p>
+<p style="color:#888;">החלון ייסגר אוטומטית...</p>
+<script>setTimeout(function(){window.close()},1500)</script>
+</body></html>`,
+    { headers }
+  );
 }

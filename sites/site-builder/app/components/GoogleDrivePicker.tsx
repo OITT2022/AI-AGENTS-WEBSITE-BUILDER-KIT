@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface DriveFile {
   id: string;
@@ -32,18 +32,35 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   const [folderStack, setFolderStack] = useState<{ id: string; name: string }[]>([]);
   const [showBrowser, setShowBrowser] = useState(false);
   const [error, setError] = useState("");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Check connection on mount
   useEffect(() => {
     fetch("/api/auth/google/status")
       .then(res => res.json())
       .then(data => { setConnected(data.connected === true); setChecking(false); })
       .catch(() => { setConnected(false); setChecking(false); });
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  // Full page redirect to Google OAuth (cookies set in same context)
   function handleConnect() {
-    window.location.href = "/api/auth/google";
+    // Open popup
+    window.open("/api/auth/google", "google-auth", "width=500,height=700,popup=yes");
+
+    // Poll status endpoint every 2s until connected
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch("/api/auth/google/status");
+        const data = await res.json();
+        if (data.connected) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          setConnected(true);
+        }
+      } catch { /* ignore */ }
+    }, 2000);
+    // Stop after 3 min
+    setTimeout(() => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } }, 180000);
   }
 
   async function handleDisconnect() {
@@ -65,199 +82,83 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
       if (q) params.set("q", q);
       const res = await fetch(`/api/drive/files?${params.toString()}`);
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || `שגיאה ${res.status}`);
-        setLoading(false);
-        return;
-      }
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setFiles(sortFiles(data.files ?? []));
-      }
-    } catch (err) {
-      setError(`שגיאת תקשורת: ${err instanceof Error ? err.message : String(err)}`);
-    }
+      if (!res.ok) { setError(data.error || `שגיאה ${res.status}`); setLoading(false); return; }
+      if (data.error) { setError(data.error); }
+      else { setFiles(sortFiles(data.files ?? [])); }
+    } catch (err) { setError(`שגיאת תקשורת: ${err instanceof Error ? err.message : String(err)}`); }
     setLoading(false);
   }
 
-  function handleBrowse() {
-    setShowBrowser(true);
-    setSearch("");
-    setFolderStack([]);
-    loadFolder();
-  }
-
-  function handleSearchSubmit() {
-    if (!search.trim()) return;
-    setFolderStack([]);
-    loadFolder(undefined, search);
-  }
-
-  function openFolder(id: string, name: string) {
-    setFolderStack((prev) => [...prev, { id, name }]);
-    setSelected(new Set());
-    loadFolder(id);
-  }
-
-  function navTo(index: number) {
-    if (index === -1) { setFolderStack([]); loadFolder(); }
-    else { const s = folderStack.slice(0, index + 1); setFolderStack(s); loadFolder(s[s.length - 1].id); }
-    setSelected(new Set());
-  }
-
-  function toggleFile(id: string) {
-    setSelected((prev) => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s; });
-  }
-
-  function selectAllFiles() {
-    const nf = files.filter((f) => !isFolder(f.mimeType));
-    setSelected(selected.size === nf.length ? new Set() : new Set(nf.map((f) => f.id)));
-  }
+  function handleBrowse() { setShowBrowser(true); setSearch(""); setFolderStack([]); loadFolder(); }
+  function handleSearchSubmit() { if (!search.trim()) return; setFolderStack([]); loadFolder(undefined, search); }
+  function openFolder(id: string, name: string) { setFolderStack(p => [...p, { id, name }]); setSelected(new Set()); loadFolder(id); }
+  function navTo(i: number) { if (i === -1) { setFolderStack([]); loadFolder(); } else { const s = folderStack.slice(0, i + 1); setFolderStack(s); loadFolder(s[s.length - 1].id); } setSelected(new Set()); }
+  function toggleFile(id: string) { setSelected(p => { const s = new Set(p); if (s.has(id)) s.delete(id); else s.add(id); return s; }); }
+  function selectAllFiles() { const nf = files.filter(f => !isFolder(f.mimeType)); setSelected(selected.size === nf.length ? new Set() : new Set(nf.map(f => f.id))); }
 
   async function addSelected() {
     setLoadingFiles(true);
     const result: SelectedFile[] = [];
     for (const id of selected) {
-      const file = files.find((f) => f.id === id);
+      const file = files.find(f => f.id === id);
       if (!file) continue;
       if (file.mimeType.startsWith("image/")) {
-        try {
-          const res = await fetch(`/api/drive/file?id=${id}`);
-          const data = await res.json();
-          result.push({ id, name: file.name, mimeType: file.mimeType, dataUrl: data.dataUrl });
-        } catch { result.push({ id, name: file.name, mimeType: file.mimeType }); }
-      } else {
-        result.push({ id, name: file.name, mimeType: file.mimeType });
-      }
+        try { const r = await fetch(`/api/drive/file?id=${id}`); const d = await r.json(); result.push({ id, name: file.name, mimeType: file.mimeType, dataUrl: d.dataUrl }); }
+        catch { result.push({ id, name: file.name, mimeType: file.mimeType }); }
+      } else { result.push({ id, name: file.name, mimeType: file.mimeType }); }
     }
     setLoadingFiles(false);
     onFilesSelected(result);
     setSelected(new Set());
   }
 
-  function sortFiles(list: DriveFile[]): DriveFile[] {
-    return [...list].sort((a, b) => {
-      const af = isFolder(a.mimeType) ? 0 : 1;
-      const bf = isFolder(b.mimeType) ? 0 : 1;
-      return af !== bf ? af - bf : a.name.localeCompare(b.name);
-    });
-  }
-
+  function sortFiles(list: DriveFile[]) { return [...list].sort((a, b) => { const af = isFolder(a.mimeType) ? 0 : 1; const bf = isFolder(b.mimeType) ? 0 : 1; return af !== bf ? af - bf : a.name.localeCompare(b.name); }); }
   function isFolder(m: string) { return m === "application/vnd.google-apps.folder"; }
+  function icon(m: string) { if (isFolder(m)) return "📁"; if (m.startsWith("image/")) return "🖼️"; if (m.includes("pdf")) return "📄"; if (m.includes("document")||m.includes("text")) return "📝"; if (m.includes("spreadsheet")) return "📊"; if (m.includes("presentation")) return "📑"; return "📎"; }
+  function fmtSize(s?: string) { if (!s) return ""; const b = parseInt(s); if (b < 1024) return `${b}B`; if (b < 1048576) return `${(b/1024).toFixed(0)}KB`; return `${(b/1048576).toFixed(1)}MB`; }
 
-  function icon(m: string) {
-    if (isFolder(m)) return "📁";
-    if (m.startsWith("image/")) return "🖼️";
-    if (m.includes("pdf")) return "📄";
-    if (m.includes("document") || m.includes("text")) return "📝";
-    if (m.includes("spreadsheet")) return "📊";
-    if (m.includes("presentation")) return "📑";
-    return "📎";
-  }
+  if (checking) return <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}><div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem", color: "var(--text-muted)" }}><span className="spinner" /> בודק חיבור...</div></div>;
 
-  function fmtSize(s?: string) {
-    if (!s) return "";
-    const b = parseInt(s);
-    if (b < 1024) return `${b}B`;
-    if (b < 1048576) return `${(b / 1024).toFixed(0)}KB`;
-    return `${(b / 1048576).toFixed(1)}MB`;
-  }
+  if (!connected) return <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span style={{ fontSize: "0.85rem" }}>📂 Google Drive</span><button className="btn btn-primary" onClick={handleConnect} style={{ fontSize: "0.72rem", padding: "0.25rem 0.6rem" }}>התחבר</button></div></div>;
 
-  if (checking) {
-    return (
-      <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-          <span className="spinner" /> בודק חיבור...
-        </div>
-      </div>
-    );
-  }
+  if (!showBrowser) return <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span style={{ fontSize: "0.85rem" }}>📂 Drive <span style={{ color: "var(--success)", fontSize: "0.7rem" }}>מחובר</span></span><div style={{ display: "flex", gap: "0.25rem" }}><button className="btn btn-primary" onClick={handleBrowse} style={{ fontSize: "0.72rem", padding: "0.25rem 0.6rem" }}>עיון בקבצים</button><button className="btn btn-secondary" onClick={handleDisconnect} style={{ fontSize: "0.72rem", padding: "0.25rem 0.6rem", color: "var(--error)" }}>התנתק</button></div></div></div>;
 
-  if (!connected) {
-    return (
-      <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "0.85rem" }}>📂 Google Drive</span>
-          <button className="btn btn-primary" onClick={handleConnect} style={{ fontSize: "0.72rem", padding: "0.25rem 0.6rem" }}>התחבר</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!showBrowser) {
-    return (
-      <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "0.85rem" }}>📂 Drive <span style={{ color: "var(--success)", fontSize: "0.7rem" }}>מחובר</span></span>
-          <div style={{ display: "flex", gap: "0.25rem" }}>
-            <button className="btn btn-primary" onClick={handleBrowse} style={{ fontSize: "0.72rem", padding: "0.25rem 0.6rem" }}>עיון בקבצים</button>
-            <button className="btn btn-secondary" onClick={handleDisconnect} style={{ fontSize: "0.72rem", padding: "0.25rem 0.6rem", color: "var(--error)" }}>התנתק</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const nonFolders = files.filter((f) => !isFolder(f.mimeType));
+  const nonFolders = files.filter(f => !isFolder(f.mimeType));
 
   return (
     <div className="drive-panel">
       <div className="drive-header">
         <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>📂 Drive</span>
         <div style={{ display: "flex", gap: "0.25rem" }}>
-          {selected.size > 0 && (
-            <button className="btn btn-primary" style={{ fontSize: "0.7rem", padding: "0.2rem 0.45rem" }} onClick={addSelected} disabled={loadingFiles}>
-              {loadingFiles ? <span className="spinner" /> : `הוסף ${selected.size}`}
-            </button>
-          )}
+          {selected.size > 0 && <button className="btn btn-primary" style={{ fontSize: "0.7rem", padding: "0.2rem 0.45rem" }} onClick={addSelected} disabled={loadingFiles}>{loadingFiles ? <span className="spinner" /> : `הוסף ${selected.size}`}</button>}
           <button className="btn btn-secondary" style={{ fontSize: "0.7rem", padding: "0.2rem 0.45rem" }} onClick={() => setShowBrowser(false)}>סגור</button>
           <button className="btn btn-secondary" style={{ fontSize: "0.7rem", padding: "0.2rem 0.45rem", color: "var(--error)" }} onClick={handleDisconnect}>התנתק</button>
         </div>
       </div>
-
       <div style={{ display: "flex", gap: "0.25rem", padding: "0.35rem 0.5rem", borderBottom: "1px solid var(--border)" }}>
-        <input className="form-input" placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()} style={{ flex: 1, fontSize: "0.75rem", padding: "0.3rem 0.5rem" }} />
+        <input className="form-input" placeholder="חיפוש..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSearchSubmit()} style={{ flex: 1, fontSize: "0.75rem", padding: "0.3rem 0.5rem" }} />
         {search && <button className="btn btn-secondary" onClick={handleSearchSubmit} style={{ fontSize: "0.7rem", padding: "0.25rem 0.4rem" }}>חפש</button>}
         <button className="btn btn-primary" onClick={handleBrowse} style={{ fontSize: "0.7rem", padding: "0.25rem 0.4rem" }}>עיון</button>
       </div>
-
       <div style={{ display: "flex", alignItems: "center", gap: "0.2rem", padding: "0.3rem 0.5rem", fontSize: "0.72rem", color: "var(--text-muted)", borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
         <button onClick={() => navTo(-1)} style={{ background: "none", border: "none", cursor: "pointer", color: folderStack.length > 0 ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: "0.72rem", fontFamily: "inherit", padding: 0 }}>My Drive</button>
-        {folderStack.map((f, i) => (
-          <span key={f.id} style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}>
-            <span style={{ opacity: 0.4 }}>/</span>
-            <button onClick={() => navTo(i)} style={{ background: "none", border: "none", cursor: "pointer", color: i === folderStack.length - 1 ? "var(--text)" : "var(--primary)", fontWeight: i === folderStack.length - 1 ? 600 : 400, fontSize: "0.72rem", fontFamily: "inherit", padding: 0 }}>{f.name}</button>
-          </span>
-        ))}
-        {nonFolders.length > 0 && (
-          <button onClick={selectAllFiles} style={{ marginInlineStart: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "0.68rem", fontFamily: "inherit" }}>
-            {selected.size === nonFolders.length ? "בטל הכל" : "בחר הכל"}
-          </button>
-        )}
+        {folderStack.map((f, i) => <span key={f.id} style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}><span style={{ opacity: 0.4 }}>/</span><button onClick={() => navTo(i)} style={{ background: "none", border: "none", cursor: "pointer", color: i === folderStack.length - 1 ? "var(--text)" : "var(--primary)", fontWeight: i === folderStack.length - 1 ? 600 : 400, fontSize: "0.72rem", fontFamily: "inherit", padding: 0 }}>{f.name}</button></span>)}
+        {nonFolders.length > 0 && <button onClick={selectAllFiles} style={{ marginInlineStart: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "0.68rem", fontFamily: "inherit" }}>{selected.size === nonFolders.length ? "בטל הכל" : "בחר הכל"}</button>}
       </div>
-
       {error && <p style={{ color: "var(--error)", fontSize: "0.72rem", padding: "0.3rem 0.5rem", background: "var(--error-bg)", margin: 0 }}>{error}</p>}
-
       <div className="drive-files">
-        {loading ? (
-          <div style={{ textAlign: "center", padding: "0.75rem" }}><span className="spinner" /></div>
-        ) : files.length === 0 && !error ? (
-          <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "0.75rem", fontSize: "0.78rem" }}>תיקייה ריקה</p>
-        ) : (
-          files.map((file) => (
-            <div key={file.id} className={`drive-file-row ${selected.has(file.id) ? "selected" : ""}`} onClick={() => isFolder(file.mimeType) ? openFolder(file.id, file.name) : toggleFile(file.id)}>
-              {!isFolder(file.mimeType) ? (
-                <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggleFile(file.id)} onClick={(e) => e.stopPropagation()} style={{ accentColor: "var(--primary)", flexShrink: 0 }} />
-              ) : <span style={{ width: 16, flexShrink: 0 }} />}
-              <span className="drive-file-icon">{icon(file.mimeType)}</span>
-              {file.thumbnailLink && file.mimeType.startsWith("image/") && <img src={file.thumbnailLink} alt="" className="drive-file-thumb" />}
-              <span className="drive-file-name">{file.name}</span>
-              {isFolder(file.mimeType) && <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>▸</span>}
-              {!isFolder(file.mimeType) && file.size && <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>{fmtSize(file.size)}</span>}
-            </div>
-          ))
-        )}
+        {loading ? <div style={{ textAlign: "center", padding: "0.75rem" }}><span className="spinner" /></div>
+        : files.length === 0 && !error ? <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "0.75rem", fontSize: "0.78rem" }}>תיקייה ריקה</p>
+        : files.map(file => (
+          <div key={file.id} className={`drive-file-row ${selected.has(file.id) ? "selected" : ""}`} onClick={() => isFolder(file.mimeType) ? openFolder(file.id, file.name) : toggleFile(file.id)}>
+            {!isFolder(file.mimeType) ? <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggleFile(file.id)} onClick={e => e.stopPropagation()} style={{ accentColor: "var(--primary)", flexShrink: 0 }} /> : <span style={{ width: 16, flexShrink: 0 }} />}
+            <span className="drive-file-icon">{icon(file.mimeType)}</span>
+            {file.thumbnailLink && file.mimeType.startsWith("image/") && <img src={file.thumbnailLink} alt="" className="drive-file-thumb" />}
+            <span className="drive-file-name">{file.name}</span>
+            {isFolder(file.mimeType) && <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>▸</span>}
+            {!isFolder(file.mimeType) && file.size && <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>{fmtSize(file.size)}</span>}
+          </div>
+        ))}
       </div>
     </div>
   );

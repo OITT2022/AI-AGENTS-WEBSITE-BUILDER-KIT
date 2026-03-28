@@ -33,47 +33,17 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   const [showBrowser, setShowBrowser] = useState(false);
   const [error, setError] = useState("");
 
-  // Check if Google cookie exists (client-side only, no API call)
+  // Check connection on mount
   useEffect(() => {
-    // We can't read httpOnly cookies from JS, so check via a lightweight API
-    const controller = new AbortController();
-    fetch("/api/auth/google/status", { signal: controller.signal })
+    fetch("/api/auth/google/status")
       .then(res => res.json())
       .then(data => { setConnected(data.connected === true); setChecking(false); })
       .catch(() => { setConnected(false); setChecking(false); });
-    return () => controller.abort();
   }, []);
 
-  // Listen for popup message
-  useEffect(() => {
-    function onMessage(e: MessageEvent) {
-      if (e.data?.type === "google-auth-success") {
-        setConnected(true);
-        setShowBrowser(true);
-        loadFolder();
-      }
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, []);
-
-  // Open Google OAuth in popup
+  // Full page redirect to Google OAuth (cookies set in same context)
   function handleConnect() {
-    window.open("/api/auth/google", "google-auth", "width=500,height=700");
-    // Poll lightweight status endpoint (no 401 spam in console)
-    const timer = setInterval(async () => {
-      try {
-        const res = await fetch("/api/auth/google/status");
-        const data = await res.json();
-        if (data.connected) {
-          clearInterval(timer);
-          setConnected(true);
-          setShowBrowser(true);
-          loadFolder();
-        }
-      } catch { /* ignore */ }
-    }, 3000);
-    setTimeout(() => clearInterval(timer), 120000);
+    window.location.href = "/api/auth/google";
   }
 
   async function handleDisconnect() {

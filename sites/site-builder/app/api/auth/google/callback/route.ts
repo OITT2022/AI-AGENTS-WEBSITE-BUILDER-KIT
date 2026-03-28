@@ -4,10 +4,7 @@ export async function GET(req: Request) {
   const error = url.searchParams.get("error");
 
   if (error || !code) {
-    return new Response(
-      `<html><body><p>Google auth failed: ${error || "no code"}</p><button onclick="window.close()">סגור</button></body></html>`,
-      { headers: { "Content-Type": "text/html" } }
-    );
+    return Response.redirect(new URL("/?drive_error=" + encodeURIComponent(error || "no_code"), url.origin));
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -15,7 +12,7 @@ export async function GET(req: Request) {
   const redirectUri = "https://www.2op.co.il/api/auth/google/callback";
 
   if (!clientId || !clientSecret) {
-    return new Response("Google OAuth not configured", { status: 500 });
+    return Response.redirect(new URL("/?drive_error=not_configured", url.origin));
   }
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -31,18 +28,14 @@ export async function GET(req: Request) {
   });
 
   if (!tokenRes.ok) {
-    const err = await tokenRes.text();
-    return new Response(
-      `<html><body><p>Token error</p><pre>${err.slice(0, 300)}</pre><button onclick="window.close()">סגור</button></body></html>`,
-      { headers: { "Content-Type": "text/html" } }
-    );
+    return Response.redirect(new URL("/?drive_error=token_failed", url.origin));
   }
 
   const tokens = await tokenRes.json();
 
-  // Set cookies via headers
+  // Redirect back to home with cookies set
   const headers = new Headers();
-  headers.set("Content-Type", "text/html");
+  headers.set("Location", "/");
   headers.append("Set-Cookie",
     `google_access_token=${tokens.access_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${tokens.expires_in || 3600}`
   );
@@ -52,17 +45,5 @@ export async function GET(req: Request) {
     );
   }
 
-  // Notify parent and close popup
-  return new Response(
-    `<!DOCTYPE html>
-<html><body style="font-family:sans-serif;text-align:center;padding:40px;">
-<p>Google Drive מחובר בהצלחה!</p>
-<p style="color:#888;font-size:14px;">החלון ייסגר אוטומטית...</p>
-<script>
-  try { window.opener && window.opener.postMessage({type:"google-auth-success"}, "*"); } catch(e) {}
-  setTimeout(function(){ window.close(); }, 1000);
-</script>
-</body></html>`,
-    { headers }
-  );
+  return new Response(null, { status: 302, headers });
 }

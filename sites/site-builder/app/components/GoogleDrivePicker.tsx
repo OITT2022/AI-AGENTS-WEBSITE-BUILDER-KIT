@@ -155,6 +155,15 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
     setSelected(new Set());
   }
 
+  async function handleDisconnect() {
+    await fetch("/api/auth/google/disconnect", { method: "POST" });
+    setConnected(false);
+    setExpanded(false);
+    setFiles([]);
+    setFolderStack([]);
+    setSelected(new Set());
+  }
+
   function isFolder(mime: string) { return mime === "application/vnd.google-apps.folder"; }
   function isImage(mime: string) { return mime.startsWith("image/"); }
 
@@ -233,6 +242,7 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
             </button>
           )}
           <button className="btn btn-secondary" style={{ fontSize: "0.7rem", padding: "0.2rem 0.45rem" }} onClick={() => setExpanded(false)}>סגור</button>
+          <button className="btn btn-secondary" style={{ fontSize: "0.7rem", padding: "0.2rem 0.45rem", color: "var(--error)" }} onClick={handleDisconnect}>התנתק</button>
         </div>
       </div>
 

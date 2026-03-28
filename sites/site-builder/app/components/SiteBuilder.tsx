@@ -133,10 +133,8 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
 
   async function handleGenerate() {
     if (!scrapeData && !researchData) { addLog("יש לסרוק אתר או לבצע מחקר קודם", "error"); return; }
-    setGenerateStatus("loading"); addLog("Claude: מייצר אתר...");
+    setGenerateStatus("loading"); addLog("Claude: מייצר אתר (streaming)...");
     try {
-      // Strip data URLs from media/drive to keep request small
-      // The API will use {{IMG_X}} placeholders, we replace them client-side
       const lightMedia = mediaData?.map((m: Record<string, unknown>) => ({
         type: m.type, prompt: m.prompt, imageUrl: m.imageUrl ? "HAS_IMAGE" : undefined, error: m.error,
       }));
@@ -149,13 +147,43 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scrapeData, researchData, mediaData: lightMedia, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined, driveFiles: lightDrive }),
       });
-      const text = await res.text();
-      let data: { html?: string; error?: string; success?: boolean };
-      try { data = JSON.parse(text); } catch { setGenerateStatus("error"); addLog(`Claude: שגיאה — ${text.slice(0, 200)}`, "error"); return; }
-      if (data.error) { setGenerateStatus("error"); addLog(`Claude: שגיאה — ${data.error}`, "error"); return; }
 
-      // Replace {{IMG_X}} placeholders with actual data URLs client-side
-      let html = data.html as string;
+      // Check if it's a streaming response or JSON error
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const data = await res.json();
+        setGenerateStatus("error"); addLog(`Claude: שגיאה — ${data.error || "Unknown error"}`, "error"); return;
+      }
+
+      // Read SSE stream
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.text) fullText += parsed.text;
+          } catch { /* skip */ }
+        }
+      }
+
+      // Clean up markdown fences
+      let html = fullText.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+
+      if (!html) { setGenerateStatus("error"); addLog("Claude: לא התקבל תוכן", "error"); return; }
+
+      // Replace {{IMG_X}} placeholders with actual data URLs
       let idx = 0;
       if (mediaData) {
         for (const m of mediaData as Array<{ imageUrl?: string }>) {

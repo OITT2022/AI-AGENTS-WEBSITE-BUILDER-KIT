@@ -13,61 +13,49 @@ export async function POST(req: Request) {
     return Response.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
   }
 
-  // Build {{IMG_X}} placeholders — actual data URLs are injected client-side
+  // Build {{IMG_X}} placeholders
   let imgIndex = 0;
-
-  const mediaDescriptions: string[] = [];
+  const mediaDesc: string[] = [];
   if (mediaData?.length) {
     for (const m of mediaData as Array<{ type?: string; prompt?: string; imageUrl?: string }>) {
-      if (m.imageUrl) {
-        imgIndex++;
-        mediaDescriptions.push(`- ${m.type ?? "image"}: "${m.prompt}" → use src="{{IMG_${imgIndex}}}"`);
-      } else {
-        mediaDescriptions.push(`- ${m.type ?? "image"}: "${m.prompt}" → use CSS gradient placeholder`);
-      }
+      if (m.imageUrl) { imgIndex++; mediaDesc.push(`- ${m.type ?? "image"}: "${m.prompt}" → src="{{IMG_${imgIndex}}}"`); }
+      else { mediaDesc.push(`- ${m.type ?? "image"}: "${m.prompt}" → CSS gradient`); }
     }
   }
-
-  const driveDescriptions: string[] = [];
+  const driveDesc: string[] = [];
   if (driveFiles?.length) {
     for (const f of driveFiles as Array<{ name: string; mimeType: string; dataUrl?: string }>) {
-      if (f.dataUrl && f.mimeType.startsWith("image/")) {
-        imgIndex++;
-        driveDescriptions.push(`- ${f.name} → use src="{{IMG_${imgIndex}}}" (logo/image from Google Drive)`);
-      } else {
-        driveDescriptions.push(`- ${f.name} (${f.mimeType})`);
-      }
+      if (f.dataUrl && f.mimeType.startsWith("image/")) { imgIndex++; driveDesc.push(`- ${f.name} → src="{{IMG_${imgIndex}}}"`); }
+      else { driveDesc.push(`- ${f.name} (${f.mimeType})`); }
     }
   }
 
   const prompt = `You are a professional web developer. Generate a complete, single-file HTML website.
 
 ## Site Description
-${siteDescription || "Infer from the scraped content and research below."}
+${siteDescription || "Infer from scraped content and research."}
 
-## Scraped Website Data
-${scrapeData?.title ? `Source: ${scrapeData.title}` : "No site scraped."}
-${scrapeData?.description ? `Description: ${scrapeData.description}` : ""}
-${scrapeData?.markdown ? `Content:\n${scrapeData.markdown.slice(0, 2500)}` : ""}
+## Scraped Data
+${scrapeData?.title ? `Source: ${scrapeData.title}` : "None."}
+${scrapeData?.description || ""}
+${scrapeData?.markdown ? scrapeData.markdown.slice(0, 2000) : ""}
 
-## Research Data
-${researchData?.answer ? `Summary: ${researchData.answer}` : "No research."}
-${researchData?.results?.length ? `Sources:\n${(researchData.results as Array<{ title: string; content: string }>).slice(0, 3).map((r) => `- ${r.title}: ${r.content?.slice(0, 120)}`).join("\n")}` : ""}
+## Research
+${researchData?.answer || "None."}
+${researchData?.results?.length ? (researchData.results as Array<{ title: string; content: string }>).slice(0, 3).map((r) => `- ${r.title}: ${r.content?.slice(0, 100)}`).join("\n") : ""}
 
 ## Images
-${mediaDescriptions.length ? mediaDescriptions.join("\n") : mediaPrompt ? `Create CSS gradient placeholders for:\n${mediaPrompt}` : "Use CSS gradients for visuals."}
+${mediaDesc.length ? mediaDesc.join("\n") : mediaPrompt || "Use CSS gradients."}
 
-## Google Drive Files
-${driveDescriptions.length ? driveDescriptions.join("\n") : "None."}
+## Drive Files
+${driveDesc.length ? driveDesc.join("\n") : "None."}
 
-## Instructions
-- Complete standalone HTML with embedded CSS and JS
-- Modern professional design, dark theme, responsive
-- Hebrew RTL if content is Hebrew, otherwise English
-- Use the {{IMG_X}} placeholders exactly as shown for image src attributes
-- Use CSS Grid/Flexbox, clean typography, hover effects
-- No external dependencies or CDN links
-- Output ONLY HTML code, no markdown fences`;
+## Rules
+- Complete standalone HTML with CSS and JS embedded
+- Modern dark theme, responsive, RTL if Hebrew
+- Use {{IMG_X}} placeholders exactly as shown for img src
+- No external dependencies
+- Output ONLY HTML`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -79,48 +67,63 @@ ${driveDescriptions.length ? driveDescriptions.join("\n") : "None."}
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 12000,
+        max_tokens: 10000,
         stream: true,
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      return Response.json({ error: `Anthropic ${response.status}: ${errorText.slice(0, 300)}` }, { status: 500 });
+      const errText = await response.text();
+      return Response.json({ error: `Claude API ${response.status}: ${errText.slice(0, 200)}` }, { status: 500 });
     }
 
-    const reader = response.body!.getReader();
+    // Stream Anthropic SSE directly to the browser to prevent timeout
+    const encoder = new TextEncoder();
+    const anthropicReader = response.body!.getReader();
     const decoder = new TextDecoder();
-    let fullText = "";
-    let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") continue;
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-            fullText += parsed.delta.text;
+    const stream = new ReadableStream({
+      async pull(controller) {
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await anthropicReader.read();
+          if (done) {
+            // Send end marker
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+            return;
           }
-        } catch { /* skip */ }
-      }
-    }
 
-    let html = fullText
-      .replace(/^```html?\s*\n?/i, "")
-      .replace(/\n?```\s*$/i, "")
-      .trim();
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
 
-    // {{IMG_X}} placeholders are replaced client-side with actual data URLs
-    return Response.json({ success: true, html });
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === "content_block_delta" && parsed.delta?.text) {
+                // Forward the text chunk to the browser
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`));
+              }
+            } catch { /* skip */ }
+          }
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 500 });

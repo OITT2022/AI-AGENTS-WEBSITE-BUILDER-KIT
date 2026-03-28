@@ -211,6 +211,9 @@ export default function AuthGate() {
               כבר יש לך חשבון?{" "}
               <button type="button" onClick={() => { setStep("login"); setError(""); }}>התחבר</button>
             </p>
+            <p className="auth-legal">
+              בהרשמה אתה מסכים ל<a href="/terms" target="_blank">תנאי השימוש</a> ול<a href="/privacy" target="_blank">מדיניות הפרטיות</a>
+            </p>
           </form>
         )}
 

@@ -1,0 +1,95 @@
+Terms of Service – Site Builder AI
+
+
+
+By accessing https://2op.co.il, you agree to these Terms.
+
+1. Service Description
+
+Site Builder AI provides:
+
+AI-powered website generation tools
+Branding analysis tools
+Content creation workflows
+File and media integration
+Website export and hosting preview
+2. User Account
+
+You agree to:
+
+Provide accurate information
+Maintain confidentiality of your email access
+Be responsible for all activity under your account
+
+Authentication is done באמצעות OTP (One-Time Password).
+
+3. Acceptable Use
+
+You agree NOT to:
+
+Use the service for illegal activities
+Upload harmful or malicious content
+Violate intellectual property rights
+Attempt to hack or disrupt the system
+4. User Content
+
+You retain ownership of content you provide.
+
+However, you grant us a license to:
+
+Process
+Analyze
+Generate outputs based on your input
+5. AI-Generated Content
+Outputs are generated automatically by AI
+We do not guarantee accuracy, legality, or originality
+You are responsible for reviewing and using the generated content
+6. Hosting & Generated Sites
+
+Generated websites:
+
+May be hosted temporarily at
+https://2op.co.il/sites/Your_Site
+Are publicly accessible if link is shared
+May be deleted or removed at our discretion
+7. Intellectual Property
+The platform and technology are owned by Site Builder AI
+Users receive a license to use generated outputs
+8. Limitation of Liability
+
+We are not liable for:
+
+Loss of data
+Business losses
+Legal issues arising from generated content
+Third-party integrations
+
+Use the service at your own risk.
+
+9. Service Availability
+
+We do not guarantee:
+
+Continuous uptime
+Error-free operation
+
+We may modify or discontinue features at any time.
+
+10. Termination
+
+We may suspend or terminate accounts if:
+
+Terms are violated
+Abuse is detected
+11. Governing Law
+
+These Terms are governed by the laws of:
+State of Israel
+
+12. Changes to Terms
+
+We may update these Terms periodically.
+
+13. Contact
+
+📧 info@2op.co.il

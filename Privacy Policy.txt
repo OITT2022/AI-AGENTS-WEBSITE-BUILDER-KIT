@@ -1,0 +1,96 @@
+Welcome to Site Builder AI (“we”, “our”, “us”), accessible at https://2op.co.il.
+Your privacy is important to us. 
+This Privacy Policy explains how we collect, use, and protect your information.
+
+1. Information We Collect
+1.1 Personal Information
+
+When you register, we collect:
+
+First Name
+Last Name
+Email Address
+1.2 Authentication Data
+One-Time Password (OTP) sent to your email for verification
+1.3 User-Generated Content
+Branding inputs (URLs, competitor references)
+Text descriptions
+Media preferences (images, videos)
+Files uploaded via Google Drive integration
+1.4 Technical Data
+IP address
+Browser type
+Device information
+Usage logs
+2. How We Use Your Information
+
+We use your data to:
+
+Authenticate users via OTP
+Provide and operate the platform
+Generate AI-based website content
+Improve system performance and user experience
+Store and manage generated websites
+Provide downloadable or hosted site outputs
+3. Google Drive Integration
+
+If you choose to connect your Google Drive:
+
+We access only the files you explicitly authorize
+We do not store your Google credentials
+Access is limited to content used for your site generation
+4. Data Storage & Security
+Data is stored on secure servers
+We implement industry-standard security measures
+OTP authentication adds an additional security layer
+
+However, no system is 100% secure.
+
+5. Data Retention
+
+We retain your data:
+
+As long as your account is active
+Or as needed to provide services
+
+Generated websites may remain accessible via:
+https://2op.co.il/sites/Your_Site
+
+6. Sharing of Information
+
+We do not sell your personal data.
+
+We may share data:
+
+With service providers (hosting, cloud services)
+If required by law
+To protect rights and security
+7. User Rights
+
+Depending on your jurisdiction, you may request:
+
+Access to your data
+Correction or deletion
+Data portability
+
+Contact us at: [Insert Email]
+
+8. Cookies
+
+We may use cookies for:
+
+Session management
+Analytics
+Performance improvements
+9. Third-Party Links
+
+We are not responsible for third-party websites referenced in generated content.
+
+10. Changes to This Policy
+
+We may update this Privacy Policy. Updates will be posted on this page.
+
+11. Contact
+
+For questions:
+📧 [Insert Contact Email]

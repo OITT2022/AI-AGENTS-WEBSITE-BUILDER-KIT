@@ -717,6 +717,133 @@ textarea.form-input {
   font-size: 0.85rem;
 }
 
+/* ── Legal pages (Privacy / Terms) ── */
+.legal-page {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  padding: 2rem 1.5rem 4rem;
+}
+
+.legal-container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.legal-back {
+  display: inline-block;
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.legal-back:hover { text-decoration: underline; }
+
+.legal-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+}
+
+.legal-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.legal-intro {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+
+.legal-content section {
+  margin-bottom: 1.75rem;
+}
+
+.legal-content h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.legal-content h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.3rem;
+  color: var(--text);
+}
+
+.legal-content p {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.legal-content ul {
+  margin: 0.3rem 0 0.75rem 0;
+  padding-inline-start: 1.25rem;
+}
+
+.legal-content li {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.legal-content a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.legal-content a:hover { text-decoration: underline; }
+
+.legal-footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.legal-footer a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.legal-footer a:hover { text-decoration: underline; }
+
+.legal-footer span { color: var(--text-muted); }
+
+/* ── Auth legal links ── */
+.auth-legal {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 1rem;
+  line-height: 1.6;
+}
+
+.auth-legal a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.auth-legal a:hover { text-decoration: underline; }
+
 /* ── Admin page ── */
 .admin-page {
   max-width: 960px;

@@ -54,21 +54,21 @@ export async function GET(req: Request) {
   let driveQuery = "trashed = false";
 
   if (folderId) {
+    // Show everything inside this folder
     driveQuery += ` and '${folderId}' in parents`;
-  }
-
-  if (query) {
+  } else if (query) {
+    // Search across all files
     driveQuery += ` and name contains '${query.replace(/'/g, "\\'")}'`;
-  } else if (!folderId) {
-    // Default: show images, PDFs, docs, and folders
-    driveQuery += ` and (mimeType contains 'image/' or mimeType = 'application/pdf' or mimeType contains 'document' or mimeType = 'application/vnd.google-apps.folder' or mimeType contains 'presentation')`;
+  } else {
+    // Root view: show top-level items (folders first, then recent files)
+    driveQuery += ` and 'root' in parents`;
   }
 
   const params = new URLSearchParams({
     q: driveQuery,
     fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webContentLink,webViewLink,iconLink,size,modifiedTime,parents)",
-    pageSize: "30",
-    orderBy: "modifiedTime desc",
+    pageSize: "50",
+    orderBy: "folder,name",
   });
 
   if (pageToken) params.set("pageToken", pageToken);

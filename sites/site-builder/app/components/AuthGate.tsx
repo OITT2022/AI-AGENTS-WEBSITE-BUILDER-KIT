@@ -2,7 +2,7 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { BeamsBackground } from "./ui/beams-background";
+import { WebGLBackground } from "./ui/webgl-background";
 
 type AuthStep = "register" | "login" | "verify";
 
@@ -182,7 +182,7 @@ export default function AuthGate() {
   }
 
   return (
-    <BeamsBackground intensity="medium">
+    <WebGLBackground>
       <div className="auth-card">
         {step === "register" && (
           <form onSubmit={handleRegister}>
@@ -280,6 +280,6 @@ export default function AuthGate() {
           </div>
         )}
       </div>
-    </BeamsBackground>
+    </WebGLBackground>
   );
 }

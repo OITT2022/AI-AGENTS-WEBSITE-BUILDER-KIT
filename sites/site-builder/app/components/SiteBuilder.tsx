@@ -133,7 +133,15 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
 
   async function handleGenerate() {
     if (!scrapeData && !researchData) { addLog("יש לסרוק אתר או לבצע מחקר קודם", "error"); return; }
-    setGenerateStatus("loading"); addLog("Claude: מייצר אתר (streaming)...");
+    setGenerateStatus("loading");
+    // Log Drive files status
+    if (driveFiles.length > 0) {
+      addLog(`Drive: ${driveFiles.length} קבצים צורפו`);
+      for (const f of driveFiles) {
+        addLog(`  → ${f.name} (${f.mimeType}) ${f.dataUrl ? "✓ יש נתונים" : "✗ אין נתונים"}`);
+      }
+    }
+    addLog("Claude: מייצר אתר (streaming)...");
     try {
       const lightMedia = mediaData?.map((m: Record<string, unknown>) => ({
         type: m.type, prompt: m.prompt, imageUrl: m.imageUrl ? "HAS_IMAGE" : undefined, error: m.error,
@@ -188,6 +196,10 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
       for (const f of driveFiles) {
         if (f.dataUrl && f.mimeType.startsWith("image/")) { idx++; html = html.replaceAll(`{{IMG_${idx}}}`, f.dataUrl); }
       }
+
+      // Log replacements
+      const placeholders = html.match(/\{\{IMG_\d+\}\}/g);
+      if (placeholders) { addLog(`אזהרה: ${placeholders.length} תמונות לא הוחלפו: ${placeholders.join(", ")}`, "error"); }
 
       setGeneratedHtml(html); setGenerateStatus("success"); setPreviewMode("site");
       addLog("האתר נוצר בהצלחה!", "success");

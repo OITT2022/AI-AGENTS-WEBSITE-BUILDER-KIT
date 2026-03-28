@@ -17,31 +17,50 @@ export async function GET(req: Request) {
     return Response.json({ error: "File ID required" }, { status: 400 });
   }
 
-  // Get file content as base64
-  const driveRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+  try {
+    // Get metadata first
+    const metaRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType,size`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
 
-  if (!driveRes.ok) {
-    return Response.json({ error: `Drive error: ${driveRes.status}` }, { status: driveRes.status });
+    if (!metaRes.ok) {
+      return Response.json({ error: `Drive metadata error: ${metaRes.status}` }, { status: metaRes.status });
+    }
+
+    const meta = await metaRes.json();
+
+    // Download file content
+    const driveRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    if (!driveRes.ok) {
+      return Response.json({ error: `Drive download error: ${driveRes.status}` }, { status: driveRes.status });
+    }
+
+    const buffer = await driveRes.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    // Convert to base64 in chunks (avoid call stack overflow on large files)
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64 = btoa(binary);
+    const dataUrl = `data:${meta.mimeType};base64,${base64}`;
+
+    return Response.json({
+      name: meta.name,
+      mimeType: meta.mimeType,
+      size: meta.size,
+      dataUrl,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: `Drive file error: ${msg}` }, { status: 500 });
   }
-
-  // Get metadata for mime type
-  const metaRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType,size`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  const meta = await metaRes.json();
-
-  const buffer = await driveRes.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-  const dataUrl = `data:${meta.mimeType};base64,${base64}`;
-
-  return Response.json({
-    name: meta.name,
-    mimeType: meta.mimeType,
-    size: meta.size,
-    dataUrl,
-  });
 }

@@ -149,7 +149,9 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scrapeData, researchData, mediaData: lightMedia, mediaPrompt: mediaPrompt || undefined, siteDescription: siteDescription || undefined, driveFiles: lightDrive }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: { html?: string; error?: string; success?: boolean };
+      try { data = JSON.parse(text); } catch { setGenerateStatus("error"); addLog(`Claude: שגיאה — ${text.slice(0, 200)}`, "error"); return; }
       if (data.error) { setGenerateStatus("error"); addLog(`Claude: שגיאה — ${data.error}`, "error"); return; }
 
       // Replace {{IMG_X}} placeholders with actual data URLs client-side

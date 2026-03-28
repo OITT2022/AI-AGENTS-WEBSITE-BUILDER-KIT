@@ -1,17 +1,18 @@
 import { getSession } from "../../../lib/auth";
 
-export const runtime = "edge";
-
 export async function GET() {
   const session = await getSession();
-  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
-    return Response.json({ error: "GOOGLE_CLIENT_ID not configured" }, { status: 500 });
+    return new Response("GOOGLE_CLIENT_ID not configured", { status: 500 });
   }
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || "https://site-builder-v2-phi.vercel.app"}/api/auth/google/callback`;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://site-builder-v2-phi.vercel.app";
+  const redirectUri = `${baseUrl}/api/auth/google/callback`;
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -26,5 +27,10 @@ export async function GET() {
     state: session.userId,
   });
 
-  return Response.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+
+  return new Response(null, {
+    status: 302,
+    headers: { Location: url },
+  });
 }

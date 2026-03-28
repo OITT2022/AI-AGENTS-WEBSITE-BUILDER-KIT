@@ -183,6 +183,22 @@ export default function AuthGate() {
 
   return (
     <WebGLBackground>
+      {/* OITT Logo — top left overlay */}
+      <img
+        src="/oitt-logo.png"
+        alt="OITT"
+        style={{
+          position: "fixed",
+          top: "1.5rem",
+          left: "1.5rem",
+          width: "64px",
+          height: "64px",
+          objectFit: "contain",
+          zIndex: 20,
+          opacity: 0.9,
+          filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))",
+        }}
+      />
       <div className="auth-card">
         {step === "register" && (
           <form onSubmit={handleRegister}>

@@ -155,27 +155,22 @@ export default function SiteBuilder({ user }: SiteBuilderProps) {
         setGenerateStatus("error"); addLog(`Claude: שגיאה — ${data.error || "Unknown error"}`, "error"); return;
       }
 
-      // Read SSE stream
+      // Read SSE stream — extract all {"text":"..."} chunks
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let fullText = "";
-      let buffer = "";
+      let raw = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.text) fullText += parsed.text;
-          } catch { /* skip */ }
-        }
+        raw += decoder.decode(value, { stream: true });
+      }
+
+      // Extract all text chunks using regex (handles newlines in JSON values)
+      const chunks = raw.matchAll(/\{"text":"((?:[^"\\]|\\.)*)"\}/g);
+      for (const match of chunks) {
+        fullText += match[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\").replace(/\\t/g, "\t");
       }
 
       // Clean up markdown fences

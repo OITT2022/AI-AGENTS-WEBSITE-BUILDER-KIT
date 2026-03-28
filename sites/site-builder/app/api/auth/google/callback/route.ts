@@ -63,17 +63,7 @@ export async function GET(req: Request) {
     headers.append("Set-Cookie", cookie);
   }
 
-  return new Response(
-    `<!DOCTYPE html>
-<html><body>
-<p style="font-family:sans-serif;text-align:center;margin-top:40px;">Google Drive מחובר בהצלחה!</p>
-<script>
-  setTimeout(function() {
-    try { if (window.opener) window.opener.postMessage({ type: "google-auth-success" }, "*"); } catch(e) {}
-    setTimeout(function() { window.close(); }, 500);
-  }, 300);
-</script>
-</body></html>`,
-    { headers }
-  );
+  // Redirect back to main page
+  headers.set("Location", "/");
+  return new Response(null, { status: 302, headers });
 }

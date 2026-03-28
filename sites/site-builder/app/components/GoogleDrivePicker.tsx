@@ -33,48 +33,20 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   const [showBrowser, setShowBrowser] = useState(false);
   const [error, setError] = useState("");
 
-  // Check connection on mount
-  useEffect(() => {
-    checkConn();
-  }, []);
+  useEffect(() => { checkConn(); }, []);
 
   async function checkConn() {
     setChecking(true);
     try {
       const res = await fetch("/api/drive/files");
-      if (res.ok) {
-        setConnected(true);
-      } else {
-        setConnected(false);
-      }
-    } catch {
-      setConnected(false);
-    }
+      setConnected(res.ok);
+    } catch { setConnected(false); }
     setChecking(false);
   }
 
+  // Redirect to Google OAuth (full page redirect, no popup)
   function handleConnect() {
-    const popup = window.open("/api/auth/google", "google-auth", "width=500,height=700,popup=yes");
-    if (!popup) return;
-
-    const poll = setInterval(async () => {
-      try {
-        if (popup.closed) {
-          clearInterval(poll);
-          // Wait for cookies, then check
-          await new Promise((r) => setTimeout(r, 1000));
-          const res = await fetch("/api/drive/files");
-          if (res.ok) {
-            setConnected(true);
-            const data = await res.json();
-            setFiles(sortFiles(data.files ?? []));
-            setShowBrowser(true);
-          }
-        }
-      } catch {
-        clearInterval(poll);
-      }
-    }, 500);
+    window.location.href = "/api/auth/google";
   }
 
   async function handleDisconnect() {
@@ -132,32 +104,18 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   }
 
   function navTo(index: number) {
-    if (index === -1) {
-      setFolderStack([]);
-      loadFolder();
-    } else {
-      const stack = folderStack.slice(0, index + 1);
-      setFolderStack(stack);
-      loadFolder(stack[stack.length - 1].id);
-    }
+    if (index === -1) { setFolderStack([]); loadFolder(); }
+    else { const s = folderStack.slice(0, index + 1); setFolderStack(s); loadFolder(s[s.length - 1].id); }
     setSelected(new Set());
   }
 
   function toggleFile(id: string) {
-    setSelected((prev) => {
-      const s = new Set(prev);
-      if (s.has(id)) s.delete(id); else s.add(id);
-      return s;
-    });
+    setSelected((prev) => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s; });
   }
 
   function selectAllFiles() {
-    const nonFolders = files.filter((f) => !isFolder(f.mimeType));
-    if (selected.size === nonFolders.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(nonFolders.map((f) => f.id)));
-    }
+    const nf = files.filter((f) => !isFolder(f.mimeType));
+    setSelected(selected.size === nf.length ? new Set() : new Set(nf.map((f) => f.id)));
   }
 
   async function addSelected() {
@@ -171,9 +129,7 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
           const res = await fetch(`/api/drive/file?id=${id}`);
           const data = await res.json();
           result.push({ id, name: file.name, mimeType: file.mimeType, dataUrl: data.dataUrl });
-        } catch {
-          result.push({ id, name: file.name, mimeType: file.mimeType });
-        }
+        } catch { result.push({ id, name: file.name, mimeType: file.mimeType }); }
       } else {
         result.push({ id, name: file.name, mimeType: file.mimeType });
       }
@@ -187,8 +143,7 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
     return [...list].sort((a, b) => {
       const af = isFolder(a.mimeType) ? 0 : 1;
       const bf = isFolder(b.mimeType) ? 0 : 1;
-      if (af !== bf) return af - bf;
-      return a.name.localeCompare(b.name);
+      return af !== bf ? af - bf : a.name.localeCompare(b.name);
     });
   }
 
@@ -212,18 +167,16 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
     return `${(b / 1048576).toFixed(1)}MB`;
   }
 
-  // ── Checking ──
   if (checking) {
     return (
       <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-          <span className="spinner" /> בודק חיבור ל-Google Drive...
+          <span className="spinner" /> בודק חיבור...
         </div>
       </div>
     );
   }
 
-  // ── Not connected ──
   if (!connected) {
     return (
       <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}>
@@ -235,7 +188,6 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
     );
   }
 
-  // ── Connected, browser closed ──
   if (!showBrowser) {
     return (
       <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}>
@@ -250,12 +202,10 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
     );
   }
 
-  // ── File browser ──
   const nonFolders = files.filter((f) => !isFolder(f.mimeType));
 
   return (
     <div className="drive-panel">
-      {/* Header */}
       <div className="drive-header">
         <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>📂 Drive</span>
         <div style={{ display: "flex", gap: "0.25rem" }}>
@@ -269,14 +219,12 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
         </div>
       </div>
 
-      {/* Search + browse */}
       <div style={{ display: "flex", gap: "0.25rem", padding: "0.35rem 0.5rem", borderBottom: "1px solid var(--border)" }}>
         <input className="form-input" placeholder="חיפוש..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()} style={{ flex: 1, fontSize: "0.75rem", padding: "0.3rem 0.5rem" }} />
         {search && <button className="btn btn-secondary" onClick={handleSearchSubmit} style={{ fontSize: "0.7rem", padding: "0.25rem 0.4rem" }}>חפש</button>}
         <button className="btn btn-primary" onClick={handleBrowse} style={{ fontSize: "0.7rem", padding: "0.25rem 0.4rem" }}>עיון</button>
       </div>
 
-      {/* Breadcrumbs */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.2rem", padding: "0.3rem 0.5rem", fontSize: "0.72rem", color: "var(--text-muted)", borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
         <button onClick={() => navTo(-1)} style={{ background: "none", border: "none", cursor: "pointer", color: folderStack.length > 0 ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: "0.72rem", fontFamily: "inherit", padding: 0 }}>My Drive</button>
         {folderStack.map((f, i) => (
@@ -292,21 +240,16 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
         )}
       </div>
 
-      {error && <p style={{ color: "var(--error)", fontSize: "0.72rem", padding: "0.3rem 0.5rem" }}>{error}</p>}
+      {error && <p style={{ color: "var(--error)", fontSize: "0.72rem", padding: "0.3rem 0.5rem", background: "var(--error-bg)", margin: 0 }}>{error}</p>}
 
-      {/* Files */}
       <div className="drive-files">
         {loading ? (
           <div style={{ textAlign: "center", padding: "0.75rem" }}><span className="spinner" /></div>
-        ) : files.length === 0 ? (
+        ) : files.length === 0 && !error ? (
           <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "0.75rem", fontSize: "0.78rem" }}>תיקייה ריקה</p>
         ) : (
           files.map((file) => (
-            <div
-              key={file.id}
-              className={`drive-file-row ${selected.has(file.id) ? "selected" : ""}`}
-              onClick={() => isFolder(file.mimeType) ? openFolder(file.id, file.name) : toggleFile(file.id)}
-            >
+            <div key={file.id} className={`drive-file-row ${selected.has(file.id) ? "selected" : ""}`} onClick={() => isFolder(file.mimeType) ? openFolder(file.id, file.name) : toggleFile(file.id)}>
               {!isFolder(file.mimeType) ? (
                 <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggleFile(file.id)} onClick={(e) => e.stopPropagation()} style={{ accentColor: "var(--primary)", flexShrink: 0 }} />
               ) : <span style={{ width: 16, flexShrink: 0 }} />}

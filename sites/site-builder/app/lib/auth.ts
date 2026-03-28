@@ -9,6 +9,7 @@ export interface SessionUser {
   email: string;
   firstName: string;
   lastName: string;
+  admin?: boolean;
 }
 
 function getSecret() {
@@ -36,6 +37,7 @@ export async function verifyToken(token: string): Promise<SessionUser> {
     email: payload.email as string,
     firstName: payload.firstName as string,
     lastName: payload.lastName as string,
+    admin: payload.admin === true,
   };
 }
 

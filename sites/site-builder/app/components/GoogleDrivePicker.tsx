@@ -168,15 +168,11 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   // ── Not connected state ──
   if (connected === false) {
     return (
-      <div className="drive-panel">
-        <div className="drive-connect">
-          <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📂</div>
-          <p style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Google Drive</p>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
-            חבר את Google Drive כדי לייבא לוגואים, תמונות וחומרים לאתר
-          </p>
-          <button className="btn btn-primary" onClick={handleConnect} style={{ fontSize: "0.8rem" }}>
-            התחבר ל-Google
+      <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "0.85rem" }}>📂 Google Drive</span>
+          <button className="btn btn-primary" onClick={handleConnect} style={{ fontSize: "0.72rem", padding: "0.25rem 0.6rem" }}>
+            התחבר
           </button>
         </div>
       </div>
@@ -186,9 +182,9 @@ export default function GoogleDrivePicker({ onFilesSelected }: GoogleDrivePicker
   // ── Loading state ──
   if (connected === null) {
     return (
-      <div className="drive-panel">
-        <div className="drive-connect">
-          <span className="spinner" /> בודק חיבור...
+      <div className="drive-panel" style={{ padding: "0.5rem 0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+          <span className="spinner" /> בודק חיבור ל-Google Drive...
         </div>
       </div>
     );

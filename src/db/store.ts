@@ -47,7 +47,7 @@ export async function upsertEntity(entity: SourceEntity): Promise<SourceEntity> 
   const row = await queryOne<SourceEntity>(
     `INSERT INTO source_entities (id, client_id, entity_type, source_entity_id, source_updated_at, source_status, country, city, area, title_he, title_en, listing_url, campaign_ready, current_snapshot_id, created_at, updated_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-     ON CONFLICT (id) DO UPDATE SET
+     ON CONFLICT (entity_type, source_entity_id) DO UPDATE SET
        client_id=EXCLUDED.client_id, source_updated_at=EXCLUDED.source_updated_at, source_status=EXCLUDED.source_status,
        country=EXCLUDED.country, city=EXCLUDED.city, area=EXCLUDED.area,
        title_he=EXCLUDED.title_he, title_en=EXCLUDED.title_en, listing_url=EXCLUDED.listing_url,
@@ -123,8 +123,12 @@ export async function upsertCandidate(candidate: CampaignCandidate): Promise<voi
   await query(
     `INSERT INTO campaign_candidates (id, client_id, entity_id, candidate_date, score_total, score_freshness, score_media, score_business, score_urgency, score_history, recommended_angle, recommended_audiences, recommended_platforms, selected, selection_reason, created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-     ON CONFLICT (id) DO UPDATE SET
-       score_total=EXCLUDED.score_total, selected=EXCLUDED.selected, selection_reason=EXCLUDED.selection_reason`,
+     ON CONFLICT (entity_id, candidate_date) DO UPDATE SET
+       client_id=EXCLUDED.client_id, score_total=EXCLUDED.score_total, score_freshness=EXCLUDED.score_freshness,
+       score_media=EXCLUDED.score_media, score_business=EXCLUDED.score_business, score_urgency=EXCLUDED.score_urgency,
+       score_history=EXCLUDED.score_history, recommended_angle=EXCLUDED.recommended_angle,
+       recommended_audiences=EXCLUDED.recommended_audiences, recommended_platforms=EXCLUDED.recommended_platforms,
+       selected=EXCLUDED.selected, selection_reason=EXCLUDED.selection_reason`,
     [candidate.id, candidate.client_id ?? null, candidate.entity_id, candidate.candidate_date,
      candidate.score_total, candidate.score_freshness, candidate.score_media, candidate.score_business,
      candidate.score_urgency, candidate.score_history, candidate.recommended_angle,

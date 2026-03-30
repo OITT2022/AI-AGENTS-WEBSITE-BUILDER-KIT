@@ -90,56 +90,10 @@
 </div>
 
 <div class="container">
-  <!-- Google Drive Setup -->
-  <div class="drive-setup" id="drive-setup">
-    <div class="drive-setup-header">
-      <h2>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        Google Drive Connection
-      </h2>
-      <div class="drive-status" id="drive-status">
-        <div class="drive-dot off"></div>
-        <span>Checking...</span>
-      </div>
-    </div>
-    <div id="drive-setup-body">
-      <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Upload a Google Service Account JSON key to connect Drive folders. Share each client's folder with the service account email.</p>
-      <div style="display:flex;gap:10px;align-items:center">
-        <div class="file-input-wrap">
-          <button class="btn btn-primary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Upload Service Account JSON
-          </button>
-          <input type="file" accept=".json" onchange="uploadCredentials(this)">
-        </div>
-        <span style="color:var(--text2);font-size:12px">or</span>
-        <button class="btn" onclick="pasteCredentials()">Paste JSON</button>
-      </div>
-    </div>
-  </div>
-
   <div id="clients-content"><div class="empty-state"><h3>Loading...</h3></div></div>
 </div>
 
-<!-- Drive File Browser Modal -->
-<div class="modal-overlay" id="drive-modal" style="display:none">
-  <div class="modal" style="max-width:700px">
-    <div class="modal-header">
-      <h3 id="drive-modal-title">Drive Media Files</h3>
-      <button class="modal-close" onclick="closeDriveModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div id="drive-modal-stats" style="margin-bottom:12px;font-size:13px;color:var(--text2)"></div>
-      <div id="drive-files-content"><div class="loading">Loading files...</div></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeDriveModal()">Close</button>
-      <button class="btn btn-primary" id="btn-drive-sync" onclick="syncDriveForClient()">Sync Media to Campaign</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal -->
+<!-- Modal (kept for backwards compat but Add/Edit uses full page now) -->
 <div class="modal-overlay" id="modal" style="display:none">
   <div class="modal">
     <div class="modal-header">
@@ -203,7 +157,6 @@
 async function init() {
   await requireLogin();
   injectNav('clients');
-  loadDriveStatus();
   loadClients();
 }
 

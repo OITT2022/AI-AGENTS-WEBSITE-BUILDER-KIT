@@ -138,7 +138,17 @@
       </div>
 
       <div id="drive-not-configured" style="display:none">
-        <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Google Drive service account is not configured. Upload a service account JSON key in <a href="/dashboard/connector.html" style="color:var(--primary)">Settings</a> first.</p>
+        <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Upload your Google Service Account JSON key to connect Google Drive.</p>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+          <div style="position:relative;display:inline-block">
+            <button class="btn btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload Service Account JSON
+            </button>
+            <input type="file" accept=".json" onchange="uploadDriveCredentials(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer">
+          </div>
+        </div>
+        <div class="hint" style="margin-top:8px">Get this from Google Cloud Console > IAM > Service Accounts > Keys</div>
       </div>
 
       <div id="drive-configured" style="display:none">
@@ -429,6 +439,26 @@ async function saveClient() {
 
   btn.disabled = false;
   btn.textContent = 'Save Client';
+}
+
+async function uploadDriveCredentials(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('credentials', file);
+  const res = await fetch('/api/drive/credentials', {
+    method: 'POST', credentials: 'include',
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+    body: formData,
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast(`Connected! Service account: ${data.service_account_email}`);
+    await checkDrive();
+  } else {
+    showToast('Error: ' + (data.error || 'Invalid file'));
+  }
+  input.value = '';
 }
 
 function extractId(url) {

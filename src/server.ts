@@ -458,6 +458,25 @@ app.post('/api/findus/sync', async (req, res) => {
 
 // ── Root ──
 
+// Clear all campaign data (keeps clients and users)
+app.post('/api/reset-campaigns', requireRole('admin'), async (_req: AuthRequest, res) => {
+  try {
+    const { sql } = await import('./db/neon');
+    await sql('DELETE FROM approval_tasks');
+    await sql('DELETE FROM qa_reviews');
+    await sql('DELETE FROM creative_variants');
+    await sql('DELETE FROM creative_batches');
+    await sql('DELETE FROM campaign_candidates');
+    await sql('DELETE FROM entity_change_events');
+    await sql('DELETE FROM entity_snapshots');
+    await sql('DELETE FROM source_entities');
+    await sql('DELETE FROM publish_actions');
+    await sql('DELETE FROM performance_metrics');
+    await sql('DELETE FROM source_sync_runs');
+    res.json({ success: true, message: 'All campaign data cleared. Clients and users preserved.' });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 app.get('/', (_req, res) => { res.redirect('/dashboard/clients.html'); });
 app.get('/dashboard', (_req, res) => { res.redirect('/dashboard/clients.html'); });
 

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ad Preview - Marketing Agent</title>
+  <style>
+    :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#242836;--border:#2e3345;--text:#e4e6f0;--text2:#9da3b7;--primary:#6366f1;--radius:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+    .header h1{font-size:20px;font-weight:700}
+    .back-link{color:var(--text2);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:6px}.back-link:hover{color:var(--text)}
+    .container{padding:28px 32px;max-width:1400px;margin:0 auto}
+
+    .platform-tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--surface);border-radius:var(--radius);padding:4px;border:1px solid var(--border);width:fit-content}
+    .ptab{padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text2);transition:all .15s;border:none;background:transparent;display:flex;align-items:center;gap:8px}
+    .ptab.active{color:#fff}
+    .ptab.fb.active{background:#1877f2}
+    .ptab.ig.active{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
+    .ptab.tk.active{background:#000;border:1px solid #333}
+    .ptab:hover:not(.active){background:var(--surface2);color:var(--text)}
+
+    .preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,420px));gap:24px;justify-content:center}
+
+    /* ── Facebook Preview ── */
+    .fb-card{background:#fff;border-radius:8px;max-width:420px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#050505;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+    .fb-header{padding:12px 16px;display:flex;align-items:center;gap:10px}
+    .fb-avatar{width:40px;height:40px;border-radius:50%;background:#ddd;overflow:hidden}
+    .fb-avatar img{width:100%;height:100%;object-fit:cover}
+    .fb-name{font-weight:700;font-size:14px;color:#050505}
+    .fb-meta{font-size:12px;color:#65676B}
+    .fb-text{padding:0 16px 12px;font-size:15px;line-height:1.5;color:#050505;white-space:pre-wrap}
+    .fb-image{width:100%;aspect-ratio:1.91/1;object-fit:cover;display:block}
+    .fb-link-bar{background:#f0f2f5;padding:12px 16px;border-top:1px solid #ddd}
+    .fb-link-domain{font-size:12px;color:#65676B;text-transform:uppercase}
+    .fb-link-title{font-size:16px;font-weight:700;color:#050505;margin-top:2px}
+    .fb-link-desc{font-size:14px;color:#65676B;margin-top:2px}
+    .fb-cta{display:flex;justify-content:space-between;align-items:center;padding:0 16px}
+    .fb-cta-btn{background:#e4e6eb;color:#050505;border:none;padding:8px 20px;border-radius:6px;font-weight:600;font-size:14px;cursor:default}
+    .fb-actions{display:flex;gap:4px;padding:8px 16px;border-top:1px solid #ddd}
+    .fb-action{flex:1;text-align:center;padding:8px;border-radius:4px;font-size:14px;font-weight:600;color:#65676B}
+
+    /* ── Instagram Preview ── */
+    .ig-card{background:#000;border-radius:8px;max-width:420px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#fff;overflow:hidden;border:1px solid #262626}
+    .ig-header{padding:10px 14px;display:flex;align-items:center;gap:10px}
+    .ig-avatar{width:32px;height:32px;border-radius:50%;background:#333;overflow:hidden;border:2px solid #c13584}
+    .ig-avatar img{width:100%;height:100%;object-fit:cover}
+    .ig-name{font-weight:600;font-size:13px;flex:1}
+    .ig-sponsored{font-size:11px;color:#a8a8a8}
+    .ig-dots{color:#a8a8a8;font-size:18px;letter-spacing:2px}
+    .ig-image{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
+    .ig-actions-bar{padding:10px 14px;display:flex;gap:16px;align-items:center}
+    .ig-action-icon{width:24px;height:24px;color:#fff}
+    .ig-caption{padding:0 14px 12px;font-size:13px;line-height:1.5}
+    .ig-caption .name{font-weight:600}
+    .ig-hashtags{color:#e0f1ff;font-size:13px;margin-top:4px}
+    .ig-cta-bar{background:#0095f6;text-align:center;padding:10px;font-weight:600;font-size:14px;cursor:default}
+
+    /* ── TikTok Preview ── */
+    .tk-card{background:#000;border-radius:12px;max-width:320px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#fff;overflow:hidden;position:relative;aspect-ratio:9/16;border:1px solid #333}
+    .tk-bg{position:absolute;inset:0;z-index:0}
+    .tk-bg img{width:100%;height:100%;object-fit:cover;filter:brightness(.7)}
+    .tk-overlay{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:16px}
+    .tk-right{position:absolute;right:12px;bottom:120px;display:flex;flex-direction:column;gap:20px;align-items:center;z-index:2}
+    .tk-right-btn{text-align:center;font-size:11px}
+    .tk-right-icon{width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:3px}
+    .tk-avatar{width:44px;height:44px;border-radius:50%;border:2px solid #fff;overflow:hidden;margin-bottom:12px}
+    .tk-avatar img{width:100%;height:100%;object-fit:cover}
+    .tk-text{max-width:260px}
+    .tk-name{font-weight:700;font-size:15px;margin-bottom:4px}
+    .tk-desc{font-size:13px;line-height:1.5;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .tk-cta{background:#fe2c55;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-weight:700;font-size:14px;cursor:default;margin-top:8px;display:inline-block}
+    .tk-hook{position:absolute;top:60px;left:16px;right:60px;z-index:2;font-size:22px;font-weight:800;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+    .tk-sponsored{position:absolute;top:14px;left:14px;z-index:2;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
+
+    .loading{text-align:center;padding:40px;color:var(--text2)}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--text2)}.empty-state h3{margin-bottom:8px;color:var(--text)}
+    .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid #22c55e;color:var(--text);padding:14px 24px;border-radius:var(--radius);font-size:14px;z-index:1000;animation:slideIn .3s ease}
+    @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .variant-label{text-align:center;font-size:12px;color:var(--text2);margin-top:8px;margin-bottom:4px}
+    @media(max-width:768px){.container{padding:16px}.preview-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="page-title">Ad Preview</h1>
+  <div style="display:flex;gap:10px;align-items:center">
+    <a class="back-link" id="back-link" href="/dashboard/clients.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back
+    </a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="platform-tabs">
+    <button class="ptab fb active" onclick="filterPlatform('all')">All</button>
+    <button class="ptab fb" onclick="filterPlatform('facebook')">Facebook</button>
+    <button class="ptab ig" onclick="filterPlatform('instagram')">Instagram</button>
+    <button class="ptab tk" onclick="filterPlatform('tiktok')">TikTok</button>
+  </div>
+  <div id="previews" class="preview-grid"><div class="loading">Loading previews...</div></div>
+</div>
+
+<script src="/dashboard/shared.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const clientId = params.get('client');
+const batchId = params.get('batch');
+let allVariants = [];
+
+async function init() {
+  await requireLogin();
+  injectNav('clients');
+
+  if (clientId) {
+    document.getElementById('back-link').href = `/dashboard/campaign.html?client=${clientId}`;
+    const client = await apiCall(`/api/clients/${clientId}`);
+    document.getElementById('page-title').textContent = `Ad Preview — ${client.company || client.name || ''}`;
+  }
+
+  await loadPreviews();
+}
+
+async function loadPreviews() {
+  let batches;
+  if (clientId) {
+    batches = await apiCall(`/api/clients/${clientId}/creatives`);
+  } else {
+    batches = await apiCall('/api/creatives');
+  }
+
+  allVariants = [];
+  for (const b of batches) {
+    for (const v of (b.variants || [])) {
+      allVariants.push({ ...v, entity: b.entity, batch: b });
+    }
+  }
+
+  if (allVariants.length === 0) {
+    document.getElementById('previews').innerHTML = '<div class="empty-state"><h3>No creatives to preview</h3><p>Sync a client and run the pipeline first.</p></div>';
+    return;
+  }
+
+  renderPreviews(allVariants);
+}
+
+function filterPlatform(platform) {
+  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+  if (platform === 'all') {
+    document.querySelector('.ptab:first-child').classList.add('active');
+    renderPreviews(allVariants);
+  } else {
+    document.querySelector(`.ptab.${platform === 'facebook' ? 'fb' : platform === 'instagram' ? 'ig' : 'tk'}`).classList.add('active');
+    renderPreviews(allVariants.filter(v => v.platform === platform));
+  }
+}
+
+function renderPreviews(variants) {
+  const el = document.getElementById('previews');
+  el.innerHTML = variants.map(v => {
+    const copy = v.copy_json || {};
+    const media = v.media_plan_json || {};
+    const heroImg = media.hero_image || (media.selected_images || [])[0] || '';
+    const entityName = v.entity?.title_he || v.entity?.title_en || '';
+    const lang = copy.language || 'en';
+
+    switch(v.platform) {
+      case 'facebook': return renderFacebook(copy, heroImg, entityName, lang);
+      case 'instagram': return renderInstagram(copy, heroImg, media, entityName, lang);
+      case 'tiktok': return renderTikTok(copy, heroImg, entityName, lang);
+      default: return '';
+    }
+  }).join('');
+}
+
+function renderFacebook(c, img, name, lang) {
+  return `
+    <div>
+      <div class="fb-card">
+        <div class="fb-header">
+          <div class="fb-avatar"><div style="width:40px;height:40px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px">RE</div></div>
+          <div>
+            <div class="fb-name">Real Estate Marketing</div>
+            <div class="fb-meta">Sponsored · <svg width="12" height="12" viewBox="0 0 16 16" fill="#65676B"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.5 8.5a.5.5 0 0 1-.5.5H8a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 1 0v4h3a.5.5 0 0 1 .5.5z"/></svg></div>
+          </div>
+        </div>
+        <div class="fb-text">${esc(c.primary_text || '')}</div>
+        ${img ? `<img class="fb-image" src="${esc(img)}" onerror="this.style.display='none'">` : ''}
+        <div class="fb-link-bar">
+          <div class="fb-link-domain">findus.co.il</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="fb-link-title">${esc(c.headline || '')}</div>
+              <div class="fb-link-desc">${esc(c.description || '')}</div>
+            </div>
+            <button class="fb-cta-btn">${esc(c.cta || 'Learn More')}</button>
+          </div>
+        </div>
+        <div class="fb-actions">
+          <div class="fb-action">👍 Like</div>
+          <div class="fb-action">💬 Comment</div>
+          <div class="fb-action">↗ Share</div>
+        </div>
+      </div>
+      <div class="variant-label">Facebook · ${c.language === 'he' ? 'Hebrew' : 'English'}</div>
+    </div>`;
+}
+
+function renderInstagram(c, img, media, name, lang) {
+  const images = media.selected_images || [];
+  const isCarousel = images.length > 1;
+  return `
+    <div>
+      <div class="ig-card">
+        <div class="ig-header">
+          <div class="ig-avatar"><div style="width:28px;height:28px;background:linear-gradient(135deg,#6366f1,#818cf8);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px">RE</div></div>
+          <div style="flex:1">
+            <div class="ig-name">realestate.marketing</div>
+            <div class="ig-sponsored">Sponsored</div>
+          </div>
+          <div class="ig-dots">•••</div>
+        </div>
+        ${img ? `<img class="ig-image" src="${esc(img)}" onerror="this.style.background='#262626'">` : '<div class="ig-image" style="background:#262626"></div>'}
+        ${isCarousel ? `<div style="text-align:center;padding:6px 0;font-size:20px;letter-spacing:6px;color:#555">${images.slice(0,5).map((_,i) => i===0 ? '●' : '○').join('')}</div>` : ''}
+        <div class="ig-actions-bar">
+          <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <div style="flex:1"></div>
+          <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="ig-caption">
+          <span class="name">realestate.marketing</span> ${esc(c.caption || '')}
+          ${c.hashtags ? `<div class="ig-hashtags">${(c.hashtags || []).join(' ')}</div>` : ''}
+        </div>
+        ${c.cta ? `<div class="ig-cta-bar">${esc(c.cta)}</div>` : ''}
+      </div>
+      <div class="variant-label">Instagram · ${c.language === 'he' ? 'Hebrew' : 'English'}</div>
+    </div>`;
+}
+
+function renderTikTok(c, img, name, lang) {
+  return `
+    <div>
+      <div class="tk-card">
+        <div class="tk-bg">${img ? `<img src="${esc(img)}" onerror="this.style.background='#111'">` : '<div style="width:100%;height:100%;background:#111"></div>'}</div>
+        <div class="tk-sponsored">Sponsored</div>
+        <div class="tk-hook">${esc(c.hook || '')}</div>
+        <div class="tk-right">
+          <div class="tk-avatar"><div style="width:40px;height:40px;background:linear-gradient(135deg,#6366f1,#818cf8);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">RE</div></div>
+          <div class="tk-right-btn"><div class="tk-right-icon">❤️</div>24.5K</div>
+          <div class="tk-right-btn"><div class="tk-right-icon">💬</div>482</div>
+          <div class="tk-right-btn"><div class="tk-right-icon">↗</div>Share</div>
+        </div>
+        <div class="tk-overlay">
+          <div class="tk-text">
+            <div class="tk-name">@realestate.mkt</div>
+            <div class="tk-desc">${esc(c.voiceover_script || c.on_screen_text?.join(' · ') || '')}</div>
+            <div class="tk-cta">${esc(c.closing_cta || c.cta || 'Learn More')}</div>
+          </div>
+        </div>
+      </div>
+      <div class="variant-label">TikTok · ${c.language === 'he' ? 'Hebrew' : 'English'}</div>
+    </div>`;
+}
+
+function esc(s) { return escapeHtml(s); }
+
+init();
+</script>
+</body>
+</html>

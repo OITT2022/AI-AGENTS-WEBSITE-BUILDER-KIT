@@ -80,6 +80,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
       Sync API
     </button>
+    <a class="btn" id="btn-preview" href="#" style="text-decoration:none;display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Preview Ads
+    </a>
     <button class="btn btn-primary" id="btn-pipeline" onclick="runPipeline()">Run Pipeline</button>
   </div>
 </div>
@@ -111,6 +115,8 @@ async function init() {
   document.title = `${clientData.company} - Campaign Dashboard`;
   if (clientData.api_config?.api_token) document.getElementById('btn-sync').style.display = 'inline-flex';
   if (clientData.google_drive_folder_id || clientData.google_drive_folder_url) document.getElementById('btn-drive').style.display = 'inline-flex';
+  document.getElementById('btn-preview').href = `/dashboard/preview.html?client=${clientId}`;
+  document.getElementById('btn-preview').style.display = 'inline-flex';
   loadAll();
 }
 

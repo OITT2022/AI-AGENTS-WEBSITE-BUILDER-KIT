@@ -431,12 +431,30 @@ function previewTK(c, img) {
 // ── Approvals ──
 
 async function renderApprovals(el) {
-  const tasks = await apiCall(`/api/clients/${clientId}/approvals`);
-  if (!tasks.length) { el.innerHTML = '<div class="empty-state"><h3>No approvals</h3></div>'; return; }
+  const allTasks = await apiCall(`/api/clients/${clientId}/approvals`);
+  const tasks = allTasks.filter(t => t.status === 'approved' || t.status === 'approved_with_edits');
+  if (!tasks.length) { el.innerHTML = '<div class="empty-state"><h3>No approved ads yet</h3><p>Approve creatives in the Creatives tab first.</p></div>'; return; }
   el.innerHTML = `<div class="card-grid">${tasks.map(t=>{
-    const v=t.variant||{};const copy=v.copy_json||{};const sb=t.status==='approved'?'badge-green':t.status==='rejected'?'badge-red':'badge-yellow';
-    let pt='';if(copy.primary_text)pt=copy.primary_text;else if(copy.caption)pt=copy.caption;else if(copy.hook)pt=`${copy.hook}\n\n${copy.voiceover_script||''}`;
-    return `<div class="card"><div class="card-header"><div><h3>${t.entity?.title_he||t.entity?.title_en||'-'}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${v.platform?`<span class="platform-tag platform-${v.platform}">${v.platform}</span>`:''}<span style="margin-left:6px">${copy.language||''}</span></div></div><span class="badge ${sb}">${t.status}</span></div><div class="card-body">${renderMedia(v.media_plan_json)}<div class="creative-preview">${esc(pt)}</div>${t.decision_notes?`<div style="margin-top:8px;font-size:13px;color:var(--text2)">Notes: ${esc(t.decision_notes)}</div>`:''}</div>${t.status==='pending'?`<div class="card-footer"><button class="btn btn-green" onclick="approve('${t.id}','approved')">Approve</button><button class="btn" onclick="approve('${t.id}','approved_with_edits')">w/ Edits</button><button class="btn btn-red" onclick="approve('${t.id}','rejected')">Reject</button></div>`:''}</div>`;
+    const v=t.variant||{};const copy=v.copy_json||{};const media=v.media_plan_json||{};
+    const heroImg = media.hero_image || (media.selected_images||[])[0] || '';
+    const platform = v.platform || 'facebook';
+    // Render embedded platform preview
+    let preview = '';
+    if (platform === 'facebook') preview = previewFB(copy, heroImg);
+    else if (platform === 'instagram') preview = previewIG(copy, heroImg, media);
+    else if (platform === 'tiktok') preview = previewTK(copy, heroImg);
+    return `<div class="card">
+      <div class="card-header">
+        <div><h3>${t.entity?.title_he||t.entity?.title_en||'-'}</h3>
+        <div style="color:var(--text2);font-size:12px;margin-top:4px">
+          <span class="platform-tag platform-${platform}">${platform}</span>
+          <span style="margin-left:6px">${copy.language==='he'?'Hebrew':'English'} · V#${v.variant_no||1}</span>
+        </div></div>
+        <span class="badge badge-green">Approved</span>
+      </div>
+      <div class="card-body" style="padding:12px">${preview}</div>
+      ${t.decision_notes?`<div style="padding:8px 20px 12px;font-size:13px;color:var(--text2)">Notes: ${esc(t.decision_notes)}</div>`:''}
+    </div>`;
   }).join('')}</div>`;
 }
 

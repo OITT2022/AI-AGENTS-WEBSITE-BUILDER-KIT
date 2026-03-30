@@ -214,14 +214,24 @@ async function loadClients() {
     return;
   }
 
-  // Fetch dashboard stats for each client
-  const enriched = await Promise.all(clients.map(async c => {
+  // Render cards immediately without stats
+  renderClientCards(clients.map(c => ({ ...c, stats: {} })));
+
+  // Lazy-load stats one by one
+  for (const c of clients) {
     try {
       const stats = await apiCall(`/api/clients/${c.id}/dashboard`);
-      return { ...c, stats };
-    } catch { return { ...c, stats: {} }; }
-  }));
+      const el = document.getElementById(`client-stats-${c.id}`);
+      if (el) el.innerHTML = `
+        <div class="detail-row"><span class="label">Properties</span><span>${stats.total_entities || 0} (${stats.campaign_ready || 0} ready)</span></div>
+        <div class="detail-row"><span class="label">Creatives</span><span>${stats.total_variants || 0}</span></div>
+        <div class="detail-row"><span class="label">Pending Approval</span><span style="color:${stats.approvals_pending > 0 ? 'var(--yellow)' : 'var(--text2)'}">${stats.approvals_pending || 0}</span></div>
+      `;
+    } catch {}
+  }
+}
 
+function renderClientCards(enriched) {
   document.getElementById('clients-content').innerHTML = `<div class="clients-grid">${enriched.map(c => {
     const s = c.stats || {};
     return `
@@ -234,9 +244,9 @@ async function loadClients() {
           <span class="badge ${c.active ? 'badge-green' : 'badge-yellow'}">${c.active ? 'Active' : 'Inactive'}</span>
         </div>
         <div class="client-card-body">
-          <div class="detail-row"><span class="label">Properties</span><span>${s.total_entities || 0} (${s.campaign_ready || 0} ready)</span></div>
-          <div class="detail-row"><span class="label">Creatives</span><span>${s.total_variants || 0}</span></div>
-          <div class="detail-row"><span class="label">Pending Approval</span><span style="color:${s.approvals_pending > 0 ? 'var(--yellow)' : 'var(--text2)'}">${s.approvals_pending || 0}</span></div>
+          <div id="client-stats-${c.id}" style="min-height:60px">
+            <div style="color:var(--text2);font-size:12px">Loading stats...</div>
+          </div>
           <div class="config-badges">
             ${c.api_config?.api_token ? '<span class="config-badge">API Connected</span>' : ''}
             ${c.google_drive_folder_id || c.google_drive_folder_url ? `<span class="config-badge">Drive${c.drive_file_count ? ' · '+c.drive_file_count+' files' : ''}</span>` : ''}
@@ -244,10 +254,7 @@ async function loadClients() {
           ${c.drive_last_sync_at ? `<div style="font-size:11px;color:var(--text2);margin-top:4px">Drive synced: ${new Date(c.drive_last_sync_at).toLocaleString()}</div>` : ''}
         </div>
         <div class="client-card-footer">
-          <div class="client-stats">
-            <div class="stat"><span class="stat-value" style="color:var(--green)">${s.approvals_approved || 0}</span> approved</div>
-            <div class="stat"><span class="stat-value">${s.selected_candidates || 0}</span> selected</div>
-          </div>
+          <div class="client-stats"></div>
           <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
             <button class="btn btn-sm" onclick="editClient('${c.id}')">Edit</button>
             ${c.google_drive_folder_id || c.google_drive_folder_url ? `<button class="btn btn-sm" onclick="browseDrive('${c.id}')" title="Browse Drive files"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Drive</button>` : ''}

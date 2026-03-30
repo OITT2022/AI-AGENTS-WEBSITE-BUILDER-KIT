@@ -134,22 +134,23 @@ app.get('/api/clients/:id/dashboard', async (req, res) => {
   const clientId = paramId(req);
   const client = await store.getClient(clientId);
   if (!client) return res.status(404).json({ error: 'Client not found' });
-  const entities = await store.getEntitiesByClient(clientId);
-  const candidates = await store.getCandidatesByClient(clientId);
-  const batches = await store.getBatchesByClient(clientId);
-  const variantIds = new Set<string>();
-  const allVariants: any[] = [];
-  for (const b of batches) { for (const v of await store.getVariants(b.id)) { variantIds.add(v.id); allVariants.push(v); } }
-  const approvals = (await store.getApprovalTasks()).filter(a => variantIds.has(a.creative_variant_id));
-  const reviews = (await store.getReviews()).filter(r => variantIds.has(r.creative_variant_id));
+
+  // Use direct SQL counts instead of fetching all records
+  const { sql } = await import('./db/neon');
+  const [entities] = await sql('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE campaign_ready = true) as ready FROM source_entities WHERE client_id = $1', [clientId]);
+  const [candidates] = await sql('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE selected = true) as selected FROM campaign_candidates WHERE client_id = $1', [clientId]);
+  const [batches] = await sql('SELECT COUNT(*) as total FROM creative_batches WHERE client_id = $1', [clientId]);
+  const [variants] = await sql('SELECT COUNT(*) as total FROM creative_variants cv JOIN creative_batches cb ON cv.batch_id = cb.id WHERE cb.client_id = $1', [clientId]);
+  const [approvals] = await sql('SELECT COUNT(*) FILTER (WHERE at.status = \'pending\') as pending, COUNT(*) FILTER (WHERE at.status = \'approved\') as approved, COUNT(*) FILTER (WHERE at.status = \'rejected\') as rejected FROM approval_tasks at JOIN creative_variants cv ON at.creative_variant_id = cv.id JOIN creative_batches cb ON cv.batch_id = cb.id WHERE cb.client_id = $1', [clientId]);
+  const [reviews] = await sql('SELECT COUNT(*) FILTER (WHERE qr.status = \'pass\') as pass, COUNT(*) FILTER (WHERE qr.status = \'warn\') as warn, COUNT(*) FILTER (WHERE qr.status = \'fail\') as fail FROM qa_reviews qr JOIN creative_variants cv ON qr.creative_variant_id = cv.id JOIN creative_batches cb ON cv.batch_id = cb.id WHERE cb.client_id = $1', [clientId]);
+
   res.json({
-    client, total_entities: entities.length, campaign_ready: entities.filter(e => e.campaign_ready).length,
-    total_candidates: candidates.length, selected_candidates: candidates.filter(c => c.selected).length,
-    total_batches: batches.length, total_variants: allVariants.length,
-    approvals_pending: approvals.filter(a => a.status === 'pending').length,
-    approvals_approved: approvals.filter(a => a.status === 'approved').length,
-    approvals_rejected: approvals.filter(a => a.status === 'rejected').length,
-    qa_pass: reviews.filter(r => r.status === 'pass').length, qa_warn: reviews.filter(r => r.status === 'warn').length, qa_fail: reviews.filter(r => r.status === 'fail').length,
+    client,
+    total_entities: Number(entities.total), campaign_ready: Number(entities.ready),
+    total_candidates: Number(candidates.total), selected_candidates: Number(candidates.selected),
+    total_batches: Number(batches.total), total_variants: Number(variants.total),
+    approvals_pending: Number(approvals.pending), approvals_approved: Number(approvals.approved), approvals_rejected: Number(approvals.rejected),
+    qa_pass: Number(reviews.pass), qa_warn: Number(reviews.warn), qa_fail: Number(reviews.fail),
   });
 });
 

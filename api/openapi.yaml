@@ -1,0 +1,88 @@
+openapi: 3.1.0
+info:
+  title: Real Estate Marketing Export API
+  version: 0.1.0
+servers:
+  - url: https://your-domain.com
+paths:
+  /api/marketing/properties:
+    get:
+      summary: List active properties
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: updated_since
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500 }
+        - in: query
+          name: cursor
+          schema: { type: string }
+      responses:
+        '200':
+          description: Property list
+  /api/marketing/projects:
+    get:
+      summary: List active projects
+      responses:
+        '200':
+          description: Project list
+  /api/marketing/changes:
+    get:
+      summary: List changed entities since checkpoint
+      parameters:
+        - in: query
+          name: since
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Change list
+  /api/marketing/properties/{id}:
+    get:
+      summary: Get property details
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Property payload
+  /api/marketing/projects/{id}:
+    get:
+      summary: Get project details
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Project payload
+  /api/marketing/media/{entityType}/{entityId}:
+    get:
+      summary: Get entity media
+      parameters:
+        - in: path
+          name: entityType
+          required: true
+          schema: { type: string, enum: [property, project] }
+        - in: path
+          name: entityId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Media payload
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - bearerAuth: []

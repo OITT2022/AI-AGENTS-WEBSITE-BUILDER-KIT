@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campaign Dashboard - Marketing Agent</title>
+  <style>
+    :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#242836;--border:#2e3345;--text:#e4e6f0;--text2:#9da3b7;--primary:#6366f1;--primary-hover:#818cf8;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--blue:#3b82f6;--orange:#f97316;--radius:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+    .header h1{font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px}
+    .header-actions{display:flex;gap:10px;align-items:center}
+    .back-link{color:var(--text2);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:6px;transition:color .15s}.back-link:hover{color:var(--text)}
+    .container{padding:24px 32px;max-width:1600px;margin:0 auto}
+    .btn{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+    .btn:hover{background:var(--border)}.btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
+    .btn-green{background:var(--green);border-color:var(--green);color:#fff}
+    .btn-red{background:var(--red);border-color:var(--red);color:#fff}
+    .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+    .badge-green{background:rgba(34,197,94,.15);color:var(--green)}.badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow)}
+    .badge-red{background:rgba(239,68,68,.15);color:var(--red)}.badge-blue{background:rgba(59,130,246,.15);color:var(--blue)}
+    .badge-purple{background:rgba(99,102,241,.15);color:var(--primary)}
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+    .stat-card .label{color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+    .stat-card .value{font-size:32px;font-weight:700}
+    .stat-card .sub{color:var(--text2);font-size:13px;margin-top:4px}
+    .tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--surface);border-radius:var(--radius);padding:4px;border:1px solid var(--border);width:fit-content}
+    .tab{padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);transition:all .15s;border:none;background:transparent}
+    .tab.active{background:var(--primary);color:#fff}.tab:hover:not(.active){color:var(--text);background:var(--surface2)}
+    .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .15s}.card:hover{border-color:var(--primary)}
+    .card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
+    .card-header h3{font-size:15px;font-weight:600;line-height:1.4}
+    .card-body{padding:16px 20px}
+    .card-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+    .detail-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}.detail-row .label{color:var(--text2)}
+    .score-bar{display:flex;align-items:center;gap:10px;margin-top:12px}
+    .score-bar-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+    .score-bar-fill{height:100%;border-radius:3px;transition:width .3s ease}
+    .score-value{font-size:14px;font-weight:700;min-width:40px;text-align:right}
+    .platforms{display:flex;gap:6px;margin-top:8px}
+    .platform-tag{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+    .platform-facebook{background:rgba(24,119,242,.15);color:#1877f2}.platform-instagram{background:rgba(228,64,95,.15);color:#e4405f}
+    .platform-tiktok{background:rgba(0,0,0,.3);color:#fff;border:1px solid var(--border)}
+    .media-strip{display:flex;gap:6px;margin-top:12px;overflow-x:auto;padding-bottom:6px}
+    .media-strip img{width:100px;height:75px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;cursor:pointer;transition:border-color .15s,transform .15s}
+    .media-strip img:first-child{width:160px;height:120px;border-color:var(--primary)}
+    .media-strip img:hover{border-color:var(--primary);transform:scale(1.03)}
+    .creative-preview{background:var(--bg);border-radius:8px;padding:14px;margin-top:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto}
+    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .lightbox img{max-width:90vw;max-height:90vh;border-radius:8px}
+    .lightbox-close{position:absolute;top:20px;right:24px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--text2)}.empty-state h3{font-size:18px;margin-bottom:8px;color:var(--text)}
+    .loading{text-align:center;padding:40px;color:var(--text2)}
+    .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--green);color:var(--text);padding:14px 24px;border-radius:var(--radius);font-size:14px;z-index:1000;animation:slideIn .3s ease}
+    @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .client-banner{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 24px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
+    .client-banner h2{font-size:18px;font-weight:700}.client-banner .sub{color:var(--text2);font-size:13px;margin-top:2px}
+    @media(max-width:768px){.container{padding:16px}.card-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="page-title">Campaign Dashboard</h1>
+  <div class="header-actions">
+    <a class="back-link" href="/dashboard/clients.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      All Clients
+    </a>
+    <button class="btn" onclick="loadAll()">Refresh</button>
+    <button class="btn" id="btn-drive" onclick="syncDrive()" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Sync Drive
+    </button>
+    <button class="btn btn-primary" id="btn-sync" onclick="syncClient()" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Sync API
+    </button>
+    <button class="btn btn-primary" id="btn-pipeline" onclick="runPipeline()">Run Pipeline</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="stats-grid" id="stats-grid"></div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('candidates')">Candidates</button>
+    <button class="tab" onclick="switchTab('creatives')">Creatives</button>
+    <button class="tab" onclick="switchTab('approvals')">Approvals</button>
+    <button class="tab" onclick="switchTab('properties')">Properties</button>
+  </div>
+  <div id="tab-content"><div class="loading">Loading...</div></div>
+</div>
+
+<script src="/dashboard/shared.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const clientId = params.get('client');
+let clientData = null;
+let currentTab = 'candidates';
+
+async function init() {
+  await requireLogin();
+  injectNav('clients');
+  if (!clientId) { document.getElementById('tab-content').innerHTML = '<div class="empty-state"><h3>No client selected</h3></div>'; return; }
+  clientData = await apiCall(`/api/clients/${clientId}`);
+  document.getElementById('page-title').textContent = clientData.company || clientData.name || 'Campaign';
+  document.title = `${clientData.company} - Campaign Dashboard`;
+  if (clientData.api_config?.api_token) document.getElementById('btn-sync').style.display = 'inline-flex';
+  if (clientData.google_drive_folder_id || clientData.google_drive_folder_url) document.getElementById('btn-drive').style.display = 'inline-flex';
+  loadAll();
+}
+
+async function loadAll() { await Promise.all([loadStats(), loadTab(currentTab)]); }
+
+async function loadStats() {
+  const d = await apiCall(`/api/clients/${clientId}/dashboard`);
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="label">Properties</div><div class="value">${d.total_entities}</div><div class="sub">${d.campaign_ready} campaign ready</div></div>
+    <div class="stat-card"><div class="label">Candidates</div><div class="value">${d.selected_candidates}</div><div class="sub">${d.total_candidates} scored</div></div>
+    <div class="stat-card"><div class="label">Creatives</div><div class="value">${d.total_variants}</div><div class="sub">${d.total_batches} batches</div></div>
+    <div class="stat-card"><div class="label">Pending</div><div class="value" style="color:var(--yellow)">${d.approvals_pending}</div><div class="sub">${d.approvals_approved} approved</div></div>
+    <div class="stat-card"><div class="label">QA Pass</div><div class="value" style="color:var(--green)">${d.qa_pass}</div><div class="sub">${d.qa_warn} warn, ${d.qa_fail} fail</div></div>
+  `;
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+  loadTab(tab);
+}
+
+async function loadTab(tab) {
+  const el = document.getElementById('tab-content');
+  el.innerHTML = '<div class="loading">Loading...</div>';
+  switch(tab) {
+    case 'candidates': return renderCandidates(el);
+    case 'creatives': return renderCreatives(el);
+    case 'approvals': return renderApprovals(el);
+    case 'properties': return renderProperties(el);
+  }
+}
+
+async function renderCandidates(el) {
+  const candidates = await apiCall(`/api/clients/${clientId}/candidates`);
+  if (!candidates.length) { el.innerHTML = '<div class="empty-state"><h3>No candidates</h3><p>Sync properties from API or run the pipeline.</p></div>'; return; }
+  el.innerHTML = `<div class="card-grid">${candidates.map(c => {
+    const s = c.snapshot || {};
+    const sc = c.score_total >= 70 ? 'var(--green)' : c.score_total >= 40 ? 'var(--yellow)' : 'var(--red)';
+    return `<div class="card"><div class="card-header"><div><h3>${s.title_he||s.title_en||c.entity?.source_entity_id||'Unknown'}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${s.city||''}${s.area?', '+s.area:''}</div></div><span class="badge ${c.selected?'badge-green':'badge-yellow'}">${c.selected?'Selected':'Scored'}</span></div><div class="card-body"><div class="detail-row"><span class="label">Price</span><span>${s.price_text||(s.price_currency?s.price_currency+' '+Number(s.price_amount).toLocaleString():'N/A')}</span></div><div class="detail-row"><span class="label">Angle</span><span class="badge badge-purple">${c.recommended_angle||'-'}</span></div><div class="score-bar"><span class="label" style="font-size:12px;color:var(--text2)">Score</span><div class="score-bar-track"><div class="score-bar-fill" style="width:${c.score_total}%;background:${sc}"></div></div><span class="score-value" style="color:${sc}">${c.score_total}</span></div><div class="platforms">${(c.recommended_platforms||[]).map(p=>`<span class="platform-tag platform-${p}">${p}</span>`).join('')}</div></div>${c.selected?`<div class="card-footer"><button class="btn btn-primary" onclick="generateFor('${c.id}')">Generate Creatives</button></div>`:''}</div>`;
+  }).join('')}</div>`;
+}
+
+async function renderCreatives(el) {
+  const batches = await apiCall(`/api/clients/${clientId}/creatives`);
+  if (!batches.length) { el.innerHTML = '<div class="empty-state"><h3>No creatives</h3><p>Select candidates and generate creatives first.</p></div>'; return; }
+  el.innerHTML = `<div class="card-grid">${batches.flatMap(b=>(b.variants||[]).map(v=>{
+    const copy=v.copy_json||{};const review=(v.reviews||[])[0];const approval=v.approval;
+    const qs=review?.status||'pending';const qb=qs==='pass'?'badge-green':qs==='warn'?'badge-yellow':qs==='fail'?'badge-red':'badge-blue';
+    let pt='';if(copy.primary_text)pt=copy.primary_text;else if(copy.caption)pt=copy.caption;else if(copy.hook)pt=`${copy.hook}\n\n${copy.voiceover_script||''}`;
+    return `<div class="card"><div class="card-header"><div><h3>${b.entity?.title_he||b.entity?.title_en||b.entity_id}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px"><span class="platform-tag platform-${v.platform}">${v.platform}</span><span style="margin-left:6px">V#${v.variant_no} · ${copy.language||b.language_code}</span></div></div><span class="badge ${qb}">QA: ${qs}</span></div><div class="card-body">${renderMedia(v.media_plan_json)}${copy.headline?`<div class="detail-row"><span class="label">Headline</span><span style="font-weight:600">${copy.headline}</span></div>`:''}${copy.cta?`<div class="detail-row"><span class="label">CTA</span><span>${copy.cta}</span></div>`:''}${copy.hashtags?`<div class="detail-row"><span class="label">Hashtags</span><span style="font-size:12px">${copy.hashtags.join(' ')}</span></div>`:''}<div class="creative-preview">${escapeHtml(pt)}</div>${approval?`<div style="margin-top:12px"><span class="badge ${approval.status==='approved'?'badge-green':approval.status==='rejected'?'badge-red':'badge-yellow'}">${approval.status}</span></div>`:''}</div>${approval&&approval.status==='pending'?`<div class="card-footer"><button class="btn btn-green" onclick="approve('${approval.id}','approved')">Approve</button><button class="btn btn-red" onclick="approve('${approval.id}','rejected')">Reject</button></div>`:''}</div>`;
+  })).join('')}</div>`;
+}
+
+async function renderApprovals(el) {
+  const tasks = await apiCall(`/api/clients/${clientId}/approvals`);
+  if (!tasks.length) { el.innerHTML = '<div class="empty-state"><h3>No approvals</h3></div>'; return; }
+  el.innerHTML = `<div class="card-grid">${tasks.map(t=>{
+    const v=t.variant||{};const copy=v.copy_json||{};const sb=t.status==='approved'?'badge-green':t.status==='rejected'?'badge-red':'badge-yellow';
+    let pt='';if(copy.primary_text)pt=copy.primary_text;else if(copy.caption)pt=copy.caption;else if(copy.hook)pt=`${copy.hook}\n\n${copy.voiceover_script||''}`;
+    return `<div class="card"><div class="card-header"><div><h3>${t.entity?.title_he||t.entity?.title_en||'-'}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${v.platform?`<span class="platform-tag platform-${v.platform}">${v.platform}</span>`:''}<span style="margin-left:6px">${copy.language||''}</span></div></div><span class="badge ${sb}">${t.status}</span></div><div class="card-body">${renderMedia(v.media_plan_json)}<div class="creative-preview">${escapeHtml(pt)}</div>${t.decision_notes?`<div style="margin-top:8px;font-size:13px;color:var(--text2)">Notes: ${escapeHtml(t.decision_notes)}</div>`:''}</div>${t.status==='pending'?`<div class="card-footer"><button class="btn btn-green" onclick="approve('${t.id}','approved')">Approve</button><button class="btn" onclick="approve('${t.id}','approved_with_edits')">w/ Edits</button><button class="btn btn-red" onclick="approve('${t.id}','rejected')">Reject</button></div>`:''}</div>`;
+  }).join('')}</div>`;
+}
+
+async function renderProperties(el) {
+  const entities = await apiCall(`/api/clients/${clientId}/entities`);
+  if (!entities.length) { el.innerHTML = '<div class="empty-state"><h3>No properties</h3><p>Sync from the API to import properties.</p></div>'; return; }
+  el.innerHTML = `<div class="card-grid">${entities.map(e=>{
+    const s=e.snapshot||{};
+    return `<div class="card"><div class="card-header"><div><h3>${s.title_he||s.title_en||e.source_entity_id}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${e.entity_type} · ${e.source_entity_id}</div></div><span class="badge ${e.campaign_ready?'badge-green':'badge-yellow'}">${e.campaign_ready?'Ready':'Not Ready'}</span></div><div class="card-body">${renderEntityMedia(s)}<div class="detail-row"><span class="label">Location</span><span>${s.city||'-'}${s.area?', '+s.area:''}</span></div><div class="detail-row"><span class="label">Price</span><span>${s.price_text||(s.price_currency?s.price_currency+' '+Number(s.price_amount).toLocaleString():'-')}</span></div><div class="detail-row"><span class="label">Media</span><span>${s.gallery_count||0} images · ${s.video_count||0} videos</span></div></div></div>`;
+  }).join('')}</div>`;
+}
+
+// ── Actions ──
+
+async function syncDrive() {
+  showToast('Syncing Drive media...');
+  const r = await apiCall(`/api/clients/${clientId}/drive/sync`, { method: 'POST', body: '{}' });
+  if (r.success) showToast(`Drive: ${r.result.images} images, ${r.result.videos} videos synced`);
+  else showToast('Drive sync failed: ' + (r.error || ''));
+  loadAll();
+}
+
+async function syncClient() {
+  showToast('Syncing...');
+  const r = await apiCall(`/api/clients/${clientId}/sync`, { method: 'POST', body: JSON.stringify({ run_pipeline: true }) });
+  if (r.success) showToast(`Synced: ${r.result.properties_fetched} props, ${r.result.pipeline?.variants||0} creatives`);
+  else showToast('Sync failed: '+(r.error||''));
+  loadAll();
+}
+
+async function runPipeline() {
+  showToast('Running pipeline...');
+  const r = await apiCall(`/api/clients/${clientId}/pipeline`, { method: 'POST', body: JSON.stringify({}) });
+  if (r.success) showToast(`Pipeline: ${r.result.selected} selected, ${r.result.variants} creatives`);
+  loadAll();
+}
+
+async function generateFor(candidateId) {
+  showToast('Generating...');
+  const r = await apiCall('/api/creatives/generate', { method: 'POST', body: JSON.stringify({ candidate_id: candidateId }) });
+  if (r.success) { showToast(`Generated ${r.variants.length} variants`); switchTab('creatives'); }
+  loadAll();
+}
+
+async function approve(taskId, status) {
+  const notes = status === 'rejected' ? prompt('Rejection reason:') : null;
+  await apiCall(`/api/approvals/${taskId}`, { method: 'PUT', body: JSON.stringify({ status, decision_notes: notes }) });
+  showToast(`Creative ${status}`);
+  loadAll();
+}
+
+// ── Media helpers ──
+
+function renderMedia(mp) {
+  if (!mp) return '';
+  const imgs = mp.selected_images || [];
+  const hero = mp.hero_image;
+  const all = hero && !imgs.includes(hero) ? [hero, ...imgs] : imgs;
+  if (!all.length) return '';
+  let h = '<div class="media-strip">';
+  for (const img of all.slice(0,6)) h += `<img src="${escapeHtml(img)}" alt="Property" onclick="openLightbox('${escapeHtml(img)}')" loading="lazy">`;
+  if (all.length > 6) h += `<div style="min-width:60px;height:75px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);flex-shrink:0">+${all.length-6}</div>`;
+  return h + '</div>';
+}
+
+function renderEntityMedia(s) {
+  if (!s) return '';
+  return renderMedia({ hero_image: s.hero_image, selected_images: s.gallery || [] });
+}
+
+function openLightbox(src) {
+  const lb = document.createElement('div'); lb.className = 'lightbox'; lb.onclick = () => lb.remove();
+  lb.innerHTML = `<button class="lightbox-close" onclick="this.parentElement.remove()">&#10005;</button><img src="${escapeHtml(src)}">`;
+  document.body.appendChild(lb);
+}
+
+init();
+</script>
+</body>
+</html>

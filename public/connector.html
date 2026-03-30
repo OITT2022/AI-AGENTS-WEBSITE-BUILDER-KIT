@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FindUs API Connector - Settings</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #242836;
+      --border: #2e3345;
+      --text: #e4e6f0;
+      --text2: #9da3b7;
+      --primary: #6366f1;
+      --primary-hover: #818cf8;
+      --green: #22c55e;
+      --green-bg: rgba(34,197,94,0.1);
+      --yellow: #eab308;
+      --yellow-bg: rgba(234,179,8,0.1);
+      --red: #ef4444;
+      --red-bg: rgba(239,68,68,0.1);
+      --blue: #3b82f6;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+
+    .back-link {
+      color: var(--text2);
+      text-decoration: none;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    .container { padding: 32px; max-width: 960px; margin: 0 auto; }
+
+    /* Status Banner */
+    .status-banner {
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 14px;
+    }
+
+    .status-banner.connected {
+      background: var(--green-bg);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: var(--green);
+    }
+
+    .status-banner.disconnected {
+      background: var(--yellow-bg);
+      border: 1px solid rgba(234,179,8,0.3);
+      color: var(--yellow);
+    }
+
+    .status-banner.error {
+      background: var(--red-bg);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: var(--red);
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .connected .status-dot { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+    .disconnected .status-dot { background: var(--yellow); }
+    .error .status-dot { background: var(--red); }
+
+    /* Sections */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-body { padding: 24px; }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group:last-child { margin-bottom: 0; }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .form-group .hint {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 6px;
+      opacity: 0.8;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .input-with-btn {
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-with-btn input { flex: 1; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* Toggle */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+    }
+
+    .toggle-row .label-group h3 {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .toggle-row .label-group p {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 2px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .toggle-track {
+      background: var(--primary);
+    }
+
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(20px);
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover { background: var(--border); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary { background: var(--primary); border-color: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .btn-green { background: var(--green); border-color: var(--green); color: white; }
+    .btn-green:hover { opacity: 0.9; }
+
+    .btn-lg { padding: 14px 28px; font-size: 15px; }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    /* Sync Log */
+    .sync-log {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 13px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      max-height: 300px;
+      overflow-y: auto;
+      line-height: 1.8;
+    }
+
+    .log-entry {
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .log-time { color: var(--text2); font-size: 11px; min-width: 80px; }
+    .log-ok { color: var(--green); }
+    .log-warn { color: var(--yellow); }
+    .log-err { color: var(--red); }
+    .log-info { color: var(--blue); }
+
+    /* Stats */
+    .sync-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .sync-stat {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .sync-stat .value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .sync-stat .label {
+      font-size: 11px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-top: 4px;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--green);
+      color: var(--text);
+      padding: 14px 24px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      z-index: 1000;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 768px) {
+      .container { padding: 16px; }
+      .form-row { grid-template-columns: 1fr; }
+      .header { padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    FindUs API Connector
+  </h1>
+  <div class="header-actions">
+    <a class="back-link" href="/dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back to Dashboard
+    </a>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Status Banner -->
+  <div class="status-banner disconnected" id="status-banner">
+    <div class="status-dot"></div>
+    <span id="status-text">Checking connection...</span>
+  </div>
+
+  <!-- Connection Settings -->
+  <div class="section">
+    <div class="section-header">
+      <h2>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Connection Settings
+      </h2>
+    </div>
+    <div class="section-body">
+      <div class="form-group">
+        <label>API Base URL</label>
+        <input type="text" id="base-url" value="https://www.findus.co.il/api/v1" placeholder="https://www.findus.co.il/api/v1">
+        <div class="hint">The FindUs API endpoint base URL</div>
+      </div>
+
+      <div class="form-group">
+        <label>API Token (Bearer)</label>
+        <div class="input-with-btn">
+          <input type="password" id="api-token" placeholder="Paste your FindUs API token here">
+          <button class="btn" onclick="toggleTokenVisibility()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="hint">Provided by the FindUs administrator. Token is stored securely on the server.</div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="testApiConnection()" id="btn-test">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Test Connection
+        </button>
+        <button class="btn btn-green" onclick="saveSettings()" id="btn-save">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="section">
+    <div class="section-header">
+      <h2>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Sync Filters
+      </h2>
+    </div>
+    <div class="section-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>City Filter</label>
+          <input type="text" id="filter-city" placeholder="e.g. Larnaca (leave empty for all)">
+          <div class="hint">Partial match, case-insensitive</div>
+        </div>
+        <div class="form-group">
+          <label>Property Type</label>
+          <select id="filter-type">
+            <option value="">All Types</option>
+            <option value="Apartment">Apartment</option>
+            <option value="Penthouse">Penthouse</option>
+            <option value="Duplex">Duplex</option>
+            <option value="Villa">Villa</option>
+            <option value="Studio">Studio</option>
+            <option value="Townhouse">Townhouse</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <div class="label-group">
+          <h3>Auto-Sync</h3>
+          <p>Automatically pull from FindUs on a schedule</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="auto-sync">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="form-group" id="interval-group" style="display:none">
+        <label>Sync Interval (minutes)</label>
+        <input type="number" id="sync-interval" value="120" min="15" max="1440">
+        <div class="hint">Minimum: 15 minutes</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sync Now -->
+  <div class="section">
+    <div class="section-header">
+      <h2>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Sync Now
+      </h2>
+      <button class="btn btn-primary btn-lg" onclick="runSync()" id="btn-sync">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Pull from FindUs
+      </button>
+    </div>
+    <div class="section-body">
+      <div id="sync-result" style="display:none">
+        <div class="sync-stats" id="sync-stats"></div>
+        <div class="sync-log" id="sync-log" style="margin-top:16px"></div>
+      </div>
+      <div id="sync-empty">
+        <p style="color:var(--text2);font-size:14px">
+          Click "Pull from FindUs" to fetch all properties and projects from the API, run the scoring engine, generate creatives, and queue them for approval.
+        </p>
+        <p style="color:var(--text2);font-size:13px;margin-top:8px" id="last-sync-info"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Reference -->
+  <div class="section">
+    <div class="section-header">
+      <h2>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        FindUs API Reference
+      </h2>
+    </div>
+    <div class="section-body" style="font-size:13px;line-height:1.8;color:var(--text2)">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid var(--border)">
+            <th style="padding:8px 12px;color:var(--text)">Endpoint</th>
+            <th style="padding:8px 12px;color:var(--text)">Method</th>
+            <th style="padding:8px 12px;color:var(--text)">Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 12px;font-family:monospace;color:var(--primary)">/properties</td>
+            <td style="padding:8px 12px">GET</td>
+            <td style="padding:8px 12px">All published properties (supports city, propertyType, page, limit)</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 12px;font-family:monospace;color:var(--primary)">/projects</td>
+            <td style="padding:8px 12px">GET</td>
+            <td style="padding:8px 12px">All published projects with linked properties, images, docs</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin-top:16px">
+        <strong style="color:var(--text)">Auth:</strong> Bearer token in Authorization header<br>
+        <strong style="color:var(--text)">Visibility:</strong> Only ACTIVE, Published, API-enabled entities are returned<br>
+        <strong style="color:var(--text)">Images:</strong> Returned if "Include Images" is enabled on the API client<br>
+        <strong style="color:var(--text)">Documents:</strong> Plans, brochures — returned if "Include Documents" is enabled
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script src="/dashboard/shared.js"></script>
+<script>
+const API = window.location.origin;
+
+function getAuthHeaders() {
+  const token = localStorage.getItem('auth_token');
+  return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(`${API}${path}`, {
+    credentials: 'include',
+    headers: getAuthHeaders(),
+    ...opts,
+  });
+  if (res.status === 401) {
+    window.location.href = '/dashboard/login.html';
+    return {};
+  }
+  return res.json();
+}
+
+// Auth check + nav
+(async function() {
+  await requireLogin();
+  injectNav('connector');
+})();
+
+// ── Load config ──
+async function loadConfig() {
+  const config = await api('/api/findus/config');
+  document.getElementById('base-url').value = config.base_url || 'https://www.findus.co.il/api/v1';
+  document.getElementById('filter-city').value = config.filters?.city || '';
+  document.getElementById('filter-type').value = config.filters?.propertyType || '';
+  document.getElementById('auto-sync').checked = config.auto_sync || false;
+  document.getElementById('sync-interval').value = config.sync_interval_minutes || 120;
+  toggleIntervalVisibility();
+
+  if (config.has_token) {
+    document.getElementById('api-token').placeholder = `Token saved (${config.api_token})`;
+    setBanner('connected', 'API token configured. Click "Test Connection" to verify.');
+  } else {
+    setBanner('disconnected', 'No API token configured. Enter your FindUs token below.');
+  }
+
+  if (config.last_sync_at) {
+    document.getElementById('last-sync-info').textContent =
+      `Last sync: ${new Date(config.last_sync_at).toLocaleString()}`;
+  }
+}
+
+// ── Save settings ──
+async function saveSettings() {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  const tokenInput = document.getElementById('api-token').value;
+  const body = {
+    base_url: document.getElementById('base-url').value,
+    auto_sync: document.getElementById('auto-sync').checked,
+    sync_interval_minutes: parseInt(document.getElementById('sync-interval').value) || 120,
+    filters: {
+      city: document.getElementById('filter-city').value || undefined,
+      propertyType: document.getElementById('filter-type').value || undefined,
+    },
+  };
+
+  if (tokenInput) {
+    body.api_token = tokenInput;
+  }
+
+  await api('/api/findus/config', { method: 'PUT', body: JSON.stringify(body) });
+
+  btn.disabled = false;
+  btn.textContent = 'Save Settings';
+  showToast('Settings saved');
+  loadConfig();
+}
+
+// ── Test connection ──
+async function testApiConnection() {
+  const btn = document.getElementById('btn-test');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Testing...';
+
+  const tokenInput = document.getElementById('api-token').value;
+  const baseUrl = document.getElementById('base-url').value;
+
+  const result = await api('/api/findus/test', {
+    method: 'POST',
+    body: JSON.stringify({
+      api_token: tokenInput || undefined,
+      base_url: baseUrl,
+    }),
+  });
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Test Connection`;
+
+  if (result.success) {
+    setBanner('connected', `Connected to FindUs API successfully.${result.property_count != null ? ` Found ${result.property_count} properties.` : ''}`);
+    showToast('Connection successful!');
+  } else {
+    setBanner('error', `Connection failed: ${result.message}`);
+  }
+}
+
+// ── Sync ──
+async function runSync() {
+  const btn = document.getElementById('btn-sync');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Syncing...';
+
+  const resultDiv = document.getElementById('sync-result');
+  const emptyDiv = document.getElementById('sync-empty');
+  const logDiv = document.getElementById('sync-log');
+  const statsDiv = document.getElementById('sync-stats');
+
+  resultDiv.style.display = 'none';
+  logDiv.innerHTML = '';
+
+  try {
+    const response = await api('/api/findus/sync', {
+      method: 'POST',
+      body: JSON.stringify({ run_pipeline: true }),
+    });
+
+    emptyDiv.style.display = 'none';
+    resultDiv.style.display = 'block';
+
+    if (response.success) {
+      const r = response.result;
+
+      // Stats
+      statsDiv.innerHTML = `
+        <div class="sync-stat"><div class="value" style="color:var(--blue)">${r.properties_fetched}</div><div class="label">Properties Fetched</div></div>
+        <div class="sync-stat"><div class="value" style="color:var(--blue)">${r.projects_fetched}</div><div class="label">Projects Fetched</div></div>
+        <div class="sync-stat"><div class="value" style="color:var(--green)">${r.properties_ingested.filter(p => p.changed).length}</div><div class="label">New/Updated</div></div>
+        <div class="sync-stat"><div class="value" style="color:var(--primary)">${r.pipeline?.selected ?? 0}</div><div class="label">Selected</div></div>
+        <div class="sync-stat"><div class="value" style="color:var(--primary)">${r.pipeline?.variants ?? 0}</div><div class="label">Creatives</div></div>
+        <div class="sync-stat"><div class="value" style="color:var(--yellow)">${r.pipeline?.approvals ?? 0}</div><div class="label">Pending Approval</div></div>
+      `;
+
+      // Log
+      const time = () => new Date().toLocaleTimeString();
+      let logHTML = '';
+      logHTML += logEntry(time(), 'info', `Fetched ${r.properties_fetched} properties, ${r.projects_fetched} projects from FindUs`);
+
+      for (const p of r.properties_ingested) {
+        if (p.is_new) {
+          logHTML += logEntry(time(), 'ok', `NEW property: ${p.source_entity_id}`);
+        } else if (p.changed) {
+          logHTML += logEntry(time(), 'warn', `UPDATED property: ${p.source_entity_id} (${p.change_type})`);
+        } else {
+          logHTML += logEntry(time(), 'info', `No change: ${p.source_entity_id}`);
+        }
+      }
+
+      for (const p of r.projects_ingested) {
+        if (p.is_new) {
+          logHTML += logEntry(time(), 'ok', `NEW project: ${p.source_entity_id}`);
+        } else if (p.changed) {
+          logHTML += logEntry(time(), 'warn', `UPDATED project: ${p.source_entity_id}`);
+        }
+      }
+
+      if (r.pipeline) {
+        logHTML += logEntry(time(), 'ok', `Pipeline: ${r.pipeline.selected} selected, ${r.pipeline.variants} creatives, ${r.pipeline.approvals} approvals`);
+      }
+
+      if (r.errors.length > 0) {
+        for (const err of r.errors) {
+          logHTML += logEntry(time(), 'err', err);
+        }
+      }
+
+      logHTML += logEntry(time(), 'ok', `Sync complete at ${new Date(r.synced_at).toLocaleString()}`);
+      logDiv.innerHTML = logHTML;
+
+      showToast(`Synced ${r.properties_fetched} properties, ${r.pipeline?.variants ?? 0} creatives generated`);
+    } else {
+      logDiv.innerHTML = logEntry(new Date().toLocaleTimeString(), 'err', response.error || 'Sync failed');
+    }
+  } catch (err) {
+    emptyDiv.style.display = 'none';
+    resultDiv.style.display = 'block';
+    logDiv.innerHTML = logEntry(new Date().toLocaleTimeString(), 'err', err.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Pull from FindUs`;
+  loadConfig();
+}
+
+// ── Helpers ──
+
+function logEntry(time, type, msg) {
+  return `<div class="log-entry"><span class="log-time">${time}</span><span class="log-${type}">${escapeHtml(msg)}</span></div>`;
+}
+
+function setBanner(state, text) {
+  const banner = document.getElementById('status-banner');
+  banner.className = `status-banner ${state}`;
+  document.getElementById('status-text').textContent = text;
+}
+
+async function toggleTokenVisibility() {
+  const input = document.getElementById('api-token');
+  if (input.type === 'text') {
+    input.type = 'password';
+    return;
+  }
+  // If input is empty (only placeholder shows masked token), fetch the real token
+  if (!input.value) {
+    const config = await api('/api/findus/config/reveal');
+    if (config.api_token) {
+      input.value = config.api_token;
+    }
+  }
+  input.type = 'text';
+}
+
+function toggleIntervalVisibility() {
+  const show = document.getElementById('auto-sync').checked;
+  document.getElementById('interval-group').style.display = show ? 'block' : 'none';
+}
+
+document.getElementById('auto-sync').addEventListener('change', toggleIntervalVisibility);
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// Init
+loadConfig();
+</script>
+
+</body>
+</html>

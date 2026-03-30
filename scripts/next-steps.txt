@@ -1,0 +1,13 @@
+Recommended implementation order in Claude Code:
+
+1. Create monorepo folders: apps/, workers/, packages/, infrastructure/
+2. Convert db/schema.sql into Prisma schema
+3. Implement source API client with Zod validators
+4. Implement daily sync worker
+5. Implement snapshot diffing
+6. Implement scoring engine
+7. Implement prompt execution adapters
+8. Implement media derivative pipeline
+9. Implement admin approval UI
+10. Implement Meta/TikTok connectors
+11. Implement metrics sync and dashboard

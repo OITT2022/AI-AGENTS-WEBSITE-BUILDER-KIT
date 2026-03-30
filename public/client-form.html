@@ -16,16 +16,14 @@
     .btn{padding:10px 20px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
     .btn:hover{background:var(--border)}.btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
+    .btn-google{background:#fff;color:#333;border:1px solid #ddd;font-weight:600}.btn-google:hover{background:#f8f8f8}
     .btn-green{background:var(--green);border-color:var(--green);color:#fff}
-    .btn-red{background:var(--red);border-color:var(--red);color:#fff}
     .btn-lg{padding:14px 28px;font-size:15px}
     .btn-sm{padding:6px 14px;font-size:12px}
-
     .section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden}
     .section-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
     .section-header h2{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}
     .section-body{padding:24px}
-
     .form-group{margin-bottom:20px}.form-group:last-child{margin-bottom:0}
     .form-group label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
     .form-group .hint{font-size:11px;color:var(--text2);margin-top:6px;opacity:.7}
@@ -33,34 +31,13 @@
     input,select,textarea{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;transition:border-color .15s}
     input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)}
     textarea{resize:vertical;min-height:70px}
-
     .error-msg{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
     .success-msg{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--green);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
-
-    /* Drive folder browser */
-    .drive-status{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:16px}
-    .drive-dot{width:8px;height:8px;border-radius:50%}.drive-dot.on{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.5)}.drive-dot.off{background:var(--yellow)}
-    .folder-browser{background:var(--bg);border:1px solid var(--border);border-radius:8px;max-height:350px;overflow-y:auto;margin-top:12px}
-    .folder-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;font-size:13px}
-    .folder-item:last-child{border-bottom:none}
-    .folder-item:hover{background:var(--surface2)}
-    .folder-item.selected{background:rgba(99,102,241,.1);border-left:3px solid var(--primary)}
-    .folder-item .icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
-    .folder-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .folder-item .meta{font-size:11px;color:var(--text2)}
-    .breadcrumb{display:flex;gap:4px;align-items:center;font-size:12px;color:var(--text2);margin-bottom:8px;flex-wrap:wrap}
-    .breadcrumb a{color:var(--primary);cursor:pointer;text-decoration:none}.breadcrumb a:hover{text-decoration:underline}
-    .breadcrumb span{color:var(--text2)}
-
-    .selected-folder{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:12px 16px;margin-top:12px;display:flex;align-items:center;justify-content:space-between}
+    .selected-folder{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:14px 16px;margin-top:12px;display:flex;align-items:center;justify-content:space-between}
     .selected-folder .info{display:flex;align-items:center;gap:10px;font-size:14px}
-    .selected-folder .info .icon{font-size:20px}
-
-    .file-preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:12px;max-height:200px;overflow-y:auto}
-    .file-thumb{border-radius:6px;overflow:hidden;border:1px solid var(--border);text-align:center}
-    .file-thumb img{width:100%;height:70px;object-fit:cover}
-    .file-thumb .fname{font-size:10px;color:var(--text2);padding:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
+    .drive-account{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+    .drive-account .user{display:flex;align-items:center;gap:10px;font-size:13px}
+    .drive-account .user img{width:28px;height:28px;border-radius:50%}
     .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--green);color:var(--text);padding:14px 24px;border-radius:var(--radius);font-size:14px;z-index:1000;animation:slideIn .3s ease}
     @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
     .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
@@ -132,51 +109,43 @@
       </h2>
     </div>
     <div class="section-body">
-      <div class="drive-status" id="drive-status">
-        <div class="drive-dot off"></div>
-        <span>Checking Google Drive connection...</span>
-      </div>
-
-      <div id="drive-not-configured" style="display:none">
-        <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Upload your Google Service Account JSON key to connect Google Drive.</p>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
-          <div style="position:relative;display:inline-block">
-            <button class="btn btn-primary">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Upload Service Account JSON
-            </button>
-            <input type="file" accept=".json" onchange="uploadDriveCredentials(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer">
-          </div>
+      <!-- Google account status -->
+      <div id="drive-account" style="display:none" class="drive-account">
+        <div class="user">
+          <img id="g-avatar" src="" alt="">
+          <div><strong id="g-name"></strong><br><span style="color:var(--text2);font-size:12px" id="g-email"></span></div>
         </div>
-        <div class="hint" style="margin-top:8px">Get this from Google Cloud Console > IAM > Service Accounts > Keys</div>
+        <button class="btn btn-sm" onclick="googleSignOut()">Disconnect</button>
       </div>
 
-      <div id="drive-configured" style="display:none">
+      <!-- Sign in button -->
+      <div id="drive-signin">
+        <p style="color:var(--text2);font-size:13px;margin-bottom:14px">Connect your Google account to browse and select a Drive folder for this client's media assets.</p>
+        <button class="btn btn-google" onclick="googleSignIn()">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#34A853" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#FBBC05" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Sign in with Google
+        </button>
+      </div>
+
+      <!-- Folder selection (shown after sign-in) -->
+      <div id="drive-picker" style="display:none">
         <div class="form-group">
-          <label>Drive Folder URL or ID</label>
+          <label>Media Folder</label>
           <div style="display:flex;gap:10px">
-            <input type="text" id="f-drive-url" placeholder="Paste Google Drive folder URL or click Browse below" style="flex:1">
-            <button class="btn" onclick="browseDrive()" id="btn-browse">
+            <input type="text" id="f-drive-url" placeholder="Selected folder will appear here" readonly style="flex:1;cursor:pointer" onclick="openPicker()">
+            <button class="btn btn-primary" onclick="openPicker()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              Browse
+              Choose Folder
             </button>
           </div>
-          <div class="hint">Share the folder with: <strong id="sa-email"></strong></div>
+          <div class="hint">Opens Google Drive picker to select the folder with images and videos for this client</div>
         </div>
 
-        <!-- Selected folder display -->
         <div id="selected-folder" style="display:none">
           <div class="selected-folder">
-            <div class="info"><span class="icon">📁</span><span id="sel-folder-name">—</span></div>
+            <div class="info"><span style="font-size:20px">📁</span><span id="sel-folder-name">—</span></div>
             <button class="btn btn-sm" onclick="clearFolder()">Change</button>
           </div>
-          <div id="folder-preview"></div>
-        </div>
-
-        <!-- Folder browser -->
-        <div id="folder-browser-wrap" style="display:none">
-          <div class="breadcrumb" id="breadcrumb"></div>
-          <div class="folder-browser" id="folder-list"><div style="padding:20px;text-align:center;color:var(--text2)">Loading...</div></div>
         </div>
       </div>
     </div>
@@ -189,15 +158,21 @@
   </div>
 </div>
 
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Google Picker API -->
+<script src="https://apis.google.com/js/api.js" async defer></script>
+
 <script src="/dashboard/shared.js"></script>
 <script>
+const GOOGLE_CLIENT_ID = '451825178687-53dlr1g9db2lsn3cq7rjc3oje5hog8lf.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 const params = new URLSearchParams(window.location.search);
 const editId = params.get('id');
-let driveConnected = false;
-let serviceEmail = '';
 let selectedFolderId = '';
 let selectedFolderName = '';
-let browseStack = []; // { id, name }
+let googleAccessToken = '';
+let tokenClient;
 
 async function init() {
   await requireLogin();
@@ -209,8 +184,121 @@ async function init() {
     await loadClient();
   }
 
-  await checkDrive();
+  // Init Google Identity Services
+  initGoogleAuth();
 }
+
+function initGoogleAuth() {
+  // Wait for GIS library to load
+  if (typeof google === 'undefined' || !google.accounts) {
+    setTimeout(initGoogleAuth, 200);
+    return;
+  }
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: SCOPES,
+    callback: handleTokenResponse,
+  });
+
+  // Check if we have a cached token
+  const cached = sessionStorage.getItem('google_access_token');
+  if (cached) {
+    googleAccessToken = cached;
+    showGoogleAccount();
+  }
+}
+
+function googleSignIn() {
+  if (!tokenClient) { showToast('Google auth loading, try again...'); return; }
+  tokenClient.requestAccessToken();
+}
+
+function handleTokenResponse(resp) {
+  if (resp.error) { showToast('Google sign-in failed: ' + resp.error); return; }
+  googleAccessToken = resp.access_token;
+  sessionStorage.setItem('google_access_token', googleAccessToken);
+  showGoogleAccount();
+}
+
+async function showGoogleAccount() {
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${googleAccessToken}` }
+    });
+    if (!res.ok) { googleSignOut(); return; }
+    const user = await res.json();
+    document.getElementById('g-avatar').src = user.picture || '';
+    document.getElementById('g-name').textContent = user.name || '';
+    document.getElementById('g-email').textContent = user.email || '';
+    document.getElementById('drive-account').style.display = 'flex';
+    document.getElementById('drive-signin').style.display = 'none';
+    document.getElementById('drive-picker').style.display = 'block';
+  } catch {
+    googleSignOut();
+  }
+}
+
+function googleSignOut() {
+  googleAccessToken = '';
+  sessionStorage.removeItem('google_access_token');
+  document.getElementById('drive-account').style.display = 'none';
+  document.getElementById('drive-signin').style.display = 'block';
+  document.getElementById('drive-picker').style.display = 'none';
+}
+
+// ── Google Picker ──
+
+function openPicker() {
+  if (!googleAccessToken) { googleSignIn(); return; }
+
+  gapi.load('picker', () => {
+    const folderView = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+      .setSelectFolderEnabled(true)
+      .setMimeTypes('application/vnd.google-apps.folder');
+
+    const picker = new google.picker.PickerBuilder()
+      .setTitle('Select media folder for this client')
+      .addView(folderView)
+      .setOAuthToken(googleAccessToken)
+      .setCallback(pickerCallback)
+      .setOrigin(window.location.origin)
+      .build();
+    picker.setVisible(true);
+  });
+}
+
+async function pickerCallback(data) {
+  if (data.action === google.picker.Action.PICKED) {
+    const folder = data.docs[0];
+    selectedFolderId = folder.id;
+    selectedFolderName = folder.name;
+    document.getElementById('f-drive-url').value = `https://drive.google.com/drive/folders/${folder.id}`;
+
+    document.getElementById('selected-folder').style.display = 'block';
+    document.getElementById('sel-folder-name').textContent = folder.name;
+
+    // Count files in the folder
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q='${folder.id}'+in+parents+and+trashed=false&fields=files(id,mimeType)&pageSize=200`, {
+        headers: { Authorization: `Bearer ${googleAccessToken}` }
+      });
+      const files = await res.json();
+      const imgs = (files.files || []).filter(f => f.mimeType?.startsWith('image/')).length;
+      const vids = (files.files || []).filter(f => f.mimeType?.startsWith('video/')).length;
+      document.getElementById('sel-folder-name').textContent = `${folder.name} — ${imgs} images, ${vids} videos`;
+    } catch {}
+  }
+}
+
+function clearFolder() {
+  selectedFolderId = '';
+  selectedFolderName = '';
+  document.getElementById('f-drive-url').value = '';
+  document.getElementById('selected-folder').style.display = 'none';
+}
+
+// ── Load/Save ──
 
 async function loadClient() {
   const c = await apiCall(`/api/clients/${editId}`);
@@ -227,150 +315,11 @@ async function loadClient() {
 
   if (c.google_drive_folder_id || c.google_drive_folder_url) {
     selectedFolderId = c.google_drive_folder_id || '';
-    document.getElementById('f-drive-url').value = c.google_drive_folder_url || c.google_drive_folder_id || '';
-    // Show selected folder after drive check completes
-    setTimeout(() => showSelectedFolder(selectedFolderId, 'Saved folder'), 500);
+    document.getElementById('f-drive-url').value = c.google_drive_folder_url || '';
+    document.getElementById('selected-folder').style.display = 'block';
+    document.getElementById('sel-folder-name').textContent = selectedFolderId;
   }
 }
-
-async function checkDrive() {
-  const status = await apiCall('/api/drive/status');
-  const el = document.getElementById('drive-status');
-
-  if (status.configured) {
-    driveConnected = true;
-    serviceEmail = status.service_account_email || '';
-    el.innerHTML = `<div class="drive-dot on"></div><span style="color:var(--green)">Google Drive connected</span>`;
-    document.getElementById('drive-configured').style.display = 'block';
-    document.getElementById('drive-not-configured').style.display = 'none';
-    document.getElementById('sa-email').textContent = serviceEmail;
-  } else {
-    el.innerHTML = `<div class="drive-dot off"></div><span style="color:var(--yellow)">Not configured</span>`;
-    document.getElementById('drive-not-configured').style.display = 'block';
-    document.getElementById('drive-configured').style.display = 'none';
-  }
-}
-
-// ── Folder Browser ──
-
-async function browseDrive() {
-  const urlInput = document.getElementById('f-drive-url').value.trim();
-  // If URL pasted, try to open that folder
-  let startId = 'root';
-  if (urlInput) {
-    const match = urlInput.match(/folders\/([a-zA-Z0-9_-]+)/) || urlInput.match(/^[a-zA-Z0-9_-]{10,}$/);
-    if (match) startId = match[1] || match[0];
-  }
-  browseStack = [{ id: startId, name: startId === 'root' ? 'My Drive' : 'Folder' }];
-  document.getElementById('folder-browser-wrap').style.display = 'block';
-  document.getElementById('selected-folder').style.display = 'none';
-  await loadFolder(startId);
-}
-
-async function loadFolder(folderId) {
-  const listEl = document.getElementById('folder-list');
-  listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)"><span class="spinner"></span> Loading...</div>';
-  renderBreadcrumb();
-
-  try {
-    // Use the test endpoint first to verify access, then list files
-    const res = await apiCall('/api/drive/test', { method: 'POST', body: JSON.stringify({ folder_url: folderId }) });
-    if (!res.success) {
-      listEl.innerHTML = `<div style="padding:20px;color:var(--red);font-size:13px">${escapeHtml(res.message)}<br><br><span style="color:var(--text2)">Make sure the folder is shared with:<br><strong>${serviceEmail}</strong></span></div>`;
-      return;
-    }
-
-    // If the folder has only media (no subfolders worth browsing), show select option
-    const filesRes = await apiCall(`/api/drive/browse/${folderId}`);
-    const items = filesRes.items || [];
-
-    if (items.length === 0) {
-      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">Empty folder</div>';
-      return;
-    }
-
-    const folders = items.filter(i => i.type === 'folder');
-    const media = items.filter(i => i.type !== 'folder');
-
-    let html = '';
-    // Select this folder button
-    html += `<div class="folder-item" onclick="selectFolder('${folderId}', '${escapeHtml(browseStack[browseStack.length-1]?.name || 'Folder')}')" style="background:rgba(99,102,241,.05);border-bottom:2px solid var(--border)">
-      <span class="icon" style="color:var(--green)">✓</span>
-      <span class="name" style="color:var(--green);font-weight:600">Select this folder (${media.length} media files)</span>
-    </div>`;
-
-    for (const f of folders) {
-      html += `<div class="folder-item" onclick="openFolder('${f.id}','${escapeHtml(f.name)}')">
-        <span class="icon">📁</span>
-        <span class="name">${escapeHtml(f.name)}</span>
-        <span class="meta">${f.childCount || ''}</span>
-      </div>`;
-    }
-
-    for (const f of media.slice(0, 20)) {
-      const isVideo = f.mimeType?.startsWith('video/');
-      html += `<div class="folder-item" style="opacity:.6;cursor:default">
-        <span class="icon">${isVideo ? '🎬' : '🖼️'}</span>
-        <span class="name">${escapeHtml(f.name)}</span>
-        <span class="meta">${f.size ? (f.size/1024/1024).toFixed(1)+'MB' : ''}</span>
-      </div>`;
-    }
-    if (media.length > 20) html += `<div class="folder-item" style="opacity:.5;cursor:default;justify-content:center">+${media.length-20} more files</div>`;
-
-    listEl.innerHTML = html;
-  } catch (err) {
-    listEl.innerHTML = `<div style="padding:20px;color:var(--red);font-size:13px">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-function openFolder(id, name) {
-  browseStack.push({ id, name });
-  loadFolder(id);
-}
-
-function navigateTo(idx) {
-  browseStack = browseStack.slice(0, idx + 1);
-  loadFolder(browseStack[idx].id);
-}
-
-function renderBreadcrumb() {
-  document.getElementById('breadcrumb').innerHTML = browseStack.map((b, i) =>
-    i < browseStack.length - 1
-      ? `<a onclick="navigateTo(${i})">${escapeHtml(b.name)}</a><span>/</span>`
-      : `<strong style="color:var(--text)">${escapeHtml(b.name)}</strong>`
-  ).join('');
-}
-
-function selectFolder(id, name) {
-  selectedFolderId = id;
-  selectedFolderName = name;
-  document.getElementById('f-drive-url').value = id;
-  showSelectedFolder(id, name);
-  document.getElementById('folder-browser-wrap').style.display = 'none';
-}
-
-async function showSelectedFolder(id, name) {
-  document.getElementById('selected-folder').style.display = 'block';
-  document.getElementById('sel-folder-name').textContent = name || id;
-
-  // Load preview of files
-  try {
-    const res = await apiCall('/api/drive/test', { method: 'POST', body: JSON.stringify({ folder_url: id }) });
-    if (res.success) {
-      document.getElementById('sel-folder-name').textContent = `${res.folder_name || name} — ${res.images || 0} images, ${res.videos || 0} videos`;
-    }
-  } catch {}
-}
-
-function clearFolder() {
-  selectedFolderId = '';
-  selectedFolderName = '';
-  document.getElementById('f-drive-url').value = '';
-  document.getElementById('selected-folder').style.display = 'none';
-  document.getElementById('folder-browser-wrap').style.display = 'none';
-}
-
-// ── Save ──
 
 async function saveClient() {
   const errEl = document.getElementById('error-msg');
@@ -391,10 +340,9 @@ async function saveClient() {
     phone: document.getElementById('f-phone').value.trim() || undefined,
     notes: document.getElementById('f-notes').value.trim() || undefined,
     google_drive_folder_url: driveUrl || undefined,
-    google_drive_folder_id: selectedFolderId || (driveUrl ? extractId(driveUrl) : undefined),
+    google_drive_folder_id: selectedFolderId || undefined,
   };
 
-  // API config
   const apiUrl = document.getElementById('f-api-url').value.trim();
   if (apiUrl || apiToken) {
     body.api_config = {
@@ -413,7 +361,6 @@ async function saveClient() {
 
   try {
     if (editId) {
-      // Preserve existing token if not changed
       if (body.api_config && !apiToken) {
         const existing = await apiCall(`/api/clients/${editId}`);
         if (existing.api_config?.api_token) body.api_config.api_token = existing.api_config.api_token;
@@ -424,13 +371,8 @@ async function saveClient() {
       window.scrollTo(0,0);
     } else {
       const res = await apiCall('/api/clients', { method: 'POST', body: JSON.stringify(body) });
-      if (res.success) {
-        window.location.href = '/dashboard/clients.html';
-        return;
-      } else {
-        errEl.textContent = res.error || 'Failed to create client';
-        errEl.style.display = 'block';
-      }
+      if (res.success) { window.location.href = '/dashboard/clients.html'; return; }
+      else { errEl.textContent = res.error || 'Failed to create client'; errEl.style.display = 'block'; }
     }
   } catch (err) {
     errEl.textContent = 'Error saving client';
@@ -439,31 +381,6 @@ async function saveClient() {
 
   btn.disabled = false;
   btn.textContent = 'Save Client';
-}
-
-async function uploadDriveCredentials(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const formData = new FormData();
-  formData.append('credentials', file);
-  const res = await fetch('/api/drive/credentials', {
-    method: 'POST', credentials: 'include',
-    headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
-    body: formData,
-  });
-  const data = await res.json();
-  if (data.success) {
-    showToast(`Connected! Service account: ${data.service_account_email}`);
-    await checkDrive();
-  } else {
-    showToast('Error: ' + (data.error || 'Invalid file'));
-  }
-  input.value = '';
-}
-
-function extractId(url) {
-  const m = url.match(/folders\/([a-zA-Z0-9_-]+)/) || url.match(/^([a-zA-Z0-9_-]{10,})$/);
-  return m ? (m[1] || m[0]) : url;
 }
 
 init();

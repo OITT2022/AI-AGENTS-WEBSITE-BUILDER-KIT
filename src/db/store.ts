@@ -82,7 +82,7 @@ export async function addSnapshot(snapshot: EntitySnapshot): Promise<EntitySnaps
     `INSERT INTO entity_snapshots (id, entity_id, sync_run_id, version_no, normalized_payload, source_payload, checksum, created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     [snapshot.id, snapshot.entity_id, snapshot.sync_run_id ?? null, snapshot.version_no,
-     JSON.stringify(snapshot.normalized_payload), JSON.stringify(snapshot.source_payload),
+     safeJson(snapshot.normalized_payload), safeJson(snapshot.source_payload),
      snapshot.checksum, snapshot.created_at]
   );
   return row!;
@@ -102,7 +102,7 @@ export async function addChangeEvent(event: ChangeEvent): Promise<void> {
     `INSERT INTO entity_change_events (id, entity_id, from_snapshot_id, to_snapshot_id, change_type, diff_json, created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
     [event.id, event.entity_id, event.from_snapshot_id ?? null, event.to_snapshot_id ?? null,
-     event.change_type, JSON.stringify(event.diff_json), event.created_at]
+     event.change_type, safeJson(event.diff_json), event.created_at]
   );
 }
 
@@ -128,7 +128,7 @@ export async function upsertCandidate(candidate: CampaignCandidate): Promise<voi
     [candidate.id, candidate.client_id ?? null, candidate.entity_id, candidate.candidate_date,
      candidate.score_total, candidate.score_freshness, candidate.score_media, candidate.score_business,
      candidate.score_urgency, candidate.score_history, candidate.recommended_angle,
-     JSON.stringify(candidate.recommended_audiences), JSON.stringify(candidate.recommended_platforms),
+     safeJson(candidate.recommended_audiences), safeJson(candidate.recommended_platforms),
      candidate.selected, candidate.selection_reason, candidate.created_at]
   );
 }
@@ -183,8 +183,8 @@ export async function addVariant(variant: CreativeVariant): Promise<void> {
     `INSERT INTO creative_variants (id, batch_id, platform, variant_no, copy_json, media_plan_json, generation_metadata, created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
     [variant.id, variant.batch_id, variant.platform, variant.variant_no,
-     JSON.stringify(variant.copy_json), JSON.stringify(variant.media_plan_json),
-     JSON.stringify(variant.generation_metadata), variant.created_at]
+     safeJson(variant.copy_json), safeJson(variant.media_plan_json),
+     safeJson(variant.generation_metadata), variant.created_at]
   );
 }
 
@@ -202,7 +202,7 @@ export async function addReview(review: QAReview): Promise<void> {
     `INSERT INTO qa_reviews (id, creative_variant_id, status, review_json, reviewed_at)
      VALUES ($1,$2,$3,$4,$5)`,
     [review.id, review.creative_variant_id, review.status,
-     JSON.stringify(review.review_json), review.reviewed_at]
+     safeJson(review.review_json), review.reviewed_at]
   );
 }
 
@@ -248,7 +248,7 @@ export async function addPublishAction(action: PublishAction): Promise<void> {
     `INSERT INTO publish_actions (id, creative_variant_id, platform, publish_mode, status, external_object_id, request_json, response_json, published_at, created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
     [action.id, action.creative_variant_id, action.platform, action.publish_mode, action.status,
-     action.external_object_id ?? null, JSON.stringify(action.request_json), JSON.stringify(action.response_json),
+     action.external_object_id ?? null, safeJson(action.request_json), safeJson(action.response_json),
      action.published_at ?? null, action.created_at]
   );
 }
@@ -259,7 +259,7 @@ export async function updatePublishAction(id: string, updates: Partial<PublishAc
   let i = 1;
   for (const [key, val] of Object.entries(updates)) {
     sets.push(`${key} = $${i++}`);
-    vals.push(typeof val === 'object' ? JSON.stringify(val) : val);
+    vals.push(typeof val === 'object' ? safeJson(val) : val);
   }
   vals.push(id);
   await query(`UPDATE publish_actions SET ${sets.join(', ')} WHERE id = $${i}`, vals);
@@ -280,7 +280,7 @@ export async function addMetric(metric: PerformanceMetric): Promise<void> {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [metric.id, metric.publish_action_id, metric.metric_date, metric.impressions, metric.clicks,
      metric.spend, metric.ctr, metric.leads, metric.video_3s_views, metric.video_completions,
-     JSON.stringify(metric.raw_metrics_json), metric.created_at]
+     safeJson(metric.raw_metrics_json), metric.created_at]
   );
 }
 
@@ -361,7 +361,7 @@ export async function upsertClient(client: Client): Promise<Client> {
     [client.id, client.name, client.company, client.contact_person, client.email, client.phone ?? null,
      client.google_drive_folder_id ?? null, client.google_drive_folder_url ?? null,
      client.drive_last_sync_at ?? null, client.drive_file_count ?? 0,
-     JSON.stringify(client.api_config ?? {}), client.notes ?? null, client.active,
+     safeJson(client.api_config ?? {}), client.notes ?? null, client.active,
      client.created_at, client.updated_at]
   );
   return row!;
@@ -383,61 +383,56 @@ export async function setConfig(key: string, value: any): Promise<void> {
   await query(
     `INSERT INTO app_config (key, value, updated_at) VALUES ($1, $2, NOW())
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-    [key, JSON.stringify(value)]
+    [key, safeJson(value)]
   );
+}
+
+// ── Safe JSON stringify (handles already-parsed JSONB) ──
+
+function safeJson(val: any): string {
+  if (val === null || val === undefined) return '{}';
+  if (typeof val === 'string') return val;
+  try { return safeJson(val); } catch { return '{}'; }
 }
 
 // ── Init DB ──
 
 export async function initDatabase(): Promise<void> {
-  // Run both schema files
-  const fs = await import('fs');
-  const path = await import('path');
+  try {
+    // Check if tables exist by querying users table
+    await sql('SELECT 1 FROM users LIMIT 1');
+  } catch {
+    // Tables don't exist - run migrations from SQL files
+    const fs = await import('fs');
+    const path = await import('path');
+    const schemaPath = path.join(process.cwd(), 'db', 'schema.sql');
+    const migrationPath = path.join(process.cwd(), 'db', 'migration.sql');
 
-  const schemaPath = path.join(process.cwd(), 'db', 'schema.sql');
-  const migrationPath = path.join(process.cwd(), 'db', 'migration.sql');
-
-  async function runFile(filepath: string, label: string) {
-    try {
-      const content = fs.readFileSync(filepath, 'utf-8');
-      // Split on semicolons but handle DO $$ blocks
-      const statements: string[] = [];
-      let current = '';
-      let inBlock = false;
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('--') && !inBlock) continue;
-        if (trimmed.includes('DO $$') || trimmed.includes('DO $block$')) inBlock = true;
-        if (inBlock && (trimmed.includes('END $$') || trimmed.includes('END $block$'))) {
+    for (const filepath of [schemaPath, migrationPath]) {
+      try {
+        const content = fs.readFileSync(filepath, 'utf-8');
+        const statements: string[] = [];
+        let current = '';
+        let inBlock = false;
+        for (const line of content.split('\n')) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('--') && !inBlock) continue;
+          if (trimmed.includes('DO $$')) inBlock = true;
+          if (inBlock && trimmed.includes('END $$')) { current += line + '\n'; inBlock = false; statements.push(current.trim()); current = ''; continue; }
+          if (inBlock) { current += line + '\n'; continue; }
           current += line + '\n';
-          inBlock = false;
-          statements.push(current.trim());
-          current = '';
-          continue;
+          if (trimmed.endsWith(';')) { const s = current.trim().replace(/;$/, ''); if (s) statements.push(s); current = ''; }
         }
-        if (inBlock) { current += line + '\n'; continue; }
-        current += line + '\n';
-        if (trimmed.endsWith(';')) {
-          const stmt = current.trim().replace(/;$/, '');
-          if (stmt) statements.push(stmt);
-          current = '';
-        }
-      }
-      if (current.trim()) statements.push(current.trim().replace(/;$/, ''));
-
-      for (const stmt of statements) {
-        if (!stmt) continue;
-        try { await sql(stmt); } catch (e: any) {
-          if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) {
-            console.error(`${label}:`, e.message?.slice(0, 120));
+        if (current.trim()) statements.push(current.trim().replace(/;$/, ''));
+        for (const stmt of statements) {
+          if (!stmt) continue;
+          try { await sql(stmt); } catch (e: any) {
+            if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) console.error(e.message?.slice(0, 100));
           }
         }
-      }
-    } catch (e: any) { console.error(`${label} file error:`, e.message); }
+      } catch {}
+    }
   }
-
-  await runFile(schemaPath, 'Schema');
-  await runFile(migrationPath, 'Migration');
 }
 
 // ── Legacy compatibility: store object ──

@@ -18,6 +18,7 @@
     .btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
     .btn-green{background:var(--green);border-color:var(--green);color:#fff}
     .btn-red{background:var(--red);border-color:var(--red);color:#fff}
+    .btn-sm{padding:5px 10px;font-size:12px}
     .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
     .badge-green{background:rgba(34,197,94,.15);color:var(--green)}.badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow)}
     .badge-red{background:rgba(239,68,68,.15);color:var(--red)}.badge-blue{background:rgba(59,130,246,.15);color:var(--blue)}
@@ -32,10 +33,11 @@
     .tab.active{background:var(--primary);color:#fff}.tab:hover:not(.active){color:var(--text);background:var(--surface2)}
     .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px}
     .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .15s}.card:hover{border-color:var(--primary)}
+    .card-cover{width:100%;height:180px;object-fit:cover;display:block;background:var(--surface2)}
     .card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
     .card-header h3{font-size:15px;font-weight:600;line-height:1.4}
     .card-body{padding:16px 20px}
-    .card-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+    .card-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;align-items:center}
     .detail-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}.detail-row .label{color:var(--text2)}
     .score-bar{display:flex;align-items:center;gap:10px;margin-top:12px}
     .score-bar-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
@@ -50,6 +52,8 @@
     .media-strip img:first-child{width:160px;height:120px;border-color:var(--primary)}
     .media-strip img:hover{border-color:var(--primary);transform:scale(1.03)}
     .creative-preview{background:var(--bg);border-radius:8px;padding:14px;margin-top:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto}
+    .creative-preview[contenteditable=true]{border:1px solid var(--border);cursor:text}
+    .creative-preview[contenteditable=true]:focus{border-color:var(--primary);outline:none}
     .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer}
     .lightbox img{max-width:90vw;max-height:90vh;border-radius:8px}
     .lightbox-close{position:absolute;top:20px;right:24px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none}
@@ -57,8 +61,55 @@
     .loading{text-align:center;padding:40px;color:var(--text2)}
     .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--green);color:var(--text);padding:14px 24px;border-radius:var(--radius);font-size:14px;z-index:1000;animation:slideIn .3s ease}
     @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-    .client-banner{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 24px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
-    .client-banner h2{font-size:18px;font-weight:700}.client-banner .sub{color:var(--text2);font-size:13px;margin-top:2px}
+
+    /* Preview popup */
+    .preview-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+    .preview-popup{background:var(--bg);border-radius:var(--radius);max-width:480px;width:100%;max-height:90vh;overflow-y:auto;position:relative}
+    .preview-popup-close{position:absolute;top:12px;right:16px;color:var(--text2);font-size:24px;cursor:pointer;background:none;border:none;z-index:2}
+    .preview-popup-close:hover{color:var(--text)}
+    .preview-popup-header{padding:16px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+
+    /* FB preview */
+    .fb-card{background:#fff;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#050505;overflow:hidden}
+    .fb-header{padding:12px 16px;display:flex;align-items:center;gap:10px}
+    .fb-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;flex-shrink:0}
+    .fb-name{font-weight:700;font-size:14px}.fb-meta{font-size:12px;color:#65676B}
+    .fb-text{padding:0 16px 12px;font-size:15px;line-height:1.5;white-space:pre-wrap}
+    .fb-image{width:100%;aspect-ratio:1.91/1;object-fit:cover;display:block}
+    .fb-link-bar{background:#f0f2f5;padding:12px 16px}
+    .fb-link-domain{font-size:12px;color:#65676B;text-transform:uppercase}
+    .fb-link-title{font-size:16px;font-weight:700;margin-top:2px}
+    .fb-link-desc{font-size:14px;color:#65676B;margin-top:2px}
+    .fb-cta-btn{background:#e4e6eb;color:#050505;border:none;padding:8px 16px;border-radius:6px;font-weight:600;font-size:14px}
+    .fb-actions{display:flex;gap:4px;padding:8px 16px;border-top:1px solid #ddd}
+    .fb-action{flex:1;text-align:center;padding:8px;font-size:14px;font-weight:600;color:#65676B}
+
+    /* IG preview */
+    .ig-card{background:#000;border-radius:8px;font-family:-apple-system,sans-serif;color:#fff;overflow:hidden}
+    .ig-header{padding:10px 14px;display:flex;align-items:center;gap:10px}
+    .ig-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;border:2px solid #c13584;flex-shrink:0}
+    .ig-name{font-weight:600;font-size:13px;flex:1}.ig-sponsored{font-size:11px;color:#a8a8a8}
+    .ig-image{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
+    .ig-actions-bar{padding:10px 14px;display:flex;gap:16px}
+    .ig-action-icon{width:24px;height:24px}
+    .ig-caption{padding:0 14px 12px;font-size:13px;line-height:1.5}
+    .ig-caption .cname{font-weight:600}
+    .ig-hashtags{color:#e0f1ff;font-size:13px;margin-top:4px}
+    .ig-cta-bar{background:#0095f6;text-align:center;padding:10px;font-weight:600;font-size:14px}
+
+    /* TK preview */
+    .tk-card{background:#000;border-radius:12px;max-width:320px;margin:0 auto;font-family:-apple-system,sans-serif;color:#fff;overflow:hidden;position:relative;aspect-ratio:9/16}
+    .tk-bg{position:absolute;inset:0}.tk-bg img{width:100%;height:100%;object-fit:cover;filter:brightness(.7)}
+    .tk-overlay{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:16px}
+    .tk-hook{position:absolute;top:60px;left:16px;right:60px;z-index:2;font-size:20px;font-weight:800;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+    .tk-sponsored{position:absolute;top:14px;left:14px;z-index:2;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
+    .tk-right{position:absolute;right:12px;bottom:120px;display:flex;flex-direction:column;gap:16px;align-items:center;z-index:2}
+    .tk-right-btn{text-align:center;font-size:11px}
+    .tk-right-icon{width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:3px}
+    .tk-name{font-weight:700;font-size:15px;margin-bottom:4px}
+    .tk-desc{font-size:13px;line-height:1.5;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .tk-cta{background:#fe2c55;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-weight:700;font-size:14px;display:inline-block}
+
     @media(max-width:768px){.container{padding:16px}.card-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}}
   </style>
 </head>
@@ -72,18 +123,8 @@
       All Clients
     </a>
     <button class="btn" onclick="loadAll()">Refresh</button>
-    <button class="btn" id="btn-drive" onclick="syncDrive()" style="display:none">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-      Sync Drive
-    </button>
-    <button class="btn btn-primary" id="btn-sync" onclick="syncClient()" style="display:none">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-      Sync API
-    </button>
-    <a class="btn" id="btn-preview" href="#" style="text-decoration:none;display:none">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      Preview Ads
-    </a>
+    <button class="btn" id="btn-drive" onclick="syncDrive()" style="display:none">Sync Drive</button>
+    <button class="btn btn-primary" id="btn-sync" onclick="syncClient()" style="display:none">Sync API</button>
     <button class="btn btn-primary" id="btn-pipeline" onclick="runPipeline()">Run Pipeline</button>
   </div>
 </div>
@@ -115,8 +156,6 @@ async function init() {
   document.title = `${clientData.company} - Campaign Dashboard`;
   if (clientData.api_config?.api_token) document.getElementById('btn-sync').style.display = 'inline-flex';
   if (clientData.google_drive_folder_id || clientData.google_drive_folder_url) document.getElementById('btn-drive').style.display = 'inline-flex';
-  document.getElementById('btn-preview').href = `/dashboard/preview.html?client=${clientId}`;
-  document.getElementById('btn-preview').style.display = 'inline-flex';
   loadAll();
 }
 
@@ -151,15 +190,34 @@ async function loadTab(tab) {
   }
 }
 
+// ── Candidates (with hero image) ──
+
 async function renderCandidates(el) {
   const candidates = await apiCall(`/api/clients/${clientId}/candidates`);
-  if (!candidates.length) { el.innerHTML = '<div class="empty-state"><h3>No candidates</h3><p>Sync properties from API or run the pipeline.</p></div>'; return; }
+  if (!candidates.length) { el.innerHTML = '<div class="empty-state"><h3>No candidates</h3><p>Sync properties and run the pipeline.</p></div>'; return; }
   el.innerHTML = `<div class="card-grid">${candidates.map(c => {
     const s = c.snapshot || {};
     const sc = c.score_total >= 70 ? 'var(--green)' : c.score_total >= 40 ? 'var(--yellow)' : 'var(--red)';
-    return `<div class="card"><div class="card-header"><div><h3>${s.title_he||s.title_en||c.entity?.source_entity_id||'Unknown'}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${s.city||''}${s.area?', '+s.area:''}</div></div><span class="badge ${c.selected?'badge-green':'badge-yellow'}">${c.selected?'Selected':'Scored'}</span></div><div class="card-body"><div class="detail-row"><span class="label">Price</span><span>${s.price_text||(s.price_currency?s.price_currency+' '+Number(s.price_amount).toLocaleString():'N/A')}</span></div><div class="detail-row"><span class="label">Angle</span><span class="badge badge-purple">${c.recommended_angle||'-'}</span></div><div class="score-bar"><span class="label" style="font-size:12px;color:var(--text2)">Score</span><div class="score-bar-track"><div class="score-bar-fill" style="width:${c.score_total}%;background:${sc}"></div></div><span class="score-value" style="color:${sc}">${c.score_total}</span></div><div class="platforms">${(c.recommended_platforms||[]).map(p=>`<span class="platform-tag platform-${p}">${p}</span>`).join('')}</div></div>${c.selected?`<div class="card-footer"><button class="btn btn-primary" onclick="generateFor('${c.id}')">Generate Creatives</button></div>`:''}</div>`;
+    const heroImg = s.hero_image || (s.gallery && s.gallery[0]) || '';
+    return `<div class="card">
+      ${heroImg ? `<img class="card-cover" src="${esc(heroImg)}" onerror="this.style.display='none'" loading="lazy">` : ''}
+      <div class="card-header">
+        <div><h3>${s.title_he||s.title_en||c.entity?.source_entity_id||'Unknown'}</h3>
+        <div style="color:var(--text2);font-size:12px;margin-top:4px">${s.city||''}${s.area?', '+s.area:''}</div></div>
+        <span class="badge ${c.selected?'badge-green':'badge-yellow'}">${c.selected?'Selected':'Scored'}</span>
+      </div>
+      <div class="card-body">
+        <div class="detail-row"><span class="label">Price</span><span>${s.price_text||(s.price_currency?s.price_currency+' '+Number(s.price_amount).toLocaleString():'N/A')}</span></div>
+        <div class="detail-row"><span class="label">Angle</span><span class="badge badge-purple">${c.recommended_angle||'-'}</span></div>
+        <div class="score-bar"><span class="label" style="font-size:12px;color:var(--text2)">Score</span><div class="score-bar-track"><div class="score-bar-fill" style="width:${c.score_total}%;background:${sc}"></div></div><span class="score-value" style="color:${sc}">${c.score_total}</span></div>
+        <div class="platforms">${(c.recommended_platforms||[]).map(p=>`<span class="platform-tag platform-${p}">${p}</span>`).join('')}</div>
+      </div>
+      ${c.selected?`<div class="card-footer"><button class="btn btn-primary" onclick="generateFor('${c.id}')">Generate Creatives</button></div>`:''}
+    </div>`;
   }).join('')}</div>`;
 }
+
+// ── Creatives (editable + preview) ──
 
 async function renderCreatives(el) {
   const batches = await apiCall(`/api/clients/${clientId}/creatives`);
@@ -167,10 +225,155 @@ async function renderCreatives(el) {
   el.innerHTML = `<div class="card-grid">${batches.flatMap(b=>(b.variants||[]).map(v=>{
     const copy=v.copy_json||{};const review=(v.reviews||[])[0];const approval=v.approval;
     const qs=review?.status||'pending';const qb=qs==='pass'?'badge-green':qs==='warn'?'badge-yellow':qs==='fail'?'badge-red':'badge-blue';
-    let pt='';if(copy.primary_text)pt=copy.primary_text;else if(copy.caption)pt=copy.caption;else if(copy.hook)pt=`${copy.hook}\n\n${copy.voiceover_script||''}`;
-    return `<div class="card"><div class="card-header"><div><h3>${b.entity?.title_he||b.entity?.title_en||b.entity_id}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px"><span class="platform-tag platform-${v.platform}">${v.platform}</span><span style="margin-left:6px">V#${v.variant_no} · ${copy.language||b.language_code}</span></div></div><span class="badge ${qb}">QA: ${qs}</span></div><div class="card-body">${renderMedia(v.media_plan_json)}${copy.headline?`<div class="detail-row"><span class="label">Headline</span><span style="font-weight:600">${copy.headline}</span></div>`:''}${copy.cta?`<div class="detail-row"><span class="label">CTA</span><span>${copy.cta}</span></div>`:''}${copy.hashtags?`<div class="detail-row"><span class="label">Hashtags</span><span style="font-size:12px">${copy.hashtags.join(' ')}</span></div>`:''}<div class="creative-preview">${escapeHtml(pt)}</div>${approval?`<div style="margin-top:12px"><span class="badge ${approval.status==='approved'?'badge-green':approval.status==='rejected'?'badge-red':'badge-yellow'}">${approval.status}</span></div>`:''}</div>${approval&&approval.status==='pending'?`<div class="card-footer"><button class="btn btn-green" onclick="approve('${approval.id}','approved')">Approve</button><button class="btn btn-red" onclick="approve('${approval.id}','rejected')">Reject</button></div>`:''}</div>`;
+    const mainText = copy.primary_text||copy.caption||((copy.hook||'')+'\n\n'+(copy.voiceover_script||''));
+    const vid = v.id;
+    return `<div class="card" id="card-${vid}">
+      <div class="card-header">
+        <div><h3>${b.entity?.title_he||b.entity?.title_en||b.entity_id}</h3>
+        <div style="color:var(--text2);font-size:12px;margin-top:4px"><span class="platform-tag platform-${v.platform}">${v.platform}</span><span style="margin-left:6px">V#${v.variant_no} · ${copy.language||b.language_code}</span></div></div>
+        <span class="badge ${qb}">QA: ${qs}</span>
+      </div>
+      <div class="card-body">
+        ${renderMedia(v.media_plan_json)}
+        ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px"></div>`:''}
+        ${copy.cta?`<div class="detail-row"><span class="label">CTA</span><span>${copy.cta}</span></div>`:''}
+        ${copy.hashtags?`<div class="detail-row"><span class="label">Hashtags</span><span style="font-size:12px">${copy.hashtags.join(' ')}</span></div>`:''}
+        <div class="creative-preview" contenteditable="true" id="text-${vid}">${esc(mainText.trim())}</div>
+        ${approval?`<div style="margin-top:12px"><span class="badge ${approval.status==='approved'?'badge-green':approval.status==='rejected'?'badge-red':'badge-yellow'}">${approval.status}</span></div>`:''}
+      </div>
+      <div class="card-footer">
+        <button class="btn btn-sm btn-green" onclick="saveCopy('${vid}','${v.platform}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+          Save
+        </button>
+        <button class="btn btn-sm" onclick="openPreview('${vid}','${v.platform}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Preview
+        </button>
+        <div style="flex:1"></div>
+        ${approval&&approval.status==='pending'?`
+          <button class="btn btn-sm btn-green" onclick="approve('${approval.id}','approved')">Approve</button>
+          <button class="btn btn-sm btn-red" onclick="approve('${approval.id}','rejected')">Reject</button>
+        `:''}
+      </div>
+    </div>`;
   })).join('')}</div>`;
+
+  // Store variant data for preview popup
+  window._variants = {};
+  batches.forEach(b => (b.variants||[]).forEach(v => { window._variants[v.id] = { ...v, entity: b.entity, batch: b }; }));
 }
+
+// ── Save edited copy ──
+
+async function saveCopy(variantId, platform) {
+  const textEl = document.getElementById('text-' + variantId);
+  const hlEl = document.getElementById('hl-' + variantId);
+  const newText = textEl?.innerText || '';
+  const newHeadline = hlEl?.value || '';
+
+  const v = window._variants?.[variantId];
+  if (!v) return;
+  const copy = { ...v.copy_json };
+
+  if (platform === 'facebook') { copy.primary_text = newText; if (newHeadline) copy.headline = newHeadline; }
+  else if (platform === 'instagram') { copy.caption = newText; }
+  else if (platform === 'tiktok') {
+    const parts = newText.split('\n\n');
+    copy.hook = parts[0] || copy.hook;
+    copy.voiceover_script = parts.slice(1).join('\n\n') || copy.voiceover_script;
+  }
+
+  const res = await apiCall(`/api/creatives/${variantId}`, { method: 'PUT', body: JSON.stringify({ copy_json: copy }) });
+  if (res.success) {
+    showToast('Creative text saved');
+    window._variants[variantId].copy_json = copy;
+  } else { showToast('Save failed: ' + (res.error || '')); }
+}
+
+// ── Preview popup ──
+
+function openPreview(variantId, platform) {
+  const v = window._variants?.[variantId];
+  if (!v) return;
+  const copy = v.copy_json || {};
+  const media = v.media_plan_json || {};
+  const heroImg = media.hero_image || (media.selected_images||[])[0] || '';
+
+  // Read current edited text
+  const textEl = document.getElementById('text-' + variantId);
+  const hlEl = document.getElementById('hl-' + variantId);
+  if (textEl) {
+    const t = textEl.innerText;
+    if (platform === 'facebook') copy.primary_text = t;
+    else if (platform === 'instagram') copy.caption = t;
+    else if (platform === 'tiktok') { const p = t.split('\n\n'); copy.hook = p[0]; copy.voiceover_script = p.slice(1).join('\n\n'); }
+  }
+  if (hlEl && platform === 'facebook') copy.headline = hlEl.value;
+
+  let previewHtml = '';
+  if (platform === 'facebook') previewHtml = previewFB(copy, heroImg);
+  else if (platform === 'instagram') previewHtml = previewIG(copy, heroImg, media);
+  else if (platform === 'tiktok') previewHtml = previewTK(copy, heroImg);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'preview-overlay';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `<div class="preview-popup">
+    <button class="preview-popup-close" onclick="this.closest('.preview-overlay').remove()">&times;</button>
+    <div class="preview-popup-header"><span class="platform-tag platform-${platform}">${platform}</span> Ad Preview · ${copy.language==='he'?'Hebrew':'English'}</div>
+    <div style="padding:16px">${previewHtml}</div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function previewFB(c, img) {
+  return `<div class="fb-card">
+    <div class="fb-header"><div class="fb-avatar">RE</div><div><div class="fb-name">Real Estate Marketing</div><div class="fb-meta">Sponsored</div></div></div>
+    <div class="fb-text">${esc(c.primary_text||'')}</div>
+    ${img?`<img class="fb-image" src="${esc(img)}" onerror="this.style.display='none'">`:''}
+    <div class="fb-link-bar"><div class="fb-link-domain">findus.co.il</div><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="fb-link-title">${esc(c.headline||'')}</div><div class="fb-link-desc">${esc(c.description||'')}</div></div><button class="fb-cta-btn">${esc(c.cta||'Learn More')}</button></div></div>
+    <div class="fb-actions"><div class="fb-action">👍 Like</div><div class="fb-action">💬 Comment</div><div class="fb-action">↗ Share</div></div>
+  </div>`;
+}
+
+function previewIG(c, img, media) {
+  return `<div class="ig-card">
+    <div class="ig-header"><div class="ig-avatar">RE</div><div style="flex:1"><div class="ig-name">realestate.marketing</div><div class="ig-sponsored">Sponsored</div></div><span style="color:#a8a8a8;font-size:18px">•••</span></div>
+    ${img?`<img class="ig-image" src="${esc(img)}">`:'<div class="ig-image" style="background:#262626"></div>'}
+    <div class="ig-actions-bar">
+      <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      <div style="flex:1"></div>
+      <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div class="ig-caption"><span class="cname">realestate.marketing</span> ${esc(c.caption||'')}
+      ${c.hashtags?`<div class="ig-hashtags">${c.hashtags.join(' ')}</div>`:''}
+    </div>
+    ${c.cta?`<div class="ig-cta-bar">${esc(c.cta)}</div>`:''}
+  </div>`;
+}
+
+function previewTK(c, img) {
+  return `<div class="tk-card">
+    <div class="tk-bg">${img?`<img src="${esc(img)}">`:'<div style="width:100%;height:100%;background:#111"></div>'}</div>
+    <div class="tk-sponsored">Sponsored</div>
+    <div class="tk-hook">${esc(c.hook||'')}</div>
+    <div class="tk-right">
+      <div class="tk-right-btn"><div class="tk-right-icon">❤️</div>24.5K</div>
+      <div class="tk-right-btn"><div class="tk-right-icon">💬</div>482</div>
+      <div class="tk-right-btn"><div class="tk-right-icon">↗</div>Share</div>
+    </div>
+    <div class="tk-overlay"><div>
+      <div class="tk-name">@realestate.mkt</div>
+      <div class="tk-desc">${esc(c.voiceover_script||c.on_screen_text?.join(' · ')||'')}</div>
+      <div class="tk-cta">${esc(c.closing_cta||c.cta||'Learn More')}</div>
+    </div></div>
+  </div>`;
+}
+
+// ── Approvals ──
 
 async function renderApprovals(el) {
   const tasks = await apiCall(`/api/clients/${clientId}/approvals`);
@@ -178,26 +381,29 @@ async function renderApprovals(el) {
   el.innerHTML = `<div class="card-grid">${tasks.map(t=>{
     const v=t.variant||{};const copy=v.copy_json||{};const sb=t.status==='approved'?'badge-green':t.status==='rejected'?'badge-red':'badge-yellow';
     let pt='';if(copy.primary_text)pt=copy.primary_text;else if(copy.caption)pt=copy.caption;else if(copy.hook)pt=`${copy.hook}\n\n${copy.voiceover_script||''}`;
-    return `<div class="card"><div class="card-header"><div><h3>${t.entity?.title_he||t.entity?.title_en||'-'}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${v.platform?`<span class="platform-tag platform-${v.platform}">${v.platform}</span>`:''}<span style="margin-left:6px">${copy.language||''}</span></div></div><span class="badge ${sb}">${t.status}</span></div><div class="card-body">${renderMedia(v.media_plan_json)}<div class="creative-preview">${escapeHtml(pt)}</div>${t.decision_notes?`<div style="margin-top:8px;font-size:13px;color:var(--text2)">Notes: ${escapeHtml(t.decision_notes)}</div>`:''}</div>${t.status==='pending'?`<div class="card-footer"><button class="btn btn-green" onclick="approve('${t.id}','approved')">Approve</button><button class="btn" onclick="approve('${t.id}','approved_with_edits')">w/ Edits</button><button class="btn btn-red" onclick="approve('${t.id}','rejected')">Reject</button></div>`:''}</div>`;
+    return `<div class="card"><div class="card-header"><div><h3>${t.entity?.title_he||t.entity?.title_en||'-'}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${v.platform?`<span class="platform-tag platform-${v.platform}">${v.platform}</span>`:''}<span style="margin-left:6px">${copy.language||''}</span></div></div><span class="badge ${sb}">${t.status}</span></div><div class="card-body">${renderMedia(v.media_plan_json)}<div class="creative-preview">${esc(pt)}</div>${t.decision_notes?`<div style="margin-top:8px;font-size:13px;color:var(--text2)">Notes: ${esc(t.decision_notes)}</div>`:''}</div>${t.status==='pending'?`<div class="card-footer"><button class="btn btn-green" onclick="approve('${t.id}','approved')">Approve</button><button class="btn" onclick="approve('${t.id}','approved_with_edits')">w/ Edits</button><button class="btn btn-red" onclick="approve('${t.id}','rejected')">Reject</button></div>`:''}</div>`;
   }).join('')}</div>`;
 }
+
+// ── Properties ──
 
 async function renderProperties(el) {
   const entities = await apiCall(`/api/clients/${clientId}/entities`);
   if (!entities.length) { el.innerHTML = '<div class="empty-state"><h3>No properties</h3><p>Sync from the API to import properties.</p></div>'; return; }
   el.innerHTML = `<div class="card-grid">${entities.map(e=>{
     const s=e.snapshot||{};
-    return `<div class="card"><div class="card-header"><div><h3>${s.title_he||s.title_en||e.source_entity_id}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${e.entity_type} · ${e.source_entity_id}</div></div><span class="badge ${e.campaign_ready?'badge-green':'badge-yellow'}">${e.campaign_ready?'Ready':'Not Ready'}</span></div><div class="card-body">${renderEntityMedia(s)}<div class="detail-row"><span class="label">Location</span><span>${s.city||'-'}${s.area?', '+s.area:''}</span></div><div class="detail-row"><span class="label">Price</span><span>${s.price_text||(s.price_currency?s.price_currency+' '+Number(s.price_amount).toLocaleString():'-')}</span></div><div class="detail-row"><span class="label">Media</span><span>${s.gallery_count||0} images · ${s.video_count||0} videos</span></div></div></div>`;
+    const heroImg = s.hero_image || (s.gallery && s.gallery[0]) || '';
+    return `<div class="card">${heroImg?`<img class="card-cover" src="${esc(heroImg)}" onerror="this.style.display='none'" loading="lazy">`:''}<div class="card-header"><div><h3>${s.title_he||s.title_en||e.source_entity_id}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${e.entity_type} · ${e.source_entity_id}</div></div><span class="badge ${e.campaign_ready?'badge-green':'badge-yellow'}">${e.campaign_ready?'Ready':'Not Ready'}</span></div><div class="card-body"><div class="detail-row"><span class="label">Location</span><span>${s.city||'-'}${s.area?', '+s.area:''}</span></div><div class="detail-row"><span class="label">Price</span><span>${s.price_text||(s.price_currency?s.price_currency+' '+Number(s.price_amount).toLocaleString():'-')}</span></div><div class="detail-row"><span class="label">Media</span><span>${s.gallery_count||0} images · ${s.video_count||0} videos</span></div></div></div>`;
   }).join('')}</div>`;
 }
 
 // ── Actions ──
 
 async function syncDrive() {
-  showToast('Syncing Drive media...');
+  showToast('Syncing Drive...');
   const r = await apiCall(`/api/clients/${clientId}/drive/sync`, { method: 'POST', body: '{}' });
-  if (r.success) showToast(`Drive: ${r.result.images} images, ${r.result.videos} videos synced`);
-  else showToast('Drive sync failed: ' + (r.error || ''));
+  if (r.success) showToast(`Drive: ${r.result.images} images, ${r.result.videos} videos`);
+  else showToast('Drive sync failed');
   loadAll();
 }
 
@@ -239,21 +445,18 @@ function renderMedia(mp) {
   const all = hero && !imgs.includes(hero) ? [hero, ...imgs] : imgs;
   if (!all.length) return '';
   let h = '<div class="media-strip">';
-  for (const img of all.slice(0,6)) h += `<img src="${escapeHtml(img)}" alt="Property" onclick="openLightbox('${escapeHtml(img)}')" loading="lazy">`;
-  if (all.length > 6) h += `<div style="min-width:60px;height:75px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);flex-shrink:0">+${all.length-6}</div>`;
+  for (const img of all.slice(0,6)) h += `<img src="${esc(img)}" alt="" onclick="openLightbox('${esc(img)}')" loading="lazy">`;
+  if (all.length > 6) h += `<div style="min-width:60px;height:75px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2)">+${all.length-6}</div>`;
   return h + '</div>';
-}
-
-function renderEntityMedia(s) {
-  if (!s) return '';
-  return renderMedia({ hero_image: s.hero_image, selected_images: s.gallery || [] });
 }
 
 function openLightbox(src) {
   const lb = document.createElement('div'); lb.className = 'lightbox'; lb.onclick = () => lb.remove();
-  lb.innerHTML = `<button class="lightbox-close" onclick="this.parentElement.remove()">&#10005;</button><img src="${escapeHtml(src)}">`;
+  lb.innerHTML = `<button class="lightbox-close" onclick="this.parentElement.remove()">&#10005;</button><img src="${esc(src)}">`;
   document.body.appendChild(lb);
 }
+
+function esc(s) { return escapeHtml(s); }
 
 init();
 </script>

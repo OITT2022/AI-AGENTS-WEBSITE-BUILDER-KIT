@@ -397,6 +397,17 @@ app.post('/api/creatives/generate', async (req, res) => {
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+app.put('/api/creatives/:id', async (req, res) => {
+  try {
+    const id = paramId(req);
+    const variant = await store.getVariant(id);
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+    const { copy_json } = req.body;
+    if (copy_json) await store.updateVariant(id, { copy_json });
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 // ── Approvals ──
 
 app.get('/api/approvals', async (req, res) => {

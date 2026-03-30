@@ -184,6 +184,18 @@ export async function getVariant(id: string): Promise<CreativeVariant | undefine
   return queryOne<CreativeVariant>('SELECT * FROM creative_variants WHERE id = $1', [id]);
 }
 
+export async function updateVariant(id: string, updates: Partial<CreativeVariant>): Promise<void> {
+  const sets: string[] = [];
+  const vals: any[] = [];
+  let i = 1;
+  for (const [key, val] of Object.entries(updates)) {
+    sets.push(`${key} = $${i++}`);
+    vals.push(typeof val === 'object' && val !== null ? safeJson(val) : val);
+  }
+  vals.push(id);
+  await query(`UPDATE creative_variants SET ${sets.join(', ')} WHERE id = $${i}`, vals);
+}
+
 export async function addVariant(variant: CreativeVariant): Promise<void> {
   await query(
     `INSERT INTO creative_variants (id, batch_id, platform, variant_no, copy_json, media_plan_json, generation_metadata, created_at)
@@ -461,7 +473,7 @@ export const store = {
   getChangeEvents, addChangeEvent,
   getCandidates, getCandidate, upsertCandidate, getCandidatesByClient,
   getBatches, addBatch, getBatchesByClient,
-  getVariants, getVariant, addVariant,
+  getVariants, getVariant, addVariant, updateVariant,
   getReviews, addReview,
   getApprovalTasks, getApprovalTask, getApprovalTaskForVariant, upsertApprovalTask,
   getPublishActions, addPublishAction, updatePublishAction,

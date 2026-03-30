@@ -1,19 +1,15 @@
-import { google, drive_v3 } from 'googleapis';
+import { GoogleAuth } from 'google-auth-library';
 import fs from 'fs';
 import path from 'path';
 import { store } from '../db/store';
 import { DriveMediaFile, Client } from '../models/schemas';
 
 const CREDENTIALS_PATH = path.join(process.cwd(), 'data', 'google-credentials.json');
-const MEDIA_CACHE_DIR = path.join(process.cwd(), 'data', 'drive-media');
+const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 
-const IMAGE_MIME_TYPES = [
-  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/tiff',
-];
-const VIDEO_MIME_TYPES = [
-  'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg',
-];
-const MEDIA_MIME_TYPES = [...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES];
+const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/tiff'];
+const VIDEO_MIMES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg'];
+const MEDIA_MIMES = [...IMAGE_MIMES, ...VIDEO_MIMES];
 
 // ── Auth ──
 
@@ -22,9 +18,7 @@ function getCredentials(): Record<string, unknown> | null {
   return JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf-8'));
 }
 
-export function hasCredentials(): boolean {
-  return fs.existsSync(CREDENTIALS_PATH);
-}
+export function hasCredentials(): boolean { return fs.existsSync(CREDENTIALS_PATH); }
 
 export function saveCredentials(credentials: Record<string, unknown>): void {
   const dir = path.dirname(CREDENTIALS_PATH);
@@ -33,177 +27,108 @@ export function saveCredentials(credentials: Record<string, unknown>): void {
 }
 
 export function getServiceAccountEmail(): string | null {
-  const creds = getCredentials();
-  return (creds?.client_email as string) ?? null;
+  return (getCredentials()?.client_email as string) ?? null;
 }
 
-function getDriveClient(): drive_v3.Drive {
+async function getAccessToken(): Promise<string> {
   const creds = getCredentials();
   if (!creds) throw new Error('Google credentials not configured. Upload a service account JSON key file.');
-
-  const auth = new google.auth.GoogleAuth({
-    credentials: creds as any,
-    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-  });
-
-  return google.drive({ version: 'v3', auth });
+  const auth = new GoogleAuth({ credentials: creds as any, scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
+  const client = await auth.getClient();
+  const token = await client.getAccessToken();
+  return (token as any).token ?? token;
 }
 
-// ── Extract folder ID from URL ──
+async function driveGet(path: string): Promise<any> {
+  const token = await getAccessToken();
+  const res = await fetch(`${DRIVE_API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Drive API error: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+// ── Extract folder ID ──
 
 export function extractFolderId(urlOrId: string): string {
   if (!urlOrId) throw new Error('No folder URL or ID provided');
-  // Direct ID
   if (/^[a-zA-Z0-9_-]{10,}$/.test(urlOrId)) return urlOrId;
-  // URL formats
-  const match = urlOrId.match(/folders\/([a-zA-Z0-9_-]+)/);
-  if (match) return match[1];
-  const match2 = urlOrId.match(/id=([a-zA-Z0-9_-]+)/);
-  if (match2) return match2[1];
+  const m = urlOrId.match(/folders\/([a-zA-Z0-9_-]+)/) ?? urlOrId.match(/id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
   throw new Error('Cannot extract folder ID from: ' + urlOrId);
 }
 
-// ── List files in folder ──
+// ── List files ──
 
-export async function listFolderFiles(folderId: string, recursive: boolean = true): Promise<DriveMediaFile[]> {
-  const drive = getDriveClient();
+export async function listFolderFiles(folderId: string, recursive = true): Promise<DriveMediaFile[]> {
   const files: DriveMediaFile[] = [];
 
   async function fetchPage(parentId: string, pageToken?: string) {
-    const query = `'${parentId}' in parents and trashed = false`;
-    const res = await drive.files.list({
-      q: query,
-      pageSize: 100,
-      pageToken,
-      fields: 'nextPageToken, files(id, name, mimeType, webViewLink, webContentLink, thumbnailLink, size, createdTime, modifiedTime)',
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    });
+    const q = encodeURIComponent(`'${parentId}' in parents and trashed = false`);
+    const fields = encodeURIComponent('nextPageToken, files(id, name, mimeType, webViewLink, webContentLink, thumbnailLink, size, createdTime, modifiedTime)');
+    let url = `/files?q=${q}&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    if (pageToken) url += `&pageToken=${pageToken}`;
 
-    for (const file of res.data.files ?? []) {
-      if (file.mimeType === 'application/vnd.google-apps.folder') {
-        if (recursive) {
-          await fetchPage(file.id!, undefined);
-        }
-      } else if (MEDIA_MIME_TYPES.includes(file.mimeType!)) {
+    const data = await driveGet(url);
+    for (const f of data.files ?? []) {
+      if (f.mimeType === 'application/vnd.google-apps.folder') {
+        if (recursive) await fetchPage(f.id);
+      } else if (MEDIA_MIMES.includes(f.mimeType)) {
         files.push({
-          id: file.id!,
-          name: file.name!,
-          mimeType: file.mimeType!,
-          webViewLink: file.webViewLink ?? undefined,
-          webContentLink: file.webContentLink ?? undefined,
-          thumbnailLink: file.thumbnailLink ?? undefined,
-          size: file.size ? parseInt(file.size) : undefined,
-          createdTime: file.createdTime ?? undefined,
-          modifiedTime: file.modifiedTime ?? undefined,
+          id: f.id, name: f.name, mimeType: f.mimeType,
+          webViewLink: f.webViewLink, webContentLink: f.webContentLink,
+          thumbnailLink: f.thumbnailLink,
+          size: f.size ? parseInt(f.size) : undefined,
+          createdTime: f.createdTime, modifiedTime: f.modifiedTime,
         });
       }
     }
-
-    if (res.data.nextPageToken) {
-      await fetchPage(parentId, res.data.nextPageToken);
-    }
+    if (data.nextPageToken) await fetchPage(parentId, data.nextPageToken);
   }
 
   await fetchPage(folderId);
   return files;
 }
 
-// ── Get a publicly accessible URL for a file ──
-
 function getFileUrl(file: DriveMediaFile): string {
-  // For images, use the Drive thumbnail/content link
-  if (IMAGE_MIME_TYPES.includes(file.mimeType)) {
-    // Direct download link
-    return `https://drive.google.com/uc?export=view&id=${file.id}`;
-  }
-  // For videos, link to the Drive viewer
+  if (IMAGE_MIMES.includes(file.mimeType)) return `https://drive.google.com/uc?export=view&id=${file.id}`;
   return file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`;
 }
 
-// ── Test connection to a folder ──
+// ── Test connection ──
 
-export async function testDriveConnection(folderIdOrUrl: string): Promise<{
-  success: boolean;
-  message: string;
-  folder_name?: string;
-  file_count?: number;
-  images?: number;
-  videos?: number;
-}> {
+export async function testDriveConnection(folderIdOrUrl: string) {
   try {
     const folderId = extractFolderId(folderIdOrUrl);
-    const drive = getDriveClient();
-
-    // Get folder metadata
-    const folder = await drive.files.get({
-      fileId: folderId,
-      fields: 'id, name, mimeType',
-      supportsAllDrives: true,
-    });
-
-    if (folder.data.mimeType !== 'application/vnd.google-apps.folder') {
-      return { success: false, message: 'The provided ID is not a folder' };
-    }
-
-    // List files
+    const folder = await driveGet(`/files/${folderId}?fields=id,name,mimeType&supportsAllDrives=true`);
+    if (folder.mimeType !== 'application/vnd.google-apps.folder') return { success: false, message: 'Not a folder' };
     const files = await listFolderFiles(folderId);
-    const images = files.filter(f => IMAGE_MIME_TYPES.includes(f.mimeType));
-    const videos = files.filter(f => VIDEO_MIME_TYPES.includes(f.mimeType));
-
-    return {
-      success: true,
-      message: `Connected to "${folder.data.name}". Found ${files.length} media files.`,
-      folder_name: folder.data.name!,
-      file_count: files.length,
-      images: images.length,
-      videos: videos.length,
-    };
+    const images = files.filter(f => IMAGE_MIMES.includes(f.mimeType));
+    const videos = files.filter(f => VIDEO_MIMES.includes(f.mimeType));
+    return { success: true, message: `Connected to "${folder.name}". Found ${files.length} media files.`, folder_name: folder.name, file_count: files.length, images: images.length, videos: videos.length };
   } catch (err: any) {
-    const msg = err.message?.includes('not found')
-      ? 'Folder not found. Make sure to share the folder with the service account email.'
-      : err.message;
-    return { success: false, message: msg };
+    return { success: false, message: err.message?.includes('not found') ? 'Folder not found. Share it with the service account email.' : err.message };
   }
 }
 
-// ── Sync Drive media for a client ──
+// ── Sync ──
 
 export interface DriveSyncResult {
-  folder_id: string;
-  folder_name?: string;
-  total_files: number;
-  images: number;
-  videos: number;
-  files: DriveMediaFile[];
-  media_urls: { images: string[]; videos: string[] };
-  synced_at: string;
+  folder_id: string; folder_name?: string; total_files: number; images: number; videos: number;
+  files: DriveMediaFile[]; media_urls: { images: string[]; videos: string[] }; synced_at: string;
 }
 
 export async function syncDriveMedia(client: Client): Promise<DriveSyncResult> {
-  const folderInput = client.google_drive_folder_id ?? client.google_drive_folder_url;
-  if (!folderInput) throw new Error('No Google Drive folder configured for this client');
+  const fi = client.google_drive_folder_id ?? client.google_drive_folder_url;
+  if (!fi) throw new Error('No Google Drive folder configured');
+  const folderId = extractFolderId(fi);
 
-  const folderId = extractFolderId(folderInput);
-  const drive = getDriveClient();
-
-  // Get folder name
   let folderName: string | undefined;
-  try {
-    const folder = await drive.files.get({ fileId: folderId, fields: 'name', supportsAllDrives: true });
-    folderName = folder.data.name!;
-  } catch {}
+  try { folderName = (await driveGet(`/files/${folderId}?fields=name&supportsAllDrives=true`)).name; } catch {}
 
   const files = await listFolderFiles(folderId);
-  const images = files.filter(f => IMAGE_MIME_TYPES.includes(f.mimeType));
-  const videos = files.filter(f => VIDEO_MIME_TYPES.includes(f.mimeType));
-
-  const imageUrls = images.map(f => getFileUrl(f));
-  const videoUrls = videos.map(f => getFileUrl(f));
-
+  const images = files.filter(f => IMAGE_MIMES.includes(f.mimeType));
+  const videos = files.filter(f => VIDEO_MIMES.includes(f.mimeType));
   const syncedAt = new Date().toISOString();
 
-  // Update client with sync info
   const updated = await store.getClient(client.id);
   if (updated) {
     updated.drive_last_sync_at = syncedAt;
@@ -213,38 +138,20 @@ export async function syncDriveMedia(client: Client): Promise<DriveSyncResult> {
   }
 
   return {
-    folder_id: folderId,
-    folder_name: folderName,
-    total_files: files.length,
-    images: images.length,
-    videos: videos.length,
-    files,
-    media_urls: { images: imageUrls, videos: videoUrls },
+    folder_id: folderId, folder_name: folderName, total_files: files.length,
+    images: images.length, videos: videos.length, files,
+    media_urls: { images: images.map(getFileUrl), videos: videos.map(getFileUrl) },
     synced_at: syncedAt,
   };
 }
 
-// ── Get Drive media URLs for a client (cached from last sync) ──
-
-export async function getDriveMediaForEntity(client: Client): Promise<{ hero_image?: string; gallery: string[]; videos: string[] }> {
-  const folderInput = client.google_drive_folder_id ?? client.google_drive_folder_url;
-  if (!folderInput) return { gallery: [], videos: [] };
-
+export async function getDriveMediaForEntity(client: Client) {
+  const fi = client.google_drive_folder_id ?? client.google_drive_folder_url;
+  if (!fi) return { gallery: [], videos: [] };
   try {
-    const folderId = extractFolderId(folderInput);
-    const files = await listFolderFiles(folderId);
-    const images = files.filter(f => IMAGE_MIME_TYPES.includes(f.mimeType));
-    const videos = files.filter(f => VIDEO_MIME_TYPES.includes(f.mimeType));
-
-    const imageUrls = images.map(f => getFileUrl(f));
-    const videoUrls = videos.map(f => getFileUrl(f));
-
-    return {
-      hero_image: imageUrls[0],
-      gallery: imageUrls,
-      videos: videoUrls,
-    };
-  } catch {
-    return { gallery: [], videos: [] };
-  }
+    const files = await listFolderFiles(extractFolderId(fi));
+    const imgs = files.filter(f => IMAGE_MIMES.includes(f.mimeType)).map(getFileUrl);
+    const vids = files.filter(f => VIDEO_MIMES.includes(f.mimeType)).map(getFileUrl);
+    return { hero_image: imgs[0], gallery: imgs, videos: vids };
+  } catch { return { gallery: [], videos: [] }; }
 }

@@ -4,8 +4,9 @@
     { "src": "api/index.ts", "use": "@vercel/node" }
   ],
   "routes": [
+    { "src": "/dashboard$", "dest": "/api/index.ts" },
     { "src": "/dashboard/(.*)", "dest": "/api/index.ts" },
     { "src": "/api/(.*)", "dest": "/api/index.ts" },
-    { "src": "/", "dest": "/api/index.ts" }
+    { "src": "^/$", "dest": "/api/index.ts" }
   ]
 }

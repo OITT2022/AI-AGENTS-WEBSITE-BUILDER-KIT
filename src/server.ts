@@ -439,16 +439,14 @@ app.get('/', (_req, res) => { res.redirect('/dashboard'); });
 
 // ── Start ──
 
-const PORT = process.env.PORT ?? 3001;
-
-async function start() {
-  await initDatabase();
-  await ensureDefaultAdmin();
-  app.listen(PORT, () => {
-    console.log(`Real Estate Marketing Agent running at http://localhost:${PORT}`);
-  });
-}
-
-start().catch(console.error);
-
 export default app;
+
+// Start when run directly (not imported by Vercel serverless)
+if (require.main === module || process.argv[1]?.includes('server')) {
+  const PORT = process.env.PORT ?? 3001;
+  (async () => {
+    await initDatabase();
+    await ensureDefaultAdmin();
+    app.listen(PORT, () => console.log(`Real Estate Marketing Agent running at http://localhost:${PORT}`));
+  })().catch(console.error);
+}

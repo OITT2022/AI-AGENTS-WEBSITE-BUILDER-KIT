@@ -119,8 +119,8 @@ export async function getCandidate(id: string): Promise<CampaignCandidate | unde
   return queryOne<CampaignCandidate>('SELECT * FROM campaign_candidates WHERE id = $1', [id]);
 }
 
-export async function upsertCandidate(candidate: CampaignCandidate): Promise<void> {
-  await query(
+export async function upsertCandidate(candidate: CampaignCandidate): Promise<CampaignCandidate> {
+  const row = await queryOne<CampaignCandidate>(
     `INSERT INTO campaign_candidates (id, client_id, entity_id, candidate_date, score_total, score_freshness, score_media, score_business, score_urgency, score_history, recommended_angle, recommended_audiences, recommended_platforms, selected, selection_reason, created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      ON CONFLICT (entity_id, candidate_date) DO UPDATE SET
@@ -128,13 +128,15 @@ export async function upsertCandidate(candidate: CampaignCandidate): Promise<voi
        score_media=EXCLUDED.score_media, score_business=EXCLUDED.score_business, score_urgency=EXCLUDED.score_urgency,
        score_history=EXCLUDED.score_history, recommended_angle=EXCLUDED.recommended_angle,
        recommended_audiences=EXCLUDED.recommended_audiences, recommended_platforms=EXCLUDED.recommended_platforms,
-       selected=EXCLUDED.selected, selection_reason=EXCLUDED.selection_reason`,
+       selected=EXCLUDED.selected, selection_reason=EXCLUDED.selection_reason
+     RETURNING *`,
     [candidate.id, candidate.client_id ?? null, candidate.entity_id, candidate.candidate_date,
      candidate.score_total, candidate.score_freshness, candidate.score_media, candidate.score_business,
      candidate.score_urgency, candidate.score_history, candidate.recommended_angle,
      safeJson(candidate.recommended_audiences), safeJson(candidate.recommended_platforms),
      candidate.selected, candidate.selection_reason, candidate.created_at]
   );
+  return row ?? candidate;
 }
 
 export async function getCandidatesByClient(clientId: string, date?: string): Promise<CampaignCandidate[]> {

@@ -66,6 +66,8 @@ export async function scoreAndSelectCandidates(date: string, maxCandidates: numb
 
   candidates.sort((a, b) => b.score_total - a.score_total);
   candidates.slice(0, maxCandidates).forEach((c, i) => { c.selected = true; c.selection_reason = `Rank #${i + 1}`; });
-  for (const c of candidates) await store.upsertCandidate(c);
-  return candidates;
+  // Upsert and use the returned DB IDs (may differ from generated UUIDs on conflict)
+  const saved: CampaignCandidate[] = [];
+  for (const c of candidates) saved.push(await store.upsertCandidate(c));
+  return saved;
 }

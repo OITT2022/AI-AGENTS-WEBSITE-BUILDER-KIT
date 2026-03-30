@@ -124,8 +124,23 @@ app.put('/api/clients/:id', requireRole('admin', 'manager'), async (req: AuthReq
 });
 
 app.delete('/api/clients/:id', requireRole('admin'), async (req: AuthRequest, res) => {
-  if (!(await store.deleteClient(paramId(req)))) return res.status(404).json({ error: 'Client not found' });
-  res.json({ success: true });
+  const clientId = paramId(req);
+  try {
+    const { sql } = await import('./db/neon');
+    // Delete all related data in correct order (respecting foreign keys)
+    await sql('DELETE FROM approval_tasks WHERE creative_variant_id IN (SELECT cv.id FROM creative_variants cv JOIN creative_batches cb ON cv.batch_id = cb.id WHERE cb.client_id = $1)', [clientId]);
+    await sql('DELETE FROM qa_reviews WHERE creative_variant_id IN (SELECT cv.id FROM creative_variants cv JOIN creative_batches cb ON cv.batch_id = cb.id WHERE cb.client_id = $1)', [clientId]);
+    await sql('DELETE FROM creative_variants WHERE batch_id IN (SELECT id FROM creative_batches WHERE client_id = $1)', [clientId]);
+    await sql('DELETE FROM creative_batches WHERE client_id = $1', [clientId]);
+    await sql('DELETE FROM campaign_candidates WHERE client_id = $1', [clientId]);
+    await sql('DELETE FROM entity_change_events WHERE entity_id IN (SELECT id FROM source_entities WHERE client_id = $1)', [clientId]);
+    await sql('DELETE FROM entity_snapshots WHERE entity_id IN (SELECT id FROM source_entities WHERE client_id = $1)', [clientId]);
+    await sql('DELETE FROM source_entities WHERE client_id = $1', [clientId]);
+    await sql('DELETE FROM clients WHERE id = $1', [clientId]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ── Per-client campaign data ──

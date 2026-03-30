@@ -98,11 +98,48 @@ function renderClientCards(clients) {
         </div>
       </div>
       <div class="client-card-footer" onclick="event.stopPropagation()">
+        <button class="btn btn-sm" style="color:var(--red);border-color:rgba(239,68,68,.3)" onclick="confirmDeleteClient('${c.id}','${escapeHtml(c.company)}')">Delete</button>
+        <div style="flex:1"></div>
         <a class="btn btn-sm" href="/dashboard/client-form.html?id=${c.id}" style="text-decoration:none">Edit</a>
         ${c.api_config?.api_token ? `<button class="btn btn-sm btn-primary" onclick="syncClient('${c.id}')">Sync API</button>` : ''}
       </div>
     </div>
   `).join('')}</div>`;
+}
+
+function confirmDeleteClient(id, name) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;max-width:440px;width:90%">
+      <h3 style="font-size:17px;margin-bottom:12px">Delete Client</h3>
+      <p style="color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:8px">
+        Are you sure you want to delete <strong style="color:var(--text)">${name}</strong>?
+      </p>
+      <p style="color:var(--red);font-size:13px;margin-bottom:20px">
+        This will permanently delete all properties, creatives, candidates, approvals, and campaign data associated with this client.
+      </p>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn" onclick="this.closest('div[style*=fixed]').remove()">Cancel</button>
+        <button class="btn" style="background:var(--red);border-color:var(--red);color:#fff" onclick="deleteClient('${id}');this.closest('div[style*=fixed]').remove()">Delete Client & All Data</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+async function deleteClient(id) {
+  showToast('Deleting client and all data...');
+  try {
+    const res = await apiCall(`/api/clients/${id}`, { method: 'DELETE' });
+    if (res.success) {
+      showToast('Client and all related data deleted');
+      loadClients();
+    } else {
+      showToast('Delete failed: ' + (res.error || ''));
+    }
+  } catch { showToast('Delete error'); }
 }
 
 async function syncClient(id) {

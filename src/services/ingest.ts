@@ -130,6 +130,12 @@ async function ingestEntity(
   const changed = !latestSnapshot || latestSnapshot.checksum !== checksum;
 
   if (!changed) {
+    // Still update client_id if it wasn't set before
+    if (entityFields.client_id && entity.client_id !== entityFields.client_id) {
+      entity.client_id = entityFields.client_id;
+      entity.updated_at = now;
+      await store.upsertEntity(entity);
+    }
     return { entity_id: entity.id, source_entity_id: sourceId, entity_type: entityType, is_new: false, changed: false };
   }
 
@@ -143,6 +149,7 @@ async function ingestEntity(
   });
 
   entity.current_snapshot_id = snapshotId;
+  if (entityFields.client_id) entity.client_id = entityFields.client_id;
   entity.source_updated_at = entityFields.source_updated_at ?? now;
   entity.source_status = entityFields.source_status ?? entity.source_status;
   entity.country = entityFields.country ?? entity.country;

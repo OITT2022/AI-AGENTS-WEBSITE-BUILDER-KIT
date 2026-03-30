@@ -204,12 +204,12 @@ export async function syncDriveMedia(client: Client): Promise<DriveSyncResult> {
   const syncedAt = new Date().toISOString();
 
   // Update client with sync info
-  const updated = store.getClient(client.id);
+  const updated = await store.getClient(client.id);
   if (updated) {
     updated.drive_last_sync_at = syncedAt;
     updated.drive_file_count = files.length;
     updated.updated_at = syncedAt;
-    store.upsertClient(updated);
+    await store.upsertClient(updated);
   }
 
   return {

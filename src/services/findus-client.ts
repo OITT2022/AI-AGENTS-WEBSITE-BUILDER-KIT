@@ -255,7 +255,7 @@ export async function syncFromFindUs(runPipeline: boolean = true, clientId?: str
   for (const fp of properties) {
     try {
       const mapped = mapFindUsProperty(fp);
-      const result = ingestProperty(mapped, clientId);
+      const result = await ingestProperty(mapped, clientId);
       propertyResults.push(result);
     } catch (err: any) {
       errors.push(`Property ${fp.id}: ${err.message}`);
@@ -266,7 +266,7 @@ export async function syncFromFindUs(runPipeline: boolean = true, clientId?: str
   for (const proj of projects) {
     try {
       const mapped = mapFindUsProject(proj);
-      const result = ingestProject(mapped, clientId);
+      const result = await ingestProject(mapped, clientId);
       projectResults.push(result);
     } catch (err: any) {
       errors.push(`Project ${proj.id}: ${err.message}`);
@@ -276,7 +276,7 @@ export async function syncFromFindUs(runPipeline: boolean = true, clientId?: str
   // Run pipeline
   let pipeline;
   if (runPipeline && (propertyResults.length > 0 || projectResults.length > 0)) {
-    const pResult = runDailyPipeline(undefined, clientId);
+    const pResult = await runDailyPipeline(undefined, clientId);
     pipeline = {
       candidates: pResult.candidates,
       selected: pResult.selected,

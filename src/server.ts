@@ -21,6 +21,11 @@ import {
 } from './services/auth';
 
 const app = express();
+
+function paramId(req: express.Request): string {
+  const id = paramId(req);
+  return Array.isArray(id) ? id[0] : id;
+}
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use('/dashboard', express.static(path.join(__dirname, '..', 'public')));
@@ -70,13 +75,13 @@ app.post('/api/users', requireAuth, requireRole('admin'), async (req: AuthReques
 });
 
 app.put('/api/users/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, res) => {
-  try { res.json({ success: true, user: await updateUser(req.params.id, req.body) }); }
+  try { res.json({ success: true, user: await updateUser(paramId(req), req.body) }); }
   catch (err: any) { res.status(400).json({ error: err.message }); }
 });
 
 app.delete('/api/users/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, res) => {
-  if (req.params.id === req.user?.id) return res.status(400).json({ error: 'Cannot delete your own account' });
-  if (!(await deleteUser(req.params.id))) return res.status(404).json({ error: 'User not found' });
+  if (paramId(req) === req.user?.id) return res.status(400).json({ error: 'Cannot delete your own account' });
+  if (!(await deleteUser(paramId(req)))) return res.status(404).json({ error: 'User not found' });
   res.json({ success: true });
 });
 
@@ -88,7 +93,7 @@ app.use('/api', requireAuth);
 app.get('/api/clients', async (_req, res) => { res.json(await store.getClients()); });
 
 app.get('/api/clients/:id', async (req, res) => {
-  const c = await store.getClient(req.params.id);
+  const c = await store.getClient(paramId(req));
   if (!c) return res.status(404).json({ error: 'Client not found' });
   res.json(c);
 });
@@ -108,7 +113,7 @@ app.post('/api/clients', requireRole('admin', 'manager'), async (req: AuthReques
 
 app.put('/api/clients/:id', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
   try {
-    const client = await store.getClient(req.params.id);
+    const client = await store.getClient(paramId(req));
     if (!client) return res.status(404).json({ error: 'Client not found' });
     const updated = { ...client, ...req.body, id: client.id, created_at: client.created_at, updated_at: new Date().toISOString() };
     await store.upsertClient(updated);
@@ -117,14 +122,14 @@ app.put('/api/clients/:id', requireRole('admin', 'manager'), async (req: AuthReq
 });
 
 app.delete('/api/clients/:id', requireRole('admin'), async (req: AuthRequest, res) => {
-  if (!(await store.deleteClient(req.params.id))) return res.status(404).json({ error: 'Client not found' });
+  if (!(await store.deleteClient(paramId(req)))) return res.status(404).json({ error: 'Client not found' });
   res.json({ success: true });
 });
 
 // ── Per-client campaign data ──
 
 app.get('/api/clients/:id/dashboard', async (req, res) => {
-  const clientId = req.params.id;
+  const clientId = paramId(req);
   const client = await store.getClient(clientId);
   if (!client) return res.status(404).json({ error: 'Client not found' });
   const entities = await store.getEntitiesByClient(clientId);
@@ -147,7 +152,7 @@ app.get('/api/clients/:id/dashboard', async (req, res) => {
 });
 
 app.get('/api/clients/:id/entities', async (req, res) => {
-  const entities = await store.getEntitiesByClient(req.params.id);
+  const entities = await store.getEntitiesByClient(paramId(req));
   const enriched = await Promise.all(entities.map(async e => {
     const snapshot = e.current_snapshot_id ? await store.getSnapshot(e.current_snapshot_id) : undefined;
     return { ...e, snapshot: snapshot?.normalized_payload };
@@ -156,7 +161,7 @@ app.get('/api/clients/:id/entities', async (req, res) => {
 });
 
 app.get('/api/clients/:id/candidates', async (req, res) => {
-  const candidates = await store.getCandidatesByClient(req.params.id, req.query.date as string);
+  const candidates = await store.getCandidatesByClient(paramId(req), req.query.date as string);
   const enriched = await Promise.all(candidates.map(async c => {
     const entity = await store.getEntity(c.entity_id);
     const snapshot = entity?.current_snapshot_id ? await store.getSnapshot(entity.current_snapshot_id) : undefined;
@@ -166,7 +171,7 @@ app.get('/api/clients/:id/candidates', async (req, res) => {
 });
 
 app.get('/api/clients/:id/creatives', async (req, res) => {
-  const batches = await store.getBatchesByClient(req.params.id);
+  const batches = await store.getBatchesByClient(paramId(req));
   const enriched = await Promise.all(batches.map(async b => {
     const variants = await store.getVariants(b.id);
     const entity = await store.getEntity(b.entity_id);
@@ -181,7 +186,7 @@ app.get('/api/clients/:id/creatives', async (req, res) => {
 });
 
 app.get('/api/clients/:id/approvals', async (req, res) => {
-  const batches = await store.getBatchesByClient(req.params.id);
+  const batches = await store.getBatchesByClient(paramId(req));
   const variantIds = new Set<string>();
   for (const b of batches) { for (const v of await store.getVariants(b.id)) variantIds.add(v.id); }
   let tasks = (await store.getApprovalTasks(req.query.status as string)).filter(t => variantIds.has(t.creative_variant_id));
@@ -199,7 +204,7 @@ app.get('/api/clients/:id/approvals', async (req, res) => {
 
 app.post('/api/clients/:id/sync', async (req, res) => {
   try {
-    const client = await store.getClient(req.params.id);
+    const client = await store.getClient(paramId(req));
     if (!client) return res.status(404).json({ error: 'Client not found' });
     if (!client.api_config?.api_token) return res.status(400).json({ error: 'No API config' });
     const result = await syncFromFindUs(req.body.run_pipeline !== false, client.id, client.api_config);
@@ -209,7 +214,7 @@ app.post('/api/clients/:id/sync', async (req, res) => {
 
 app.post('/api/clients/:id/pipeline', async (req, res) => {
   try {
-    const client = await store.getClient(req.params.id);
+    const client = await store.getClient(paramId(req));
     if (!client) return res.status(404).json({ error: 'Client not found' });
     res.json({ success: true, result: await runDailyPipeline(req.body.date, client.id) });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
@@ -240,7 +245,7 @@ app.post('/api/drive/test', async (req, res) => {
 
 app.get('/api/clients/:id/drive/files', async (req, res) => {
   try {
-    const client = await store.getClient(req.params.id);
+    const client = await store.getClient(paramId(req));
     if (!client) return res.status(404).json({ error: 'Client not found' });
     const fi = client.google_drive_folder_id ?? client.google_drive_folder_url;
     if (!fi) return res.status(400).json({ error: 'No Drive folder' });
@@ -251,7 +256,7 @@ app.get('/api/clients/:id/drive/files', async (req, res) => {
 
 app.post('/api/clients/:id/drive/sync', async (req, res) => {
   try {
-    const client = await store.getClient(req.params.id);
+    const client = await store.getClient(paramId(req));
     if (!client) return res.status(404).json({ error: 'Client not found' });
     res.json({ success: true, result: await syncDriveMedia(client) });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
@@ -306,7 +311,7 @@ app.get('/api/entities', async (_req, res) => {
 });
 
 app.get('/api/entities/:id', async (req, res) => {
-  const entity = await store.getEntity(req.params.id);
+  const entity = await store.getEntity(paramId(req));
   if (!entity) return res.status(404).json({ error: 'Not found' });
   res.json({ ...entity, snapshots: await store.getSnapshots(entity.id), changes: await store.getChangeEvents(entity.id) });
 });
@@ -373,7 +378,7 @@ app.get('/api/approvals', async (req, res) => {
 
 app.put('/api/approvals/:id', async (req, res) => {
   try {
-    const task = await store.getApprovalTask(req.params.id);
+    const task = await store.getApprovalTask(paramId(req));
     if (!task) return res.status(404).json({ error: 'Not found' });
     task.status = req.body.status; task.decision_notes = req.body.decision_notes; task.decided_at = new Date().toISOString();
     await store.upsertApprovalTask(task);

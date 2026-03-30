@@ -228,8 +228,9 @@ export async function fetchProjects(config: FindUsConfig): Promise<FindUsProject
 }
 
 export async function syncFromFindUs(runPipeline: boolean = true, clientId?: string, clientApiConfig?: { base_url: string; api_token: string; filters?: { city?: string; propertyType?: string } }): Promise<SyncResult> {
-  const baseConfig = await loadConfig();
-  const config = clientApiConfig ? { ...baseConfig, ...clientApiConfig, filters: clientApiConfig.filters ?? {} } : baseConfig;
+  const config: FindUsConfig = clientApiConfig
+    ? { ...DEFAULT_CONFIG, api_token: clientApiConfig.api_token, base_url: clientApiConfig.base_url, filters: clientApiConfig.filters ?? {} }
+    : await loadConfig();
   const errors: string[] = [];
   const propertyResults: IngestResult[] = [];
   const projectResults: IngestResult[] = [];

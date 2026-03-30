@@ -4,7 +4,7 @@ import path from 'path';
 import { store } from '../db/store';
 import { DriveMediaFile, Client } from '../models/schemas';
 
-const CREDENTIALS_PATH = path.join(process.cwd(), 'data', 'google-credentials.json');
+const CREDENTIALS_PATH = path.join(process.env.VERCEL ? '/tmp' : process.cwd(), 'data', 'google-credentials.json');
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/tiff'];

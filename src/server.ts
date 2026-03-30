@@ -276,7 +276,8 @@ app.post('/api/drive/test', async (req, res) => {
 app.get('/api/drive/browse/:folderId', async (req, res) => {
   try {
     const { browseDriveFolder } = await import('./services/google-drive');
-    const items = await browseDriveFolder(paramId(req));
+    const folderId = req.params.folderId;
+    const items = await browseDriveFolder(folderId);
     res.json({ items });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });

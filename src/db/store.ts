@@ -391,8 +391,20 @@ export async function setConfig(key: string, value: any): Promise<void> {
 
 function safeJson(val: any): string {
   if (val === null || val === undefined) return '{}';
-  if (typeof val === 'string') return val;
-  try { return safeJson(val); } catch { return '{}'; }
+  if (typeof val === 'string') {
+    try { JSON.parse(val); return val; } catch { return '{}'; }
+  }
+  const seen = new WeakSet();
+  try {
+    return JSON.stringify(val, (_key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) return undefined;
+        seen.add(value);
+      }
+      if (typeof value === 'bigint') return Number(value);
+      return value;
+    });
+  } catch { return '{}'; }
 }
 
 // ── Init DB ──

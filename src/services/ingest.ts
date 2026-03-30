@@ -11,6 +11,14 @@ import {
 } from '../models/schemas';
 import { store } from '../db/store';
 
+// Deep clone to plain JSON-safe object (removes circular refs, class instances, etc.)
+function toPlainJson(obj: unknown): any {
+  return JSON.parse(JSON.stringify(obj, (_key, value) => {
+    if (typeof value === 'bigint') return Number(value);
+    return value;
+  }));
+}
+
 function computeChecksum(payload: Record<string, unknown>): string {
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
 }
@@ -73,7 +81,7 @@ export interface IngestResult {
 
 export async function ingestProperty(raw: unknown, clientId?: string): Promise<IngestResult> {
   const parsed = PropertyPayloadSchema.parse(raw);
-  return ingestEntity('property', parsed.id, parsed as unknown as Record<string, unknown>, normalizeProperty(parsed), {
+  return ingestEntity('property', parsed.id, toPlainJson(parsed), toPlainJson(normalizeProperty(parsed)), {
     client_id: clientId, title_he: parsed.title?.he, title_en: parsed.title?.en,
     country: parsed.country, city: parsed.city, area: parsed.area,
     listing_url: parsed.seo?.url, source_status: parsed.status,
@@ -84,7 +92,7 @@ export async function ingestProperty(raw: unknown, clientId?: string): Promise<I
 
 export async function ingestProject(raw: unknown, clientId?: string): Promise<IngestResult> {
   const parsed = ProjectPayloadSchema.parse(raw);
-  return ingestEntity('project', parsed.id, parsed as unknown as Record<string, unknown>, normalizeProject(parsed), {
+  return ingestEntity('project', parsed.id, toPlainJson(parsed), toPlainJson(normalizeProject(parsed)), {
     client_id: clientId, title_he: parsed.title?.he, title_en: parsed.title?.en,
     country: parsed.country, city: parsed.city, area: parsed.area,
     listing_url: parsed.seo?.url, source_status: parsed.status,

@@ -258,6 +258,14 @@ app.post('/api/drive/test', async (req, res) => {
   catch (err: any) { res.json({ success: false, message: err.message }); }
 });
 
+app.get('/api/drive/browse/:folderId', async (req, res) => {
+  try {
+    const { browseDriveFolder } = await import('./services/google-drive');
+    const items = await browseDriveFolder(paramId(req));
+    res.json({ items });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/clients/:id/drive/files', async (req, res) => {
   try {
     const client = await store.getClient(paramId(req));

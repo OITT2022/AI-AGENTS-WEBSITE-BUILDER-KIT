@@ -83,10 +83,10 @@
 
 <div class="header">
   <h1>Clients</h1>
-  <button class="btn btn-primary" onclick="openModal()">
+  <a class="btn btn-primary" href="/dashboard/client-form.html" style="text-decoration:none">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     Add Client
-  </button>
+  </a>
 </div>
 
 <div class="container">
@@ -256,7 +256,7 @@ function renderClientCards(enriched) {
         <div class="client-card-footer">
           <div class="client-stats"></div>
           <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
-            <button class="btn btn-sm" onclick="editClient('${c.id}')">Edit</button>
+            <a class="btn btn-sm" href="/dashboard/client-form.html?id=${c.id}" style="text-decoration:none" onclick="event.stopPropagation()">Edit</a>
             ${c.google_drive_folder_id || c.google_drive_folder_url ? `<button class="btn btn-sm" onclick="browseDrive('${c.id}')" title="Browse Drive files"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Drive</button>` : ''}
             ${c.api_config?.api_token ? `<button class="btn btn-sm btn-primary" onclick="syncClient('${c.id}')">Sync API</button>` : ''}
           </div>

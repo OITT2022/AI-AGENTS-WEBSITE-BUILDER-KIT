@@ -58,6 +58,20 @@ export function extractFolderId(urlOrId: string): string {
 
 // ── List files ──
 
+// Browse a folder — returns folders and media items (non-recursive, for the picker UI)
+export async function browseDriveFolder(folderId: string): Promise<Array<{ id: string; name: string; type: string; mimeType: string; size?: number; childCount?: string }>> {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const fields = encodeURIComponent('files(id, name, mimeType, size)');
+  const data = await driveGet(`/files?q=${q}&pageSize=200&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true&orderBy=folder,name`);
+  return (data.files || []).map((f: any) => ({
+    id: f.id,
+    name: f.name,
+    type: f.mimeType === 'application/vnd.google-apps.folder' ? 'folder' : 'file',
+    mimeType: f.mimeType,
+    size: f.size ? parseInt(f.size) : undefined,
+  }));
+}
+
 export async function listFolderFiles(folderId: string, recursive = true): Promise<DriveMediaFile[]> {
   const files: DriveMediaFile[] = [];
 

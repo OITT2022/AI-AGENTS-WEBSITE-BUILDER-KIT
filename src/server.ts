@@ -437,7 +437,8 @@ app.post('/api/findus/sync', async (req, res) => {
 
 // ── Root ──
 
-app.get('/', (_req, res) => { res.redirect('/dashboard'); });
+app.get('/', (_req, res) => { res.redirect('/dashboard/clients.html'); });
+app.get('/dashboard', (_req, res) => { res.redirect('/dashboard/clients.html'); });
 
 // ── Start ──
 

@@ -68,6 +68,9 @@
     .preview-popup-close{position:absolute;top:12px;right:16px;color:var(--text2);font-size:24px;cursor:pointer;background:none;border:none;z-index:2}
     .preview-popup-close:hover{color:var(--text)}
     .preview-popup-header{padding:16px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+    .prev-tab{flex:1;padding:8px 12px;border:none;background:transparent;color:var(--text2);font-size:13px;font-weight:600;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
+    .prev-tab.active{background:var(--surface);color:var(--text)}
+    .prev-tab:hover:not(.active){color:var(--text)}
 
     /* FB preview */
     .fb-card{background:#fff;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#050505;overflow:hidden}
@@ -291,16 +294,26 @@ async function saveCopy(variantId, platform) {
   } else { showToast('Save failed: ' + (res.error || '')); }
 }
 
-// ── Preview popup ──
+// ── Preview popup (all platforms with tabs) ──
 
 function openPreview(variantId, platform) {
   const v = window._variants?.[variantId];
   if (!v) return;
-  const copy = v.copy_json || {};
   const media = v.media_plan_json || {};
   const heroImg = media.hero_image || (media.selected_images||[])[0] || '';
+  const lang = v.copy_json?.language || 'en';
 
-  // Read current edited text
+  // Collect all variants for the same entity & language
+  const entityId = v.batch?.entity_id || v.entity?.id;
+  const allVariants = {};
+  Object.values(window._variants || {}).forEach(vr => {
+    if ((vr.batch?.entity_id || vr.entity?.id) === entityId && vr.copy_json?.language === lang) {
+      allVariants[vr.platform] = vr;
+    }
+  });
+
+  // Read current edited text for this variant
+  const copy = { ...v.copy_json };
   const textEl = document.getElementById('text-' + variantId);
   const hlEl = document.getElementById('hl-' + variantId);
   if (textEl) {
@@ -310,21 +323,63 @@ function openPreview(variantId, platform) {
     else if (platform === 'tiktok') { const p = t.split('\n\n'); copy.hook = p[0]; copy.voiceover_script = p.slice(1).join('\n\n'); }
   }
   if (hlEl && platform === 'facebook') copy.headline = hlEl.value;
+  allVariants[platform] = { ...v, copy_json: copy };
 
-  let previewHtml = '';
-  if (platform === 'facebook') previewHtml = previewFB(copy, heroImg);
-  else if (platform === 'instagram') previewHtml = previewIG(copy, heroImg, media);
-  else if (platform === 'tiktok') previewHtml = previewTK(copy, heroImg);
+  // Build copies for missing platforms from the current variant's data
+  const fbCopy = allVariants.facebook?.copy_json || buildFBFromCopy(copy, v);
+  const igCopy = allVariants.instagram?.copy_json || buildIGFromCopy(copy, v);
+  const tkCopy = allVariants.tiktok?.copy_json || buildTKFromCopy(copy, v);
+  const fbMedia = allVariants.facebook?.media_plan_json || media;
+  const igMedia = allVariants.instagram?.media_plan_json || media;
+  const tkMedia = allVariants.tiktok?.media_plan_json || media;
+  const fbImg = fbMedia.hero_image || (fbMedia.selected_images||[])[0] || heroImg;
+  const igImg = igMedia.hero_image || (igMedia.selected_images||[])[0] || heroImg;
+  const tkImg = tkMedia.hero_image || (tkMedia.selected_images||[])[0] || heroImg;
 
   const overlay = document.createElement('div');
   overlay.className = 'preview-overlay';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
-  overlay.innerHTML = `<div class="preview-popup">
+  overlay.innerHTML = `<div class="preview-popup" style="max-width:500px">
     <button class="preview-popup-close" onclick="this.closest('.preview-overlay').remove()">&times;</button>
-    <div class="preview-popup-header"><span class="platform-tag platform-${platform}">${platform}</span> Ad Preview · ${copy.language==='he'?'Hebrew':'English'}</div>
-    <div style="padding:16px">${previewHtml}</div>
+    <div class="preview-popup-header">Ad Preview · ${lang==='he'?'Hebrew':'English'}</div>
+    <div style="padding:0 16px">
+      <div style="display:flex;gap:4px;margin:12px 0;background:var(--surface2);border-radius:8px;padding:3px">
+        <button class="prev-tab active" data-p="facebook" onclick="switchPreviewTab(this,'facebook')">
+          <span style="color:#1877f2">●</span> Facebook
+        </button>
+        <button class="prev-tab" data-p="instagram" onclick="switchPreviewTab(this,'instagram')">
+          <span style="color:#e4405f">●</span> Instagram
+        </button>
+        <button class="prev-tab" data-p="tiktok" onclick="switchPreviewTab(this,'tiktok')">
+          <span style="color:#fff">●</span> TikTok
+        </button>
+      </div>
+    </div>
+    <div style="padding:0 16px 16px">
+      <div class="prev-panel" data-p="facebook">${previewFB(fbCopy, fbImg)}</div>
+      <div class="prev-panel" data-p="instagram" style="display:none">${previewIG(igCopy, igImg, igMedia)}</div>
+      <div class="prev-panel" data-p="tiktok" style="display:none">${previewTK(tkCopy, tkImg)}</div>
+    </div>
   </div>`;
   document.body.appendChild(overlay);
+}
+
+function switchPreviewTab(btn, platform) {
+  const popup = btn.closest('.preview-popup');
+  popup.querySelectorAll('.prev-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  popup.querySelectorAll('.prev-panel').forEach(p => p.style.display = p.dataset.p === platform ? 'block' : 'none');
+}
+
+// Build cross-platform copy from whatever we have
+function buildFBFromCopy(c, v) {
+  return { primary_text: c.primary_text || c.caption || c.voiceover_script || '', headline: c.headline || '', description: c.description || '', cta: c.cta || 'Learn More', language: c.language };
+}
+function buildIGFromCopy(c, v) {
+  return { caption: c.caption || c.primary_text || c.voiceover_script || '', hashtags: c.hashtags || [], cta: c.cta || 'Link in Bio', language: c.language };
+}
+function buildTKFromCopy(c, v) {
+  return { hook: c.hook || (c.primary_text||'').split('\n')[0] || '', voiceover_script: c.voiceover_script || c.primary_text || c.caption || '', closing_cta: c.closing_cta || c.cta || 'Learn More', language: c.language };
 }
 
 function previewFB(c, img) {

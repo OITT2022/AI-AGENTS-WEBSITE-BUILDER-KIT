@@ -450,6 +450,57 @@ app.post('/api/findus/sync', async (req, res) => {
 
 // ── Root ──
 
+// Debug endpoint
+app.get('/api/debug/sync/:clientId', async (req, res) => {
+  const steps: string[] = [];
+  try {
+    steps.push('1. getClient');
+    const client = await store.getClient(paramId(req));
+    if (!client) return res.json({ steps, error: 'no client' });
+    steps.push('2. got client: ' + client.company);
+
+    const apiConfig = {
+      base_url: String(client.api_config?.base_url || ''),
+      api_token: String(client.api_config?.api_token || ''),
+      filters: {},
+    };
+    steps.push('3. apiConfig built');
+
+    // Fetch properties manually
+    const propRes = await fetch(`${apiConfig.base_url}/properties?limit=2`, {
+      headers: { Authorization: `Bearer ${apiConfig.api_token}` },
+    });
+    const propData = await propRes.json();
+    steps.push('4. fetched ' + (propData.data?.length ?? 0) + ' props');
+
+    if (propData.data?.[0]) {
+      const { ingestProperty } = await import('./services/ingest');
+      // Map one property manually
+      const fp = propData.data[0];
+      const mapped = {
+        id: fp.id, type: 'property' as const, status: 'active',
+        title: { he: fp.title || '', en: fp.title || '' },
+        country: 'Cyprus', city: fp.city || '',
+        price: { amount: Number(fp.price) || 0, currency: fp.currency || 'EUR' },
+        media: { hero_image: fp.images?.[0]?.url, gallery: (fp.images || []).map((i: any) => i.url), videos: [], floorplans: [] },
+        marketing: { campaign_ready: true, priority_score: 70, target_audiences: ['investors'], angles: ['location'], languages: ['he','en'] },
+        seo: { url: `https://findus.co.il/p/${fp.id}` },
+        updated_at: new Date().toISOString(),
+      };
+      steps.push('5. mapped property');
+
+      const result = await ingestProperty(mapped, client.id);
+      steps.push('6. ingested: ' + JSON.stringify(result));
+    }
+
+    res.json({ success: true, steps });
+  } catch (e: any) {
+    steps.push('ERROR: ' + e.message);
+    steps.push('STACK: ' + (e.stack?.split('\n').slice(0, 8).join(' | ') || ''));
+    res.json({ success: false, steps });
+  }
+});
+
 app.get('/', (_req, res) => { res.redirect('/dashboard/clients.html'); });
 app.get('/dashboard', (_req, res) => { res.redirect('/dashboard/clients.html'); });
 

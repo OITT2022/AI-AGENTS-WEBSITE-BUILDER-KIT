@@ -485,6 +485,188 @@ app.post('/api/findus/sync', async (req, res) => {
 // ── Root ──
 
 // Clear all campaign data (keeps clients and users)
+// ── Social Platform OAuth & Publishing ──
+
+const {
+  getMetaAuthUrl, exchangeMetaCode, getMetaPages,
+  publishToFacebook, publishToInstagram,
+  getTikTokAuthUrl, exchangeTikTokCode, getTikTokUserInfo,
+} = require('./services/social-publish');
+
+// Meta OAuth
+app.get('/api/meta/connect/:clientId', async (req, res) => {
+  try {
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/meta/callback`;
+    const url = getMetaAuthUrl(paramId(req), redirectUri);
+    res.json({ url });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/meta/callback', async (req, res) => {
+  try {
+    const { code, state: clientId } = req.query;
+    if (!code || !clientId) return res.status(400).send('Missing code or state');
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/meta/callback`;
+    const { access_token, user_id } = await exchangeMetaCode(code as string, redirectUri);
+
+    // Get pages
+    const pages = await getMetaPages(access_token);
+    const client = await store.getClient(clientId as string);
+    if (!client) return res.status(404).send('Client not found');
+
+    // Auto-select first page
+    const page = pages[0];
+    const igAccount = page?.instagram_business_account;
+
+    client.meta_config = {
+      access_token, user_id,
+      page_id: page?.id, page_name: page?.name, page_access_token: page?.access_token,
+      instagram_account_id: igAccount?.id, instagram_username: igAccount?.username,
+      connected_at: new Date().toISOString(),
+    } as any;
+    client.updated_at = new Date().toISOString();
+    await store.upsertClient(client);
+
+    // Redirect back to client form with success
+    res.redirect(`/dashboard/client-form.html?id=${clientId}&meta=connected`);
+  } catch (err: any) {
+    res.redirect(`/dashboard/client-form.html?id=${req.query.state}&meta=error&msg=${encodeURIComponent(err.message)}`);
+  }
+});
+
+app.get('/api/meta/pages/:clientId', async (req, res) => {
+  try {
+    const client = await store.getClient(paramId(req));
+    if (!client?.meta_config?.access_token) return res.status(400).json({ error: 'Meta not connected' });
+    const pages = await getMetaPages(client.meta_config.access_token);
+    res.json(pages);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/meta/select-page/:clientId', async (req, res) => {
+  try {
+    const client = await store.getClient(paramId(req));
+    if (!client?.meta_config) return res.status(400).json({ error: 'Meta not connected' });
+    const { page_id, page_name, page_access_token, instagram_account_id, instagram_username } = req.body;
+    client.meta_config.page_id = page_id;
+    client.meta_config.page_name = page_name;
+    client.meta_config.page_access_token = page_access_token;
+    if (instagram_account_id) client.meta_config.instagram_account_id = instagram_account_id;
+    if (instagram_username) client.meta_config.instagram_username = instagram_username;
+    client.updated_at = new Date().toISOString();
+    await store.upsertClient(client);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// TikTok OAuth
+app.get('/api/tiktok/connect/:clientId', async (req, res) => {
+  try {
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/tiktok/callback`;
+    const url = getTikTokAuthUrl(paramId(req), redirectUri);
+    res.json({ url });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/tiktok/callback', async (req, res) => {
+  try {
+    const { code, state: clientId } = req.query;
+    if (!code || !clientId) return res.status(400).send('Missing code or state');
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/tiktok/callback`;
+    const tokens = await exchangeTikTokCode(code as string, redirectUri);
+    const userInfo = await getTikTokUserInfo(tokens.access_token);
+
+    const client = await store.getClient(clientId as string);
+    if (!client) return res.status(404).send('Client not found');
+
+    client.tiktok_config = {
+      access_token: tokens.access_token, refresh_token: tokens.refresh_token,
+      open_id: tokens.open_id, display_name: userInfo.display_name,
+      connected_at: new Date().toISOString(),
+    } as any;
+    client.updated_at = new Date().toISOString();
+    await store.upsertClient(client);
+
+    res.redirect(`/dashboard/client-form.html?id=${clientId}&tiktok=connected`);
+  } catch (err: any) {
+    res.redirect(`/dashboard/client-form.html?id=${req.query.state}&tiktok=error&msg=${encodeURIComponent(err.message)}`);
+  }
+});
+
+// Publish endpoints
+app.post('/api/publish/facebook/:variantId', async (req, res) => {
+  try {
+    const variant = await store.getVariant(paramId(req));
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+    const batches = await store.getBatches();
+    const batch = batches.find(b => b.id === variant.batch_id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity?.client_id) return res.status(400).json({ error: 'No client associated' });
+    const client = await store.getClient(entity.client_id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    const result = await publishToFacebook(client, variant);
+    await store.addPublishAction({
+      id: require('uuid').v4(), creative_variant_id: variant.id, platform: 'facebook',
+      publish_mode: 'live', status: 'published', external_object_id: result.post_id,
+      request_json: {}, response_json: result, published_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    });
+    res.json({ success: true, post_id: result.post_id });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.post('/api/publish/instagram/:variantId', async (req, res) => {
+  try {
+    const variant = await store.getVariant(paramId(req));
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+    const batches = await store.getBatches();
+    const batch = batches.find(b => b.id === variant.batch_id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity?.client_id) return res.status(400).json({ error: 'No client' });
+    const client = await store.getClient(entity.client_id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    const result = await publishToInstagram(client, variant);
+    await store.addPublishAction({
+      id: require('uuid').v4(), creative_variant_id: variant.id, platform: 'instagram',
+      publish_mode: 'live', status: 'published', external_object_id: result.id,
+      request_json: {}, response_json: result, published_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    });
+    res.json({ success: true, post_id: result.id });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// Social connection status
+app.get('/api/clients/:id/social-status', async (req, res) => {
+  const client = await store.getClient(paramId(req));
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+  res.json({
+    facebook: client.meta_config?.page_id ? { connected: true, page_name: client.meta_config.page_name, page_id: client.meta_config.page_id } : { connected: false },
+    instagram: client.meta_config?.instagram_account_id ? { connected: true, username: client.meta_config.instagram_username } : { connected: false },
+    tiktok: client.tiktok_config?.access_token ? { connected: true, display_name: client.tiktok_config.display_name } : { connected: false },
+  });
+});
+
+app.post('/api/clients/:id/disconnect/:platform', async (req, res) => {
+  try {
+    const client = await store.getClient(paramId(req));
+    if (!client) return res.status(404).json({ error: 'Not found' });
+    const platform = req.params.platform;
+    if (platform === 'meta' || platform === 'facebook' || platform === 'instagram') {
+      client.meta_config = undefined;
+    } else if (platform === 'tiktok') {
+      client.tiktok_config = undefined;
+    }
+    client.updated_at = new Date().toISOString();
+    await store.upsertClient(client);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/reset-campaigns', requireRole('admin'), async (_req: AuthRequest, res) => {
   try {
     const { sql } = await import('./db/neon');

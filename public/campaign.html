@@ -454,6 +454,11 @@ async function renderApprovals(el) {
       </div>
       <div class="card-body" style="padding:12px">${preview}</div>
       ${t.decision_notes?`<div style="padding:8px 20px 12px;font-size:13px;color:var(--text2)">Notes: ${esc(t.decision_notes)}</div>`:''}
+      <div class="card-footer">
+        ${platform==='facebook'?`<button class="btn btn-sm" style="background:#1877f2;border-color:#1877f2;color:#fff" onclick="publishTo('facebook','${v.id}')">Publish to Facebook</button>`:''}
+        ${platform==='instagram'?`<button class="btn btn-sm" style="background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);border:none;color:#fff" onclick="publishTo('instagram','${v.id}')">Publish to Instagram</button>`:''}
+        ${platform==='tiktok'?`<button class="btn btn-sm" style="background:#000;border-color:#333;color:#fff" onclick="publishTo('tiktok','${v.id}')">Publish to TikTok</button>`:''}
+      </div>
     </div>`;
   }).join('')}</div>`;
 }
@@ -500,6 +505,14 @@ async function generateFor(candidateId) {
   const r = await apiCall('/api/creatives/generate', { method: 'POST', body: JSON.stringify({ candidate_id: candidateId }) });
   if (r.success) { showToast(`Generated ${r.variants.length} variants`); switchTab('creatives'); }
   loadAll();
+}
+
+async function publishTo(platform, variantId) {
+  if (!confirm(`Publish this ad to ${platform}?`)) return;
+  showToast(`Publishing to ${platform}...`);
+  const res = await apiCall(`/api/publish/${platform}/${variantId}`, { method: 'POST', body: '{}' });
+  if (res.success) showToast(`Published to ${platform}! Post ID: ${res.post_id}`);
+  else showToast(`Publish failed: ${res.error || 'Check that ${platform} is connected in client settings'}`);
 }
 
 async function approve(taskId, status) {

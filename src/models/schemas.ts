@@ -308,6 +308,23 @@ export interface Client {
   drive_last_sync_at?: string;
   drive_file_count?: number;
   api_config?: ClientApiConfig;
+  meta_config?: {
+    access_token: string;
+    user_id: string;
+    page_id?: string;
+    page_name?: string;
+    page_access_token?: string;
+    instagram_account_id?: string;
+    instagram_username?: string;
+    connected_at: string;
+  };
+  tiktok_config?: {
+    access_token: string;
+    refresh_token?: string;
+    open_id: string;
+    display_name?: string;
+    connected_at: string;
+  };
   notes?: string;
   active: boolean;
   created_at: string;

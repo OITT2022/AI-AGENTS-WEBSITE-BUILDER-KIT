@@ -58,3 +58,7 @@ CREATE TABLE IF NOT EXISTS app_config (
   value JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS meta_config JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS tiktok_config JSONB NOT NULL DEFAULT '{}'::jsonb;

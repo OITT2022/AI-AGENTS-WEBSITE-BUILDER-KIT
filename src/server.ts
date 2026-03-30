@@ -28,7 +28,9 @@ function paramId(req: express.Request): string {
 }
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
-app.use('/dashboard', express.static(path.join(__dirname, '..', 'public')));
+// Serve static dashboard files - handle both local dev and Vercel
+const publicDir = path.join(process.cwd(), 'public');
+app.use('/dashboard', express.static(publicDir));
 
 const uploadDir = path.join(process.cwd(), 'data', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });

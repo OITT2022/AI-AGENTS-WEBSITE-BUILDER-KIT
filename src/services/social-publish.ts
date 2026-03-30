@@ -19,24 +19,24 @@ export async function exchangeMetaCode(code: string, redirectUri: string): Promi
 
   // Exchange code for short-lived token
   const res = await fetch(`${META_API}/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`);
-  const data = await res.json();
+  const data: any = await res.json();
   if (data.error) throw new Error(data.error.message);
 
   // Exchange for long-lived token
   const longRes = await fetch(`${META_API}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${data.access_token}`);
-  const longData = await longRes.json();
+  const longData: any = await longRes.json();
   if (longData.error) throw new Error(longData.error.message);
 
   // Get user ID
   const meRes = await fetch(`${META_API}/me?access_token=${longData.access_token}`);
-  const me = await meRes.json();
+  const me: any = await meRes.json();
 
   return { access_token: longData.access_token, user_id: me.id };
 }
 
 export async function getMetaPages(accessToken: string): Promise<Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string; username: string } }>> {
   const res = await fetch(`${META_API}/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&access_token=${accessToken}`);
-  const data = await res.json();
+  const data: any = await res.json();
   if (data.error) throw new Error(data.error.message);
   return data.data || [];
 }
@@ -58,7 +58,7 @@ export async function publishToFacebook(client: Client, variant: CreativeVariant
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: heroImg, message, access_token: meta.page_access_token }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     if (data.error) throw new Error(data.error.message);
     postId = data.post_id || data.id;
   } else {
@@ -68,7 +68,7 @@ export async function publishToFacebook(client: Client, variant: CreativeVariant
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, access_token: meta.page_access_token }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     if (data.error) throw new Error(data.error.message);
     postId = data.id;
   }
@@ -95,7 +95,7 @@ export async function publishToInstagram(client: Client, variant: CreativeVarian
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image_url: heroImg, caption: fullCaption, access_token: meta.page_access_token }),
   });
-  const container = await createRes.json();
+  const container: any = await createRes.json();
   if (container.error) throw new Error(container.error.message);
 
   // Step 2: Publish
@@ -104,7 +104,7 @@ export async function publishToInstagram(client: Client, variant: CreativeVarian
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ creation_id: container.id, access_token: meta.page_access_token }),
   });
-  const pub = await pubRes.json();
+  const pub: any = await pubRes.json();
   if (pub.error) throw new Error(pub.error.message);
 
   return { id: pub.id };
@@ -134,7 +134,7 @@ export async function exchangeTikTokCode(code: string, redirectUri: string): Pro
       code, grant_type: 'authorization_code', redirect_uri: redirectUri,
     }),
   });
-  const data = await res.json();
+  const data: any = await res.json();
   if (data.error) throw new Error(data.error_description || data.error);
 
   return {
@@ -148,6 +148,6 @@ export async function getTikTokUserInfo(accessToken: string): Promise<{ display_
   const res = await fetch(`${TIKTOK_API}/user/info/?fields=display_name,open_id`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  const data = await res.json();
+  const data: any = await res.json();
   return data.data?.user || {};
 }

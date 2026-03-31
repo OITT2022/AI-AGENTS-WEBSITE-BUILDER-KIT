@@ -32,6 +32,11 @@ app.use(express.json({ limit: '50mb' }));
 const publicDir = path.join(process.cwd(), 'public');
 app.use('/dashboard', express.static(publicDir));
 
+// Google domain verification
+app.get('/google8379582d5bf9d84d.html', (_req, res) => {
+  res.type('html').send('google-site-verification: google8379582d5bf9d84d.html');
+});
+
 const uploadDir = path.join(process.env.VERCEL ? '/tmp' : process.cwd(), 'data', 'uploads');
 try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
 const upload = multer({ dest: uploadDir, limits: { fileSize: 50 * 1024 * 1024 } });

@@ -4,6 +4,7 @@
     { "src": "api/index.ts", "use": "@vercel/node" }
   ],
   "routes": [
+    { "src": "/google8379582d5bf9d84d.html", "dest": "/api/index.ts" },
     { "src": "/dashboard$", "dest": "/api/index.ts" },
     { "src": "/dashboard/(.*)", "dest": "/api/index.ts" },
     { "src": "/api/(.*)", "dest": "/api/index.ts" },

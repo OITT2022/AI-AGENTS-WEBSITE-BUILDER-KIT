@@ -243,6 +243,10 @@ function initGoogleAuth() {
     client_id: GOOGLE_CLIENT_ID,
     scope: SCOPES,
     callback: handleTokenResponse,
+    error_callback: (err) => {
+      console.error('Google OAuth error:', err);
+      showToast('Google sign-in error: ' + (err.message || err.type || 'Unknown error'));
+    },
   });
 
   // Restore cached token
@@ -259,7 +263,8 @@ function googleSignIn() {
 }
 
 function handleTokenResponse(resp) {
-  if (resp.error) { showToast('Google sign-in failed: ' + resp.error); return; }
+  console.log('Google token response:', resp);
+  if (resp.error) { showToast('Google sign-in failed: ' + resp.error + (resp.error_description ? ' - ' + resp.error_description : '')); return; }
   googleAccessToken = resp.access_token;
   sessionStorage.setItem('google_access_token', googleAccessToken);
   showGoogleAccount();

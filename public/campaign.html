@@ -75,6 +75,16 @@
     .gallery-nav:hover{background:rgba(255,255,255,.25)}
     .gallery-prev{left:20px}.gallery-next{right:20px}
     .gallery-counter{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:14px;font-weight:500;background:rgba(0,0,0,.5);padding:4px 14px;border-radius:20px}
+    .ai-gen-btn{width:100%;background:linear-gradient(135deg,#6366f1,#818cf8);border:none;color:#fff;font-weight:600;padding:10px;font-size:14px;border-radius:8px;cursor:pointer;transition:opacity .15s}
+    .ai-gen-btn:hover{opacity:.9}.ai-gen-btn:disabled{opacity:.5;cursor:wait}
+    .ai-gen-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center}
+    .ai-gen-modal{background:var(--surface);border-radius:var(--radius);padding:32px;text-align:center;max-width:560px;width:90%;max-height:85vh;overflow-y:auto}
+    .ai-gen-spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .ai-gen-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:16px;text-align:left}
+    .ai-gen-scene{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2)}
+    .ai-gen-scene img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block;cursor:pointer}
+    .ai-gen-scene-label{padding:6px 8px;font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .empty-state{text-align:center;padding:60px 20px;color:var(--text2)}.empty-state h3{font-size:18px;margin-bottom:8px;color:var(--text)}
     .loading{text-align:center;padding:40px;color:var(--text2)}
     .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--green);color:var(--text);padding:14px 24px;border-radius:var(--radius);font-size:14px;z-index:1000;animation:slideIn .3s ease}
@@ -351,6 +361,9 @@ async function renderCreatives(el) {
         `:''}
         <button class="btn btn-sm btn-red" onclick="deleteVariant('${vid}')" title="Delete creative" style="min-width:auto;padding:5px 8px">&times;</button>
         <input type="checkbox" class="card-select" onchange="toggleSelect('${vid}',this)" title="Select for bulk delete" style="accent-color:var(--red);width:16px;height:16px;cursor:pointer;margin-left:4px">
+      </div>
+      <div style="padding:10px 20px;border-top:1px solid var(--border)">
+        <button class="btn ai-gen-btn" onclick="generateAiAd('${vid}')">Advplanner AI Ads Generator</button>
       </div>
     </div>`;
   })).join('')}</div>`;
@@ -785,6 +798,90 @@ function openGallery(vid, startIdx) {
   if (_galleryItems.length === 0) return;
   _galleryIdx = Math.min(startIdx || 0, _galleryItems.length - 1);
   renderGallery();
+}
+
+// ── AI Ad Generator ──
+
+async function generateAiAd(vid) {
+  const v = window._variants?.[vid];
+  if (!v) return showToast('Variant data not found');
+
+  // Show progress overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'ai-gen-overlay';
+  overlay.id = 'ai-gen-overlay';
+  overlay.innerHTML = `<div class="ai-gen-modal">
+    <div class="ai-gen-spinner"></div>
+    <h3 style="margin-bottom:8px">Generating AI Ad Assets</h3>
+    <div class="ai-gen-status" id="ai-gen-status">Preparing scene images...</div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  try {
+    const res = await apiCall(`/api/generate/ai-ad/${vid}`, { method: 'POST', body: JSON.stringify({}) });
+
+    // Remove spinner
+    const modal = overlay.querySelector('.ai-gen-modal');
+    if (!res.success) {
+      modal.innerHTML = `<h3 style="color:var(--red);margin-bottom:12px">Generation Failed</h3>
+        <p style="color:var(--text2);font-size:14px">${esc(res.error || 'Unknown error')}</p>
+        <button class="btn btn-sm" style="margin-top:16px" onclick="document.getElementById('ai-gen-overlay')?.remove()">Close</button>`;
+      return;
+    }
+
+    const gen = res.generated || {};
+    const scenes = gen.scene_images || [];
+    const video = gen.video;
+    const canvaDesign = gen.canva_design;
+    const used = res.services_used || [];
+
+    let html = `<h3 style="margin-bottom:4px">AI Ad Assets Generated</h3>
+      <p style="color:var(--text2);font-size:12px;margin-bottom:16px">Services: ${used.join(', ') || 'none'}</p>`;
+
+    if (scenes.length > 0) {
+      html += `<div style="font-size:13px;font-weight:600;margin-bottom:8px;text-align:left">Scene Images (${scenes.length})</div>`;
+      html += `<div class="ai-gen-results">`;
+      for (const s of scenes) {
+        html += `<div class="ai-gen-scene">
+          <img src="${esc(s.url)}" onclick="openLightbox('${esc(s.url)}')" loading="lazy" onerror="this.style.background='var(--surface2)'">
+          <div class="ai-gen-scene-label">Scene ${s.scene}: ${esc(s.overlay)}</div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    if (video) {
+      html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video</div>
+        <a href="${esc(video.url)}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration:none">
+          &#9654; Watch ${video.duration_sec}s video (${video.provider})
+        </a>`;
+    }
+
+    if (canvaDesign) {
+      html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Canva Design</div>
+        <a href="${esc(canvaDesign.edit_url)}" target="_blank" class="btn btn-sm" style="text-decoration:none">
+          Edit in Canva
+        </a>`;
+    }
+
+    if (res.errors?.length) {
+      html += `<div style="font-size:12px;color:var(--text2);margin-top:16px;text-align:left">
+        <details><summary style="cursor:pointer">Warnings (${res.errors.length})</summary>
+        ${res.errors.map(e => `<div style="margin-top:4px">${esc(e.service)}: ${esc(e.error)}</div>`).join('')}
+        </details></div>`;
+    }
+
+    html += `<button class="btn btn-sm" style="margin-top:20px" onclick="document.getElementById('ai-gen-overlay')?.remove()">Close</button>`;
+    modal.innerHTML = html;
+
+    // Update variant data in memory
+    if (v.media_plan_json) {
+      v.media_plan_json.ai_generated = { scene_images: scenes, video, canva_design: canvaDesign, generated_at: new Date().toISOString(), services_used: used };
+    }
+  } catch (err) {
+    document.getElementById('ai-gen-overlay')?.remove();
+    showToast('AI generation failed: ' + (err.message || err));
+  }
 }
 
 function openLightbox(src) {

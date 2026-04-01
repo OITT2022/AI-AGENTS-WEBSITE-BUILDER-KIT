@@ -1206,6 +1206,139 @@ app.post('/api/generate/video/batch/:batchId', requireRole('admin', 'manager'), 
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ── AI Ad Generator (orchestrates image + video + canva in one call) ──
+
+app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    const variant = await store.getVariant(paramId(req));
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+
+    const batches = await store.getBatches();
+    const batch = batches.find(b => b.id === variant.batch_id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity?.current_snapshot_id) return res.status(400).json({ error: 'No snapshot' });
+    const snapshot = await store.getSnapshot(entity.current_snapshot_id);
+    if (!snapshot) return res.status(400).json({ error: 'Snapshot not found' });
+    const client = entity.client_id ? await store.getClient(entity.client_id) : null;
+    const payload = snapshot.normalized_payload;
+    const mediaPlan = { ...variant.media_plan_json } as Record<string, unknown>;
+    const copy = variant.copy_json as Record<string, unknown>;
+    const servicesUsed: string[] = [];
+    const errors: Array<{ service: string; error: string }> = [];
+
+    // Determine platform size
+    const platformSizeMap: Record<string, imageAi.PlatformSize> = {
+      facebook: 'facebook_feed', instagram: 'instagram_square', tiktok: 'tiktok',
+    };
+    const platformSize = (req.body.platform_size || platformSizeMap[variant.platform] || 'facebook_feed') as imageAi.PlatformSize;
+
+    // Build scene list from reel_timeline or fallback
+    const timeline = mediaPlan.reel_timeline as any;
+    const scenes: Array<{ overlay: string; source?: string }> = [];
+    if (timeline?.scenes?.length) {
+      for (const s of timeline.scenes) {
+        scenes.push({ overlay: s.overlay_text || '', source: s.source || undefined });
+      }
+    } else {
+      // Fallback: build scenes from copy
+      const title = String(payload.title_he || payload.title_en || '');
+      const city = String(payload.city || '');
+      const price = String(payload.price_text || '');
+      scenes.push({ overlay: `${city}`, source: (mediaPlan.hero_image as string) || undefined });
+      scenes.push({ overlay: title });
+      if (price) scenes.push({ overlay: price });
+      const cta = String(copy.cta || copy.closing_cta || 'Learn More');
+      scenes.push({ overlay: `${city} | ${price}\n${cta}` });
+    }
+
+    // ── Phase 1: Scene images via OpenAI ──
+    const sceneImages: Array<{ scene: number; url: string; overlay: string; width: number; height: number }> = [];
+    if (imageAi.isConfigured()) {
+      const size = imageAi.PLATFORM_SIZES[platformSize];
+      for (let i = 0; i < scenes.length; i++) {
+        try {
+          const scene = scenes[i];
+          const title = String(payload.title_he || payload.title_en || '');
+          const city = String(payload.city || '');
+          const features = (payload.features as string[] || []).slice(0, 3).join(', ');
+          const prompt = [
+            `Professional real-estate ad image, scene ${i + 1} of ${scenes.length}.`,
+            `Property: ${title} in ${city}.`,
+            features ? `Features: ${features}.` : '',
+            `Text overlay: "${scene.overlay}".`,
+            `Style: modern, clean, cinematic real-estate marketing. ${size.width}x${size.height}.`,
+          ].filter(Boolean).join(' ');
+
+          const images = await imageAi.generateImage({
+            prompt,
+            negative_prompt: 'blurry, low quality, watermark, distorted text',
+            width: size.width,
+            height: size.height,
+          });
+          if (images[0]) {
+            sceneImages.push({ scene: i + 1, url: images[0].url, overlay: scene.overlay, width: images[0].width, height: images[0].height });
+          }
+        } catch (err: any) {
+          errors.push({ service: `openai_scene_${i + 1}`, error: err.message });
+        }
+      }
+      if (sceneImages.length > 0) servicesUsed.push('openai_image');
+    }
+
+    // ── Phase 2: Video (conditional) ──
+    let videoResult: { url: string; duration_sec: number; provider: string } | null = null;
+    if (videoAi.isConfigured() && timeline) {
+      try {
+        const vid = await videoAi.generateAdVideo(payload, timeline, req.body.template_id);
+        videoResult = { url: vid.url, duration_sec: vid.duration_sec, provider: vid.provider };
+        servicesUsed.push('video_' + vid.provider);
+      } catch (err: any) {
+        errors.push({ service: 'video_ai', error: err.message });
+      }
+    }
+
+    // ── Phase 3: Canva (conditional) ──
+    let canvaResult: { design_id: string; edit_url: string } | null = null;
+    if (canva.isConfigured() && client && canva.isClientConnected(client)) {
+      try {
+        const mediaUrls = (mediaPlan.selected_images as string[]) ?? [];
+        const bindings = canva.mapPropertyToBindings(payload, copy, mediaUrls);
+        const title = String(payload.title_he || payload.title_en || 'Ad');
+        const templateId = req.body.canva_template_id;
+        if (templateId) {
+          const design = await canva.createDesignFromTemplate(client, templateId, `${title} - ${variant.platform}`, bindings);
+          canvaResult = { design_id: design.id, edit_url: design.edit_url };
+          servicesUsed.push('canva');
+        }
+      } catch (err: any) {
+        errors.push({ service: 'canva', error: err.message });
+      }
+    }
+
+    // ── Persist results ──
+    mediaPlan.ai_generated = {
+      scene_images: sceneImages,
+      video: videoResult,
+      canva_design: canvaResult,
+      generated_at: new Date().toISOString(),
+      services_used: servicesUsed,
+    };
+    await store.updateVariant(variant.id, { media_plan_json: mediaPlan });
+
+    res.json({
+      success: true,
+      generated: {
+        scene_images: sceneImages,
+        video: videoResult,
+        canva_design: canvaResult,
+      },
+      services_used: servicesUsed,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 // ── Canva triggers ──
 
 app.get('/api/canva/connect/:clientId', async (req, res) => {

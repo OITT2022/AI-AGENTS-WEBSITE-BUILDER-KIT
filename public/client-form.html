@@ -143,7 +143,9 @@
           <label>Browse & Select Folders</label>
           <div id="drive-breadcrumb" style="display:flex;align-items:center;gap:4px;margin-bottom:10px;font-size:13px;color:var(--text2);flex-wrap:wrap"></div>
           <div id="drive-folder-list" style="border:1px solid var(--border);border-radius:8px;max-height:320px;overflow-y:auto;background:var(--bg)">
-            <div style="padding:20px;text-align:center;color:var(--text2);font-size:13px">Loading folders...</div>
+            <div style="padding:20px;text-align:center;color:var(--text2);font-size:13px">
+              <button class="btn btn-sm" onclick="browseDriveFolder('root')">Browse Drive Folders</button>
+            </div>
           </div>
           <div class="hint">Click a folder to browse into it. Use checkboxes to select folders for this client's media.</div>
         </div>
@@ -238,7 +240,7 @@ async function init() {
     const name = params.get('g_name') || '';
     const email = params.get('g_email') || '';
     const picture = params.get('g_picture') || '';
-    showGoogleAccount(name, email, picture);
+    showGoogleAccount(name, email, picture, true);
     showToast('Google Drive connected!');
     // Clean URL params
     const clean = new URL(window.location);
@@ -246,8 +248,8 @@ async function init() {
     window.history.replaceState({}, '', clean);
   } else if (gStatus === 'error') {
     showToast('Google sign-in failed: ' + (params.get('msg') || 'Unknown error'));
-  } else {
-    // Check if we already have a valid Google session on the server
+  } else if (!googleConnected) {
+    // Only check server session if loadClient didn't already set connected state from DB
     checkGoogleSession();
   }
 }
@@ -275,18 +277,19 @@ window.addEventListener('message', function(e) {
 
 async function checkGoogleSession() {
   try {
-    // Use fetch directly — apiCall redirects to login on 401, but 401 here just means no Google token
-    const res = await fetch('/api/google/userinfo', { credentials: 'include', headers: getAuthHeaders() });
+    // Pass clientId so server can restore session from stored refresh token
+    const url = '/api/google/userinfo' + (editId ? '?clientId=' + encodeURIComponent(editId) : '');
+    const res = await fetch(url, { credentials: 'include', headers: getAuthHeaders() });
     if (!res.ok) return;
     const data = await res.json();
     if (data && !data.error) {
       googleConnected = true;
-      showGoogleAccount(data.name || '', data.email || '', data.picture || '');
+      showGoogleAccount(data.name || '', data.email || '', data.picture || '', true);
     }
   } catch {}
 }
 
-function showGoogleAccount(name, email, picture) {
+function showGoogleAccount(name, email, picture, autoBrowse) {
   document.getElementById('g-avatar').src = picture || '';
   document.getElementById('g-name').textContent = name || '';
   document.getElementById('g-email').textContent = email || '';
@@ -294,8 +297,8 @@ function showGoogleAccount(name, email, picture) {
   document.getElementById('drive-signin').style.display = 'none';
   document.getElementById('drive-picker-section').style.display = 'block';
   googleConnected = true;
-  // Auto-load root folders
-  browseDriveFolder('root');
+  // Only auto-browse when explicitly requested (fresh auth or session restore)
+  if (autoBrowse) browseDriveFolder('root');
 }
 
 function googleSignOut() {
@@ -309,7 +312,9 @@ function googleSignOut() {
 // ── Drive Folder Browser (via server proxy) ──
 
 async function driveFetch(folderId) {
-  const res = await apiCall('/api/google/drive/list?folderId=' + encodeURIComponent(folderId));
+  let url = '/api/google/drive/list?folderId=' + encodeURIComponent(folderId);
+  if (editId) url += '&clientId=' + encodeURIComponent(editId);
+  const res = await apiCall(url);
   if (!res || res.error) {
     if (res?.error?.includes('Not connected') || res?.error?.includes('expired')) {
       googleSignOut();
@@ -522,21 +527,27 @@ async function loadClient() {
   document.getElementById('f-filter-city').value = c.api_config?.filters?.city || '';
   document.getElementById('f-filter-type').value = c.api_config?.filters?.propertyType || '';
 
-  // Show persisted Google Drive connection
-  if (c.google_email) {
-    showGoogleAccount('', c.google_email, '');
+  // Show persisted Google Drive connection (without requiring active session)
+  if (c.google_email || c.google_refresh_token) {
+    // Show connected state without auto-browsing Drive
+    document.getElementById('g-avatar').src = '';
+    document.getElementById('g-name').textContent = c.google_email ? 'Google Drive Connected' : '';
+    document.getElementById('g-email').textContent = c.google_email || '';
+    document.getElementById('drive-account').style.display = 'flex';
+    document.getElementById('drive-signin').style.display = 'none';
+    document.getElementById('drive-picker-section').style.display = 'block';
+    googleConnected = true;
   }
   if (c.google_drive_folder_id || c.google_drive_folder_url) {
     const ids = (c.google_drive_folder_id || '').split(',').filter(Boolean);
     const urls = (c.google_drive_folder_url || '').split(',').filter(Boolean);
     selectedFolders = ids.map((id, i) => ({
       id,
-      name: id,
+      name: id.length > 20 ? id.substring(0, 8) + '...' : id,
       path: urls[i] || `https://drive.google.com/drive/folders/${id}`,
-      mediaInfo: c.drive_file_count ? '' : '',
+      mediaInfo: c.drive_file_count ? ` (${c.drive_file_count} files)` : '',
     }));
     document.getElementById('f-drive-url').value = c.google_drive_folder_url || '';
-    document.getElementById('drive-picker-section').style.display = 'block';
     updateSelectedFoldersUI();
   }
 }

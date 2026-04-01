@@ -427,8 +427,24 @@ app.get('/api/config/google', (_req, res) => {
 
 app.get('/api/google/drive/list', async (req: AuthRequest, res) => {
   try {
+    // Try in-memory token first, then fall back to client's stored refresh token
     const storeKey = req.user?.id || 'default';
-    const tokenData = googleTokens.get(storeKey);
+    let tokenData = googleTokens.get(storeKey);
+    const clientId = req.query.clientId as string;
+
+    if (!tokenData && clientId) {
+      // Restore session from client's stored refresh token
+      const client = await store.getClient(clientId);
+      if (client) {
+        const { getOAuthAccessToken } = await import('./services/google-drive');
+        const accessToken = await getOAuthAccessToken(client);
+        if (accessToken) {
+          tokenData = { access_token: accessToken, expiry: Date.now() + 3600000 };
+          googleTokens.set(storeKey, tokenData);
+        }
+      }
+    }
+
     if (!tokenData) return res.status(401).json({ error: 'Not connected to Google. Please sign in.' });
 
     const folderId = (req.query.folderId as string) || 'root';
@@ -448,7 +464,22 @@ app.get('/api/google/drive/list', async (req: AuthRequest, res) => {
 
 app.get('/api/google/userinfo', async (req: AuthRequest, res) => {
   const storeKey = req.user?.id || 'default';
-  const tokenData = googleTokens.get(storeKey);
+  let tokenData = googleTokens.get(storeKey);
+  const clientId = req.query.clientId as string;
+
+  // Restore from client's stored refresh token if in-memory token is gone
+  if (!tokenData && clientId) {
+    const client = await store.getClient(clientId);
+    if (client) {
+      const { getOAuthAccessToken } = await import('./services/google-drive');
+      const accessToken = await getOAuthAccessToken(client);
+      if (accessToken) {
+        tokenData = { access_token: accessToken, expiry: Date.now() + 3600000 };
+        googleTokens.set(storeKey, tokenData);
+      }
+    }
+  }
+
   if (!tokenData) return res.status(401).json({ error: 'Not connected' });
   try {
     const r = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${tokenData.access_token}` } });

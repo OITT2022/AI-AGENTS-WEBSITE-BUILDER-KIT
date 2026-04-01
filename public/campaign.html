@@ -330,9 +330,9 @@ async function renderCreatives(el) {
         ${renderMediaGrid(media, vid)}
         ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
         ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
-        ${copy.cta?`<div class="detail-row"><span class="label">CTA</span><span>${copy.cta}</span></div>`:''}
+        <div class="detail-row"><span class="label">CTA</span><input type="text" id="cta-${vid}" value="${esc(copy.cta||copy.closing_cta||'')}" placeholder="Learn More" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
         <div class="detail-row"><span class="label">Ad URL</span><input type="url" id="url-${vid}" value="${esc(copy.ad_url||b.entity?.listing_url||'')}" placeholder="https://..." style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
-        ${copy.hashtags?`<div class="detail-row"><span class="label">Hashtags</span><span style="font-size:12px">${copy.hashtags.join(' ')}</span></div>`:''}
+        <div class="detail-row"><span class="label">Hashtags</span><input type="text" id="tags-${vid}" value="${esc((copy.hashtags||[]).join(' '))}" placeholder="#realestate #property" style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
         <div class="creative-preview" contenteditable="true" id="text-${vid}">${esc(mainText.trim())}</div>
         ${media.reel_timeline ? renderStoryboard(media.reel_timeline) : ''}
         ${approval?`<div style="margin-top:12px"><span class="badge ${approval.status==='approved'?'badge-green':approval.status==='rejected'?'badge-red':'badge-yellow'}">${approval.status}</span></div>`:''}
@@ -465,10 +465,14 @@ async function saveCopy(variantId, platform) {
   const hlEl = document.getElementById('hl-' + variantId);
   const descEl = document.getElementById('desc-' + variantId);
   const urlEl = document.getElementById('url-' + variantId);
+  const ctaEl = document.getElementById('cta-' + variantId);
+  const tagsEl = document.getElementById('tags-' + variantId);
   const newText = textEl?.innerText || '';
   const newHeadline = hlEl?.value || '';
   const newDesc = descEl?.value || '';
   const newUrl = urlEl?.value?.trim() || '';
+  const newCta = ctaEl?.value?.trim() || '';
+  const newTags = (tagsEl?.value || '').split(/\s+/).filter(t => t.startsWith('#') || t.length > 0).map(t => t.startsWith('#') ? t : '#' + t).filter(Boolean);
   const v = window._variants?.[variantId];
   if (!v) return;
   const copy = { ...v.copy_json };
@@ -477,6 +481,8 @@ async function saveCopy(variantId, platform) {
   else if (platform === 'instagram') { copy.caption = newText; }
   else if (platform === 'tiktok') { const parts = newText.split('\n\n'); copy.hook = parts[0] || copy.hook; copy.voiceover_script = parts.slice(1).join('\n\n') || copy.voiceover_script; }
   copy.ad_url = newUrl;
+  if (newCta) { copy.cta = newCta; if (platform === 'tiktok') copy.closing_cta = newCta; }
+  if (tagsEl) copy.hashtags = newTags.length > 0 ? newTags : undefined;
 
   const res = await apiCall(`/api/creatives/${variantId}`, { method: 'PUT', body: JSON.stringify({ copy_json: copy }) });
   if (res.success) { showToast('Creative saved'); window._variants[variantId].copy_json = copy; }

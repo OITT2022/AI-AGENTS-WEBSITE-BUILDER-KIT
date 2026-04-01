@@ -331,7 +331,7 @@ async function renderCreatives(el) {
         ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
         ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
         ${copy.cta?`<div class="detail-row"><span class="label">CTA</span><span>${copy.cta}</span></div>`:''}
-        ${b.entity?.listing_url?`<div class="detail-row"><span class="label">Ad URL</span><a href="${esc(b.entity.listing_url)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:12px;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;display:inline-block" title="${esc(b.entity.listing_url)}">${esc(b.entity.listing_url)}</a></div>`:''}
+        <div class="detail-row"><span class="label">Ad URL</span><input type="url" id="url-${vid}" value="${esc(copy.ad_url||b.entity?.listing_url||'')}" placeholder="https://..." style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
         ${copy.hashtags?`<div class="detail-row"><span class="label">Hashtags</span><span style="font-size:12px">${copy.hashtags.join(' ')}</span></div>`:''}
         <div class="creative-preview" contenteditable="true" id="text-${vid}">${esc(mainText.trim())}</div>
         ${media.reel_timeline ? renderStoryboard(media.reel_timeline) : ''}
@@ -464,9 +464,11 @@ async function saveCopy(variantId, platform) {
   const textEl = document.getElementById('text-' + variantId);
   const hlEl = document.getElementById('hl-' + variantId);
   const descEl = document.getElementById('desc-' + variantId);
+  const urlEl = document.getElementById('url-' + variantId);
   const newText = textEl?.innerText || '';
   const newHeadline = hlEl?.value || '';
   const newDesc = descEl?.value || '';
+  const newUrl = urlEl?.value?.trim() || '';
   const v = window._variants?.[variantId];
   if (!v) return;
   const copy = { ...v.copy_json };
@@ -474,6 +476,7 @@ async function saveCopy(variantId, platform) {
   if (platform === 'facebook') { copy.primary_text = newText; if (newHeadline) copy.headline = newHeadline; if (newDesc) copy.description = newDesc; }
   else if (platform === 'instagram') { copy.caption = newText; }
   else if (platform === 'tiktok') { const parts = newText.split('\n\n'); copy.hook = parts[0] || copy.hook; copy.voiceover_script = parts.slice(1).join('\n\n') || copy.voiceover_script; }
+  copy.ad_url = newUrl;
 
   const res = await apiCall(`/api/creatives/${variantId}`, { method: 'PUT', body: JSON.stringify({ copy_json: copy }) });
   if (res.success) { showToast('Creative saved'); window._variants[variantId].copy_json = copy; }
@@ -495,10 +498,11 @@ function openPreview(variantId, platform) {
     if ((vr.batch?.entity_id || vr.entity?.id) === entityId && vr.copy_json?.language === lang) allVariants[vr.platform] = vr;
   });
 
-  // Read current edited text
+  // Read current edited text + URL from input fields
   const copy = { ...v.copy_json };
   const textEl = document.getElementById('text-' + variantId);
   const hlEl = document.getElementById('hl-' + variantId);
+  const urlEl = document.getElementById('url-' + variantId);
   if (textEl) {
     const t = textEl.innerText;
     if (platform === 'facebook') copy.primary_text = t;
@@ -506,6 +510,7 @@ function openPreview(variantId, platform) {
     else if (platform === 'tiktok') { const p = t.split('\n\n'); copy.hook = p[0]; copy.voiceover_script = p.slice(1).join('\n\n'); }
   }
   if (hlEl && platform === 'facebook') copy.headline = hlEl.value;
+  const adUrl = urlEl?.value?.trim() || v.entity?.listing_url || '';
   allVariants[platform] = { ...v, copy_json: copy };
 
   const fbV = allVariants.facebook; const igV = allVariants.instagram; const tkV = allVariants.tiktok;
@@ -530,9 +535,9 @@ function openPreview(variantId, platform) {
       </div>
     </div>
     <div style="padding:0 16px 16px">
-      <div class="prev-panel" data-p="facebook" style="display:${platform==='facebook'?'block':'none'}">${previewFB(fbCopy, fbMedia, v.entity?.listing_url)}</div>
-      <div class="prev-panel" data-p="instagram" style="display:${platform==='instagram'?'block':'none'}">${previewIG(igCopy, igMedia, v.entity?.listing_url)}</div>
-      <div class="prev-panel" data-p="tiktok" style="display:${platform==='tiktok'?'block':'none'}">${previewTK(tkCopy, tkMedia, v.entity?.listing_url)}</div>
+      <div class="prev-panel" data-p="facebook" style="display:${platform==='facebook'?'block':'none'}">${previewFB(fbCopy, fbMedia, adUrl)}</div>
+      <div class="prev-panel" data-p="instagram" style="display:${platform==='instagram'?'block':'none'}">${previewIG(igCopy, igMedia, adUrl)}</div>
+      <div class="prev-panel" data-p="tiktok" style="display:${platform==='tiktok'?'block':'none'}">${previewTK(tkCopy, tkMedia, adUrl)}</div>
     </div>
   </div>`;
   document.body.appendChild(overlay);

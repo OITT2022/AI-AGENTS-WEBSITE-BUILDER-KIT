@@ -255,13 +255,114 @@ app.post('/api/clients/:id/pipeline', async (req, res) => {
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ── Google Config (client-side OAuth + Picker) ──
+// ── Google OAuth (server-side code exchange for Drive access) ──
 
 app.get('/api/config/google', (_req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID || '';
   const apiKey = process.env.GOOGLE_API_KEY || '';
   if (!clientId || !apiKey) return res.status(500).json({ error: 'Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_API_KEY env vars.' });
   res.json({ client_id: clientId, api_key: apiKey });
+});
+
+// Google OAuth redirect flow — avoids popup issues entirely
+app.get('/api/google/auth', (req: AuthRequest, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return res.status(500).json({ error: 'Google OAuth not configured' });
+
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/google/callback`;
+  const state = req.query.returnTo as string || '/dashboard/client-form.html';
+  const scope = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${encodeURIComponent(clientId)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_type=code` +
+    `&scope=${encodeURIComponent(scope)}` +
+    `&access_type=offline` +
+    `&prompt=consent` +
+    `&state=${encodeURIComponent(state)}`;
+
+  res.redirect(authUrl);
+});
+
+// In-memory token store (per session user) — maps user ID to Google tokens
+const googleTokens = new Map<string, { access_token: string; refresh_token?: string; expiry?: number }>();
+
+app.get('/api/google/callback', async (req: AuthRequest, res) => {
+  try {
+    const { code, state } = req.query;
+    if (!code) return res.status(400).send('Missing authorization code');
+
+    const clientId = process.env.GOOGLE_CLIENT_ID!;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/google/callback`;
+
+    // Exchange code for tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ code: code as string, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
+    });
+    const tokens = await tokenRes.json() as any;
+    if (tokens.error) return res.redirect(`${state || '/dashboard/client-form.html'}?google=error&msg=${encodeURIComponent(tokens.error_description || tokens.error)}`);
+
+    // Get user info to identify the session
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${tokens.access_token}` } });
+    const user = await userRes.json() as any;
+
+    // Store token keyed by the app session user (from auth cookie)
+    const cookie = (req.headers.cookie ?? '').split(';').map(c => c.trim()).find(c => c.startsWith('auth_token='));
+    const sessionToken = cookie?.split('=')[1];
+    const sessionUser = sessionToken ? await getSessionUser(sessionToken) : null;
+    const storeKey = sessionUser?.id || 'default';
+
+    googleTokens.set(storeKey, {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry: Date.now() + (tokens.expires_in || 3600) * 1000,
+    });
+
+    // Redirect back with success + user info encoded
+    const returnTo = (state as string) || '/dashboard/client-form.html';
+    const sep = returnTo.includes('?') ? '&' : '?';
+    res.redirect(`${returnTo}${sep}google=connected&g_name=${encodeURIComponent(user.name || '')}&g_email=${encodeURIComponent(user.email || '')}&g_picture=${encodeURIComponent(user.picture || '')}`);
+  } catch (err: any) {
+    res.redirect(`${req.query.state || '/dashboard/client-form.html'}?google=error&msg=${encodeURIComponent(err.message)}`);
+  }
+});
+
+// Proxy Drive API calls using stored server-side token
+app.get('/api/google/drive/list', async (req: AuthRequest, res) => {
+  try {
+    const storeKey = req.user?.id || 'default';
+    const tokenData = googleTokens.get(storeKey);
+    if (!tokenData) return res.status(401).json({ error: 'Not connected to Google. Please sign in.' });
+
+    const folderId = (req.query.folderId as string) || 'root';
+    const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+    const fields = encodeURIComponent('files(id, name, mimeType, size), nextPageToken');
+    const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=200&fields=${fields}&orderBy=folder,name`, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    if (!driveRes.ok) {
+      const errText = await driveRes.text();
+      if (driveRes.status === 401) { googleTokens.delete(storeKey); return res.status(401).json({ error: 'Google session expired. Please sign in again.' }); }
+      return res.status(driveRes.status).json({ error: errText });
+    }
+    res.json(await driveRes.json());
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/google/userinfo', async (req: AuthRequest, res) => {
+  const storeKey = req.user?.id || 'default';
+  const tokenData = googleTokens.get(storeKey);
+  if (!tokenData) return res.status(401).json({ error: 'Not connected' });
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
+    if (!r.ok) return res.status(401).json({ error: 'Token expired' });
+    res.json(await r.json());
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Google Drive ──

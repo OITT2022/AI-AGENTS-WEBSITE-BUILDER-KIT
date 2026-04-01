@@ -205,19 +205,12 @@
   </div>
 </div>
 
-<!-- Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-
 <script src="/dashboard/shared.js"></script>
 <script>
-let GOOGLE_CLIENT_ID = '';
-let GOOGLE_API_KEY = '';
-const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 const params = new URLSearchParams(window.location.search);
 const editId = params.get('id');
 let selectedFolders = []; // Array of {id, name, path}
-let googleAccessToken = '';
-let tokenClient;
+let googleConnected = false;
 let currentBrowsePath = []; // breadcrumb: [{id, name}, ...]
 
 async function init() {
@@ -231,108 +224,79 @@ async function init() {
     loadSocialStatus();
   }
 
-  // Load Google config from server (env vars), then init OAuth
-  try {
-    const cfg = await apiCall('/api/config/google');
-    if (cfg && !cfg.error) {
-      GOOGLE_CLIENT_ID = cfg.client_id;
-      GOOGLE_API_KEY = cfg.api_key;
-      initGoogleAuth();
-    } else {
-      console.error('Google config error:', cfg?.error);
-      document.getElementById('drive-signin').innerHTML =
-        '<p style="color:var(--red);font-size:13px">Google Drive not configured. Set GOOGLE_CLIENT_ID and GOOGLE_API_KEY in environment variables.</p>';
-    }
-  } catch (e) {
-    console.error('Failed to load Google config:', e);
-    document.getElementById('drive-signin').innerHTML =
-      '<p style="color:var(--red);font-size:13px">Failed to load Google config. Check server logs.</p>';
+  // Check URL params for Google OAuth callback result
+  const gStatus = params.get('google');
+  if (gStatus === 'connected') {
+    googleConnected = true;
+    const name = params.get('g_name') || '';
+    const email = params.get('g_email') || '';
+    const picture = params.get('g_picture') || '';
+    showGoogleAccount(name, email, picture);
+    showToast('Google Drive connected!');
+    // Clean URL params
+    const clean = new URL(window.location);
+    clean.searchParams.delete('google'); clean.searchParams.delete('g_name'); clean.searchParams.delete('g_email'); clean.searchParams.delete('g_picture');
+    window.history.replaceState({}, '', clean);
+  } else if (gStatus === 'error') {
+    showToast('Google sign-in failed: ' + (params.get('msg') || 'Unknown error'));
+  } else {
+    // Check if we already have a valid Google session on the server
+    checkGoogleSession();
   }
 }
 
-// ── Google OAuth ──
-
-function initGoogleAuth() {
-  if (typeof google === 'undefined' || !google.accounts) {
-    setTimeout(initGoogleAuth, 200);
-    return;
-  }
-
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: SCOPES,
-    callback: handleTokenResponse,
-    error_callback: (err) => {
-      console.error('Google OAuth error:', err);
-      showToast('Google sign-in error: ' + (err.message || err.type || 'Unknown error'));
-    },
-  });
-
-  // Restore cached token
-  const cached = sessionStorage.getItem('google_access_token');
-  if (cached) {
-    googleAccessToken = cached;
-    showGoogleAccount();
-  }
-}
+// ── Google OAuth (server-side redirect flow) ──
 
 function googleSignIn() {
-  if (!tokenClient) { showToast('Google auth loading, try again...'); return; }
-  tokenClient.requestAccessToken();
+  // Build return URL preserving the current client edit context
+  const returnTo = window.location.pathname + (editId ? '?id=' + editId : '');
+  window.location.href = '/api/google/auth?returnTo=' + encodeURIComponent(returnTo);
 }
 
-function handleTokenResponse(resp) {
-  console.log('Google token response:', resp);
-  if (resp.error) {
-    console.error('Google OAuth error details:', JSON.stringify(resp));
-    let msg = 'Google sign-in failed: ' + resp.error;
-    if (resp.error_description) msg += ' - ' + resp.error_description;
-    if (resp.error === 'access_denied') msg += '. Check that the OAuth consent screen is configured and the user is authorized.';
-    if (resp.error === 'invalid_client') msg += '. The Google Client ID may be invalid — check Google Cloud Console.';
-    showToast(msg);
-    return;
-  }
-  googleAccessToken = resp.access_token;
-  sessionStorage.setItem('google_access_token', googleAccessToken);
-  showGoogleAccount();
-}
-
-async function showGoogleAccount() {
+async function checkGoogleSession() {
   try {
-    const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${googleAccessToken}` }
-    });
-    if (!res.ok) { googleSignOut(); return; }
-    const user = await res.json();
-    document.getElementById('g-avatar').src = user.picture || '';
-    document.getElementById('g-name').textContent = user.name || '';
-    document.getElementById('g-email').textContent = user.email || '';
-    document.getElementById('drive-account').style.display = 'flex';
-    document.getElementById('drive-signin').style.display = 'none';
-    document.getElementById('drive-picker-section').style.display = 'block';
-    // Auto-load root folders after sign-in
-    browseDriveFolder('root');
-  } catch {
-    googleSignOut();
-  }
+    const res = await apiCall('/api/google/userinfo');
+    if (res && !res.error) {
+      googleConnected = true;
+      showGoogleAccount(res.name || '', res.email || '', res.picture || '');
+    }
+  } catch {}
+}
+
+function showGoogleAccount(name, email, picture) {
+  document.getElementById('g-avatar').src = picture || '';
+  document.getElementById('g-name').textContent = name || '';
+  document.getElementById('g-email').textContent = email || '';
+  document.getElementById('drive-account').style.display = 'flex';
+  document.getElementById('drive-signin').style.display = 'none';
+  document.getElementById('drive-picker-section').style.display = 'block';
+  googleConnected = true;
+  // Auto-load root folders
+  browseDriveFolder('root');
 }
 
 function googleSignOut() {
-  googleAccessToken = '';
-  sessionStorage.removeItem('google_access_token');
+  googleConnected = false;
   document.getElementById('drive-account').style.display = 'none';
   document.getElementById('drive-signin').style.display = 'block';
   document.getElementById('drive-picker-section').style.display = 'none';
   currentBrowsePath = [];
 }
 
-// ── Drive Folder Browser ──
+// ── Drive Folder Browser (via server proxy) ──
 
-async function driveFetch(url) {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${googleAccessToken}` } });
-  if (res.status === 401) { googleSignOut(); showToast('Google session expired, please sign in again'); return null; }
-  if (!res.ok) { const t = await res.text(); console.error('Drive API error:', res.status, t); showToast('Drive API error: ' + res.status); return null; }
-  return res.json();
+async function driveFetch(folderId) {
+  const res = await apiCall('/api/google/drive/list?folderId=' + encodeURIComponent(folderId));
+  if (!res || res.error) {
+    if (res?.error?.includes('Not connected') || res?.error?.includes('expired')) {
+      googleSignOut();
+      showToast('Google session expired, please sign in again');
+    } else {
+      showToast('Drive API error: ' + (res?.error || 'Unknown'));
+    }
+    return null;
+  }
+  return res;
 }
 
 async function browseDriveFolder(folderId) {
@@ -345,11 +309,8 @@ async function browseDriveFolder(folderId) {
   }
   renderBreadcrumb();
 
-  // Fetch folders and media files in current folder
-  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
-  const fields = encodeURIComponent('files(id, name, mimeType, size), nextPageToken');
-  const data = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=200&fields=${fields}&orderBy=folder,name`);
-  if (!data) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:13px">Failed to load. Check permissions.</div>'; return; }
+  const data = await driveFetch(folderId);
+  if (!data) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:13px">Failed to load. Check permissions or sign in again.</div>'; return; }
 
   const folders = (data.files || []).filter(f => f.mimeType === 'application/vnd.google-apps.folder');
   const mediaFiles = (data.files || []).filter(f => f.mimeType?.startsWith('image/') || f.mimeType?.startsWith('video/'));
@@ -424,8 +385,7 @@ async function toggleFolderSelect(folderId, folderName, checked) {
     // Count media files in folder
     let mediaInfo = '';
     try {
-      const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
-      const data = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=200&fields=${encodeURIComponent('files(id, mimeType)')}`);
+      const data = await driveFetch(folderId);
       if (data) {
         const imgs = (data.files || []).filter(f => f.mimeType?.startsWith('image/')).length;
         const vids = (data.files || []).filter(f => f.mimeType?.startsWith('video/')).length;

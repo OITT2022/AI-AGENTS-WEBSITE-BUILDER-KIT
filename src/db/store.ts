@@ -432,11 +432,8 @@ function safeJson(val: any): string {
 // ── Init DB ──
 
 export async function initDatabase(): Promise<void> {
-  try {
-    // Check if tables exist by querying users table
-    await sql('SELECT 1 FROM users LIMIT 1');
-  } catch {
-    // Tables don't exist - run migrations from SQL files
+  {
+    // Always run schema + migration files (all statements use IF NOT EXISTS / IF NOT EXISTS)
     const fs = await import('fs');
     const path = await import('path');
     const schemaPath = path.join(process.cwd(), 'db', 'schema.sql');

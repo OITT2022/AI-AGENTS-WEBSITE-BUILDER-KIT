@@ -118,13 +118,16 @@ async function generateRunway(req: VideoGenerationRequest): Promise<GeneratedVid
   }
 
   // Start generation
+  const payload = JSON.stringify(body);
   const res = await fetch('https://api.dev.runwayml.com/v1/image_to_video', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'X-Runway-Version': '2024-11-06' },
-    body: JSON.stringify(body),
+    body: payload,
   });
-  const data: any = await res.json();
-  if (data.error) throw new Error(`Runway: ${typeof data.error === 'string' ? data.error : JSON.stringify(data.error)}`);
+  const rawText = await res.text();
+  let data: any;
+  try { data = JSON.parse(rawText); } catch { throw new Error(`Runway: HTTP ${res.status} — ${rawText.slice(0, 300)}`); }
+  if (!res.ok || data.error) throw new Error(`Runway ${res.status}: ${rawText.slice(0, 500)}`);
 
   const taskId = data.id;
 

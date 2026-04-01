@@ -152,7 +152,14 @@
         <div id="selected-folders-summary" style="display:none;margin-top:12px">
           <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Selected Folders</label>
           <div id="selected-folders-list" style="display:flex;flex-direction:column;gap:6px"></div>
-          <button class="btn btn-sm" onclick="clearAllFolders()" style="margin-top:10px">Clear All</button>
+          <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+            <button class="btn btn-primary btn-sm" onclick="saveDriveFolders()" id="btn-save-drive">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Save Drive Folders
+            </button>
+            <button class="btn btn-sm" onclick="clearAllFolders()">Clear All</button>
+            <span id="drive-save-status" style="font-size:12px;color:var(--green);display:none">Saved!</span>
+          </div>
         </div>
         <input type="hidden" id="f-drive-url" value="">
       </div>
@@ -436,6 +443,44 @@ function clearAllFolders() {
   if (currentBrowsePath.length > 0) {
     browseDriveFolder(currentBrowsePath[currentBrowsePath.length - 1].id);
   }
+}
+
+async function saveDriveFolders() {
+  if (!editId) { showToast('Save the client first, then connect Drive folders'); return; }
+  if (selectedFolders.length === 0) { showToast('No folders selected'); return; }
+
+  const btn = document.getElementById('btn-save-drive');
+  const status = document.getElementById('drive-save-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving...';
+  status.style.display = 'none';
+
+  try {
+    const body = {
+      google_drive_folder_id: selectedFolders.map(f => f.id).join(','),
+      google_drive_folder_url: selectedFolders.map(f => `https://drive.google.com/drive/folders/${f.id}`).join(','),
+    };
+    await apiCall(`/api/clients/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
+
+    // Trigger a Drive sync to cache the media files
+    try {
+      const syncResult = await apiCall(`/api/clients/${editId}/drive/sync`, { method: 'POST', body: '{}' });
+      if (syncResult.result) {
+        showToast(`Drive folders saved! ${syncResult.result.total_files} media files synced.`);
+      } else {
+        showToast('Drive folders saved!');
+      }
+    } catch { showToast('Drive folders saved! (sync will run on next pipeline)'); }
+
+    status.textContent = 'Saved!';
+    status.style.display = 'inline';
+    setTimeout(() => { status.style.display = 'none'; }, 3000);
+  } catch (err) {
+    showToast('Failed to save Drive folders');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Drive Folders';
 }
 
 function updateSelectedFoldersUI() {

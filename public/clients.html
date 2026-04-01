@@ -101,7 +101,7 @@ function renderClientCards(clients) {
         <button class="btn btn-sm" style="color:var(--red);border-color:rgba(239,68,68,.3)" onclick="confirmDeleteClient('${c.id}','${escapeHtml(c.company)}')">Delete</button>
         <div style="flex:1"></div>
         <a class="btn btn-sm" href="/dashboard/client-form.html?id=${c.id}" style="text-decoration:none">Edit</a>
-        ${c.api_config?.api_token ? `<button class="btn btn-sm btn-primary" onclick="syncClient('${c.id}')">Sync API</button>` : ''}
+        ${(c.api_config?.api_token || c.google_drive_folder_id) ? `<button class="btn btn-sm btn-primary" onclick="syncClient('${c.id}')">Sync & Create</button>` : ''}
       </div>
     </div>
   `).join('')}</div>`;
@@ -143,11 +143,16 @@ async function deleteClient(id) {
 }
 
 async function syncClient(id) {
-  showToast('Syncing...');
+  showToast('Syncing API + Drive & generating creatives...');
   try {
     const result = await apiCall(`/api/clients/${id}/sync`, { method: 'POST', body: JSON.stringify({ run_pipeline: true }) });
     if (result.success) {
-      showToast('Synced: ' + (result.result?.properties_fetched || 0) + ' properties');
+      const r = result.result || {};
+      const parts = [];
+      if (r.properties_fetched) parts.push(r.properties_fetched + ' properties');
+      if (r.drive_files_synced) parts.push(r.drive_files_synced + ' Drive files');
+      if (r.pipeline?.variants) parts.push(r.pipeline.variants + ' ad variants created');
+      showToast(parts.length > 0 ? 'Synced: ' + parts.join(', ') : 'Sync complete');
       loadClients();
     } else {
       showToast('Sync failed: ' + (result.error || 'Unknown error'));

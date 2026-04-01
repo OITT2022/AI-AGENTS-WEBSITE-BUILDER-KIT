@@ -354,18 +354,54 @@ app.post('/api/clients/:id/sync', async (req, res) => {
   try {
     const client = await store.getClient(paramId(req));
     if (!client) return res.status(404).json({ error: 'Client not found' });
-    if (!client.api_config?.api_token) return res.status(400).json({ error: 'No API config' });
-    // Ensure api_config is a plain object (Neon returns parsed JSONB)
-    const apiConfig = {
-      base_url: String(client.api_config.base_url || ''),
-      api_token: String(client.api_config.api_token || ''),
-      filters: {
-        city: client.api_config.filters?.city ? String(client.api_config.filters.city) : undefined,
-        propertyType: client.api_config.filters?.propertyType ? String(client.api_config.filters.propertyType) : undefined,
+
+    let apiResult: any = null;
+    let driveResult: any = null;
+
+    // 1. Sync from FindUS API (if configured)
+    if (client.api_config?.api_token) {
+      const apiConfig = {
+        base_url: String(client.api_config.base_url || ''),
+        api_token: String(client.api_config.api_token || ''),
+        filters: {
+          city: client.api_config.filters?.city ? String(client.api_config.filters.city) : undefined,
+          propertyType: client.api_config.filters?.propertyType ? String(client.api_config.filters.propertyType) : undefined,
+        },
+      };
+      apiResult = await syncFromFindUs(false, client.id, apiConfig); // Don't run pipeline yet
+    }
+
+    // 2. Sync Google Drive media (if configured)
+    if (client.google_drive_folder_id) {
+      try {
+        driveResult = await syncAndCacheDriveMedia(client);
+      } catch (err: any) {
+        console.error('Drive sync error:', err.message);
+        driveResult = { error: err.message, total_files: 0 };
+      }
+    }
+
+    // 3. Run pipeline (scoring + creative generation) with both data sources
+    let pipeline: any = null;
+    if (req.body.run_pipeline !== false) {
+      pipeline = await runDailyPipeline(undefined, client.id);
+    }
+
+    res.json({
+      success: true,
+      result: {
+        ...apiResult,
+        drive_files_synced: driveResult?.total_files ?? 0,
+        drive_images: driveResult?.images ?? 0,
+        drive_videos: driveResult?.videos ?? 0,
+        pipeline: pipeline ? {
+          candidates: pipeline.candidates,
+          selected: pipeline.selected,
+          batches: pipeline.batches,
+          variants: pipeline.variants,
+        } : null,
       },
-    };
-    const result = await syncFromFindUs(req.body.run_pipeline !== false, client.id, apiConfig);
-    res.json({ success: true, result });
+    });
   } catch (err: any) {
     console.error('Sync error:', err.stack?.split('\n').slice(0, 5).join('\n'));
     res.status(500).json({ success: false, error: err.message });

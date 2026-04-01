@@ -165,14 +165,36 @@ app.get('/api/google/callback', async (req, res) => {
       expiry: Date.now() + (tokens.expires_in || 3600) * 1000,
     });
 
-    // Redirect back with success + user info encoded
+    // Return HTML that handles both popup and same-window scenarios
     const returnTo = (state as string) || '/dashboard/client-form.html';
     const sep = returnTo.includes('?') ? '&' : '?';
-    res.redirect(`${returnTo}${sep}google=connected&g_name=${encodeURIComponent(user.name || '')}&g_email=${encodeURIComponent(user.email || '')}&g_picture=${encodeURIComponent(user.picture || '')}`);
+    const successUrl = `${returnTo}${sep}google=connected&g_name=${encodeURIComponent(user.name || '')}&g_email=${encodeURIComponent(user.email || '')}&g_picture=${encodeURIComponent(user.picture || '')}`;
+    res.type('html').send(callbackPage(successUrl, null));
   } catch (err: any) {
-    res.redirect(`${req.query.state || '/dashboard/client-form.html'}?google=error&msg=${encodeURIComponent(err.message)}`);
+    const returnTo = (req.query.state as string) || '/dashboard/client-form.html';
+    const errorUrl = `${returnTo}?google=error&msg=${encodeURIComponent(err.message)}`;
+    res.type('html').send(callbackPage(errorUrl, err.message));
   }
 });
+
+function callbackPage(redirectUrl: string, error: string | null): string {
+  return `<!DOCTYPE html><html><head><title>Google Auth</title></head><body>
+<script>
+  var url = ${JSON.stringify(redirectUrl)};
+  if (window.opener) {
+    // We're in a popup — send result to parent and close
+    window.opener.postMessage({ type: 'google-auth-result', url: url, error: ${JSON.stringify(error)} }, '*');
+    window.close();
+  } else {
+    // Normal redirect (same window)
+    window.location.replace(url);
+  }
+  // Fallback if popup doesn't close
+  setTimeout(function() { document.body.innerHTML = '<p>Redirecting... <a href="' + url + '">Click here</a> if not redirected.</p>'; }, 2000);
+</script>
+<p>Completing sign-in...</p>
+</body></html>`;
+}
 
 // ── Protect all API routes below ──
 app.use('/api', requireAuth);

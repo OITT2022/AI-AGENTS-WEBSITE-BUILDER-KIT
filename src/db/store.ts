@@ -432,38 +432,59 @@ function safeJson(val: any): string {
 // ── Init DB ──
 
 export async function initDatabase(): Promise<void> {
-  {
-    // Always run schema + migration files (all statements use IF NOT EXISTS / IF NOT EXISTS)
-    const fs = await import('fs');
-    const path = await import('path');
-    const schemaPath = path.join(process.cwd(), 'db', 'schema.sql');
-    const migrationPath = path.join(process.cwd(), 'db', 'migration.sql');
+  // Run inline migrations — SQL files are not available on Vercel serverless
+  const migrations = [
+    `ALTER TABLE clients ADD COLUMN IF NOT EXISTS meta_config JSONB NOT NULL DEFAULT '{}'::jsonb`,
+    `ALTER TABLE clients ADD COLUMN IF NOT EXISTS tiktok_config JSONB NOT NULL DEFAULT '{}'::jsonb`,
+    `ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_refresh_token TEXT`,
+    `ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_email TEXT`,
+    `CREATE TABLE IF NOT EXISTS client_drive_media (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      file_id TEXT NOT NULL, file_name TEXT NOT NULL, mime_type TEXT NOT NULL, media_type TEXT NOT NULL,
+      url TEXT NOT NULL, thumbnail_url TEXT, size INTEGER,
+      drive_created_at TIMESTAMPTZ, drive_modified_at TIMESTAMPTZ,
+      synced_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(client_id, file_id))`,
+    `CREATE INDEX IF NOT EXISTS idx_client_drive_media_client ON client_drive_media(client_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_client_drive_media_type ON client_drive_media(client_id, media_type)`,
+  ];
 
-    for (const filepath of [schemaPath, migrationPath]) {
-      try {
-        const content = fs.readFileSync(filepath, 'utf-8');
-        const statements: string[] = [];
-        let current = '';
-        let inBlock = false;
-        for (const line of content.split('\n')) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('--') && !inBlock) continue;
-          if (trimmed.includes('DO $$')) inBlock = true;
-          if (inBlock && trimmed.includes('END $$')) { current += line + '\n'; inBlock = false; statements.push(current.trim()); current = ''; continue; }
-          if (inBlock) { current += line + '\n'; continue; }
-          current += line + '\n';
-          if (trimmed.endsWith(';')) { const s = current.trim().replace(/;$/, ''); if (s) statements.push(s); current = ''; }
-        }
-        if (current.trim()) statements.push(current.trim().replace(/;$/, ''));
-        for (const stmt of statements) {
-          if (!stmt) continue;
-          try { await sql(stmt); } catch (e: any) {
-            if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) console.error(e.message?.slice(0, 100));
-          }
-        }
-      } catch {}
+  for (const stmt of migrations) {
+    try { await sql(stmt); } catch (e: any) {
+      if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) {
+        console.error('[migration]', e.message?.slice(0, 120));
+      }
     }
   }
+
+  // Also try loading SQL files for full schema (works in local dev, not on Vercel)
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    for (const file of ['db/schema.sql', 'db/migration.sql']) {
+      const filepath = path.join(process.cwd(), file);
+      if (!fs.existsSync(filepath)) continue;
+      const content = fs.readFileSync(filepath, 'utf-8');
+      const statements: string[] = [];
+      let current = '', inBlock = false;
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('--') && !inBlock) continue;
+        if (trimmed.includes('DO $$')) inBlock = true;
+        if (inBlock && trimmed.includes('END $$')) { current += line + '\n'; inBlock = false; statements.push(current.trim()); current = ''; continue; }
+        if (inBlock) { current += line + '\n'; continue; }
+        current += line + '\n';
+        if (trimmed.endsWith(';')) { const s = current.trim().replace(/;$/, ''); if (s) statements.push(s); current = ''; }
+      }
+      if (current.trim()) statements.push(current.trim().replace(/;$/, ''));
+      for (const s of statements) {
+        if (!s) continue;
+        try { await sql(s); } catch (e: any) {
+          if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) console.error(e.message?.slice(0, 100));
+        }
+      }
+    }
+  } catch {}
 }
 
 // ── Legacy compatibility: store object ──

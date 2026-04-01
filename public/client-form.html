@@ -268,10 +268,13 @@ window.addEventListener('message', function(e) {
 
 async function checkGoogleSession() {
   try {
-    const res = await apiCall('/api/google/userinfo');
-    if (res && !res.error) {
+    // Use fetch directly — apiCall redirects to login on 401, but 401 here just means no Google token
+    const res = await fetch('/api/google/userinfo', { credentials: 'include', headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && !data.error) {
       googleConnected = true;
-      showGoogleAccount(res.name || '', res.email || '', res.picture || '');
+      showGoogleAccount(data.name || '', data.email || '', data.picture || '');
     }
   } catch {}
 }

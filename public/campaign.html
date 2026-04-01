@@ -33,13 +33,14 @@
     .tab{padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);transition:all .15s;border:none;background:transparent}
     .tab.active{background:var(--primary);color:#fff}.tab:hover:not(.active){color:var(--text);background:var(--surface2)}
     .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px}
-    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .15s}.card:hover{border-color:var(--primary)}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .15s;position:relative}.card:hover{border-color:var(--primary)}
+    .card.selected-card{border-color:var(--red);box-shadow:0 0 0 1px var(--red)}
     .card-cover{width:100%;height:180px;object-fit:cover;display:block;background:var(--surface2)}
     .card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
     .card-header h3{font-size:15px;font-weight:600;line-height:1.4}
     .card-body{padding:16px 20px}
-    .card-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;align-items:center}
-    .detail-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}.detail-row .label{color:var(--text2)}
+    .card-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .detail-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;align-items:center}.detail-row .label{color:var(--text2);flex-shrink:0}
     .score-bar{display:flex;align-items:center;gap:10px;margin-top:12px}
     .score-bar-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
     .score-bar-fill{height:100%;border-radius:3px;transition:width .3s ease}
@@ -49,12 +50,22 @@
     .platform-facebook{background:rgba(24,119,242,.15);color:#1877f2}.platform-instagram{background:rgba(228,64,95,.15);color:#e4405f}
     .platform-tiktok{background:rgba(0,0,0,.3);color:#fff;border:1px solid var(--border)}
     .media-strip{display:flex;gap:6px;margin-top:12px;overflow-x:auto;padding-bottom:6px}
-    .media-strip img{width:100px;height:75px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;cursor:pointer;transition:border-color .15s,transform .15s}
-    .media-strip img:first-child{width:160px;height:120px;border-color:var(--primary)}
+    .media-strip img,.media-strip .media-placeholder{width:100px;height:75px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;cursor:pointer;transition:border-color .15s,transform .15s}
+    .media-strip img:first-child,.media-strip .media-placeholder:first-child{width:160px;height:120px;border-color:var(--primary)}
     .media-strip img:hover{border-color:var(--primary);transform:scale(1.03)}
+    .media-placeholder{background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px;text-align:center;padding:4px}
+    .media-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+    .media-grid-item{position:relative;width:80px;height:60px;border-radius:6px;overflow:hidden;border:2px solid transparent;cursor:pointer;transition:all .15s}
+    .media-grid-item.selected{border-color:var(--green)}.media-grid-item.selected::after{content:'\\2713';position:absolute;top:2px;right:4px;color:var(--green);font-size:14px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+    .media-grid-item img,.media-grid-item video{width:100%;height:100%;object-fit:cover}
+    .media-grid-item .vid-badge{position:absolute;bottom:2px;left:4px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;padding:1px 4px;border-radius:3px}
     .creative-preview{background:var(--bg);border-radius:8px;padding:14px;margin-top:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto}
     .creative-preview[contenteditable=true]{border:1px solid var(--border);cursor:text}
     .creative-preview[contenteditable=true]:focus{border-color:var(--primary);outline:none}
+    .card-select{position:absolute;top:12px;left:12px;z-index:2;width:20px;height:20px;accent-color:var(--primary);cursor:pointer}
+    .card-delete{position:absolute;top:12px;right:12px;z-index:2;background:rgba(239,68,68,.9);color:#fff;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+    .card:hover .card-delete{opacity:1}
+    .bulk-bar{background:var(--surface);border:1px solid var(--red);border-radius:var(--radius);padding:12px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
     .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer}
     .lightbox img{max-width:90vw;max-height:90vh;border-radius:8px}
     .lightbox-close{position:absolute;top:20px;right:24px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none}
@@ -63,15 +74,22 @@
     .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--green);color:var(--text);padding:14px 24px;border-radius:var(--radius);font-size:14px;z-index:1000;animation:slideIn .3s ease}
     @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 
-    /* Preview popup */
+    /* Preview overlay */
     .preview-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
-    .preview-popup{background:var(--bg);border-radius:var(--radius);max-width:480px;width:100%;max-height:90vh;overflow-y:auto;position:relative}
+    .preview-popup{background:var(--bg);border-radius:var(--radius);max-width:500px;width:100%;max-height:90vh;overflow-y:auto;position:relative}
     .preview-popup-close{position:absolute;top:12px;right:16px;color:var(--text2);font-size:24px;cursor:pointer;background:none;border:none;z-index:2}
     .preview-popup-close:hover{color:var(--text)}
-    .preview-popup-header{padding:16px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+    .preview-popup-header{padding:16px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600}
     .prev-tab{flex:1;padding:8px 12px;border:none;background:transparent;color:var(--text2);font-size:13px;font-weight:600;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
-    .prev-tab.active{background:var(--surface);color:var(--text)}
-    .prev-tab:hover:not(.active){color:var(--text)}
+    .prev-tab.active{background:var(--surface);color:var(--text)}.prev-tab:hover:not(.active){color:var(--text)}
+
+    /* Storyboard */
+    .storyboard{display:flex;gap:4px;overflow-x:auto;padding:12px 0}
+    .storyboard-scene{flex-shrink:0;width:100px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--border);font-size:10px}
+    .storyboard-scene img,.storyboard-scene video{width:100%;height:56px;object-fit:cover;display:block}
+    .storyboard-scene .scene-info{padding:4px 6px}
+    .storyboard-scene .scene-time{color:var(--primary);font-weight:600}
+    .storyboard-scene .scene-text{color:var(--text2);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
     /* FB preview */
     .fb-card{background:#fff;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#050505;overflow:hidden}
@@ -80,6 +98,7 @@
     .fb-name{font-weight:700;font-size:14px}.fb-meta{font-size:12px;color:#65676B}
     .fb-text{padding:0 16px 12px;font-size:15px;line-height:1.5;white-space:pre-wrap}
     .fb-image{width:100%;aspect-ratio:1.91/1;object-fit:cover;display:block}
+    .fb-carousel{display:flex;overflow-x:auto;gap:0;scroll-snap-type:x mandatory}.fb-carousel img{width:100%;flex-shrink:0;scroll-snap-align:start;aspect-ratio:1/1;object-fit:cover}
     .fb-link-bar{background:#f0f2f5;padding:12px 16px}
     .fb-link-domain{font-size:12px;color:#65676B;text-transform:uppercase}
     .fb-link-title{font-size:16px;font-weight:700;margin-top:2px}
@@ -87,6 +106,8 @@
     .fb-cta-btn{background:#e4e6eb;color:#050505;border:none;padding:8px 16px;border-radius:6px;font-weight:600;font-size:14px}
     .fb-actions{display:flex;gap:4px;padding:8px 16px;border-top:1px solid #ddd}
     .fb-action{flex:1;text-align:center;padding:8px;font-size:14px;font-weight:600;color:#65676B}
+    .fb-video-overlay{position:relative}.fb-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)}
+    .fb-play-icon{width:60px;height:60px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px}
 
     /* IG preview */
     .ig-card{background:#000;border-radius:8px;font-family:-apple-system,sans-serif;color:#fff;overflow:hidden}
@@ -94,6 +115,8 @@
     .ig-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;border:2px solid #c13584;flex-shrink:0}
     .ig-name{font-weight:600;font-size:13px;flex:1}.ig-sponsored{font-size:11px;color:#a8a8a8}
     .ig-image{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
+    .ig-carousel{position:relative;overflow:hidden}.ig-carousel-inner{display:flex;transition:transform .3s}.ig-carousel-inner img{width:100%;flex-shrink:0;aspect-ratio:1/1;object-fit:cover}
+    .ig-dots{text-align:center;padding:8px 0}.ig-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#555;margin:0 3px}.ig-dot.active{background:#0095f6}
     .ig-actions-bar{padding:10px 14px;display:flex;gap:16px}
     .ig-action-icon{width:24px;height:24px}
     .ig-caption{padding:0 14px 12px;font-size:13px;line-height:1.5}
@@ -103,7 +126,7 @@
 
     /* TK preview */
     .tk-card{background:#000;border-radius:12px;max-width:320px;margin:0 auto;font-family:-apple-system,sans-serif;color:#fff;overflow:hidden;position:relative;aspect-ratio:9/16}
-    .tk-bg{position:absolute;inset:0}.tk-bg img{width:100%;height:100%;object-fit:cover;filter:brightness(.7)}
+    .tk-bg{position:absolute;inset:0}.tk-bg img,.tk-bg video{width:100%;height:100%;object-fit:cover;filter:brightness(.7)}
     .tk-overlay{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:16px}
     .tk-hook{position:absolute;top:60px;left:16px;right:60px;z-index:2;font-size:20px;font-weight:800;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,.8)}
     .tk-sponsored{position:absolute;top:14px;left:14px;z-index:2;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
@@ -128,7 +151,7 @@
     </a>
     <button class="btn" onclick="loadAll()">Refresh</button>
     <button class="btn" id="btn-drive" onclick="syncDrive()" style="display:none">Sync Drive</button>
-    <button class="btn btn-primary" id="btn-sync" onclick="syncClient()" style="display:none">Sync API</button>
+    <button class="btn btn-primary" id="btn-sync" onclick="syncClient()" style="display:none">Sync & Create</button>
     <button class="btn btn-primary" id="btn-pipeline" onclick="runPipeline()">Run Pipeline</button>
   </div>
 </div>
@@ -141,6 +164,13 @@
     <button class="tab" onclick="switchTab('approvals')">Approvals</button>
     <button class="tab" onclick="switchTab('properties')">Properties</button>
   </div>
+  <div id="bulk-actions" style="display:none">
+    <div class="bulk-bar">
+      <span id="bulk-count" style="font-weight:600">0 selected</span>
+      <button class="btn btn-sm btn-red" onclick="bulkDelete()">Delete Selected</button>
+      <button class="btn btn-sm" onclick="clearSelection()">Clear</button>
+    </div>
+  </div>
   <div id="tab-content"><div class="loading">Loading...</div></div>
 </div>
 
@@ -150,6 +180,7 @@ const params = new URLSearchParams(window.location.search);
 const clientId = params.get('client');
 let clientData = null;
 let currentTab = 'candidates';
+let selectedVariants = new Set();
 
 async function init() {
   await requireLogin();
@@ -159,7 +190,7 @@ async function init() {
   document.getElementById('page-title').textContent = clientData.company || clientData.name || 'Campaign';
   document.title = `${clientData.company} - Campaign Dashboard`;
   if (clientData.api_config?.api_token) document.getElementById('btn-sync').style.display = 'inline-flex';
-  if (clientData.google_drive_folder_id || clientData.google_drive_folder_url) document.getElementById('btn-drive').style.display = 'inline-flex';
+  if (clientData.google_drive_folder_id) document.getElementById('btn-drive').style.display = 'inline-flex';
   loadAll();
 }
 
@@ -178,6 +209,7 @@ async function loadStats() {
 
 function switchTab(tab) {
   currentTab = tab;
+  selectedVariants.clear(); updateBulkBar();
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
   loadTab(tab);
@@ -194,7 +226,39 @@ async function loadTab(tab) {
   }
 }
 
-// ── Candidates (with hero image) ──
+// ── Selection / Bulk Delete ──
+
+function toggleSelect(vid, cb) {
+  if (cb.checked) { selectedVariants.add(vid); document.getElementById('card-'+vid)?.classList.add('selected-card'); }
+  else { selectedVariants.delete(vid); document.getElementById('card-'+vid)?.classList.remove('selected-card'); }
+  updateBulkBar();
+}
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-actions');
+  if (selectedVariants.size > 0) { bar.style.display = 'block'; document.getElementById('bulk-count').textContent = selectedVariants.size + ' selected'; }
+  else { bar.style.display = 'none'; }
+}
+function clearSelection() {
+  selectedVariants.clear();
+  document.querySelectorAll('.card-select').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.selected-card').forEach(c => c.classList.remove('selected-card'));
+  updateBulkBar();
+}
+async function bulkDelete() {
+  if (!confirm(`Delete ${selectedVariants.size} creative(s)? This cannot be undone.`)) return;
+  const ids = Array.from(selectedVariants);
+  const res = await apiCall('/api/creatives/bulk-delete', { method: 'POST', body: JSON.stringify({ variant_ids: ids }) });
+  if (res.success) { showToast(`Deleted ${res.deleted} creative(s)`); selectedVariants.clear(); updateBulkBar(); loadAll(); }
+  else showToast('Delete failed: ' + (res.error||''));
+}
+async function deleteVariant(vid) {
+  if (!confirm('Delete this creative?')) return;
+  const res = await apiCall(`/api/creatives/${vid}`, { method: 'DELETE' });
+  if (res.success) { showToast('Deleted'); loadAll(); }
+  else showToast('Delete failed');
+}
+
+// ── Candidates ──
 
 async function renderCandidates(el) {
   const candidates = await apiCall(`/api/clients/${clientId}/candidates`);
@@ -221,7 +285,7 @@ async function renderCandidates(el) {
   }).join('')}</div>`;
 }
 
-// ── Creatives (editable + preview) ──
+// ── Creatives (editable + media select + delete + preview) ──
 
 async function renderCreatives(el) {
   const batches = await apiCall(`/api/clients/${clientId}/creatives`);
@@ -231,18 +295,29 @@ async function renderCreatives(el) {
     const qs=review?.status||'pending';const qb=qs==='pass'?'badge-green':qs==='warn'?'badge-yellow':qs==='fail'?'badge-red':'badge-blue';
     const mainText = copy.primary_text||copy.caption||((copy.hook||'')+'\n\n'+(copy.voiceover_script||''));
     const vid = v.id;
+    const media = v.media_plan_json || {};
+    const adType = copy.ad_type || (media.videos?.length ? 'video' : 'image');
     return `<div class="card" id="card-${vid}">
+      <input type="checkbox" class="card-select" onchange="toggleSelect('${vid}',this)">
+      <button class="card-delete" onclick="deleteVariant('${vid}')" title="Delete">&times;</button>
       <div class="card-header">
         <div><h3>${b.entity?.title_he||b.entity?.title_en||b.entity_id}</h3>
-        <div style="color:var(--text2);font-size:12px;margin-top:4px"><span class="platform-tag platform-${v.platform}">${v.platform}</span><span style="margin-left:6px">V#${v.variant_no} · ${copy.language||b.language_code}</span></div></div>
+        <div style="color:var(--text2);font-size:12px;margin-top:4px">
+          <span class="platform-tag platform-${v.platform}">${v.platform}</span>
+          <span style="margin-left:6px">V#${v.variant_no} · ${copy.language||b.language_code}</span>
+          ${adType!=='image'?`<span class="badge badge-blue" style="margin-left:6px;font-size:10px">${adType}</span>`:''}
+        </div></div>
         <span class="badge ${qb}">QA: ${qs}</span>
       </div>
       <div class="card-body">
-        ${renderMedia(v.media_plan_json)}
-        ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px"></div>`:''}
+        ${renderMedia(media, vid)}
+        ${renderMediaGrid(media, vid)}
+        ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
+        ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
         ${copy.cta?`<div class="detail-row"><span class="label">CTA</span><span>${copy.cta}</span></div>`:''}
         ${copy.hashtags?`<div class="detail-row"><span class="label">Hashtags</span><span style="font-size:12px">${copy.hashtags.join(' ')}</span></div>`:''}
         <div class="creative-preview" contenteditable="true" id="text-${vid}">${esc(mainText.trim())}</div>
+        ${media.reel_timeline ? renderStoryboard(media.reel_timeline) : ''}
         ${approval?`<div style="margin-top:12px"><span class="badge ${approval.status==='approved'?'badge-green':approval.status==='rejected'?'badge-red':'badge-yellow'}">${approval.status}</span></div>`:''}
       </div>
       <div class="card-footer">
@@ -263,9 +338,102 @@ async function renderCreatives(el) {
     </div>`;
   })).join('')}</div>`;
 
-  // Store variant data for preview popup
   window._variants = {};
   batches.forEach(b => (b.variants||[]).forEach(v => { window._variants[v.id] = { ...v, entity: b.entity, batch: b }; }));
+}
+
+// ── Media rendering ──
+
+function renderMedia(mp, vid) {
+  if (!mp) return '';
+  const imgs = (mp.selected_images || []).filter(Boolean);
+  const hero = mp.hero_image;
+  const vids = (mp.videos || []).filter(Boolean);
+  const all = hero && !imgs.includes(hero) ? [hero, ...imgs] : imgs;
+  if (!all.length && !vids.length) return '<div style="padding:12px;color:var(--text2);font-size:12px">No media available</div>';
+  let h = '<div class="media-strip">';
+  for (const img of all.slice(0,5)) {
+    h += `<img src="${esc(img)}" alt="" onclick="openLightbox('${esc(img)}')" loading="lazy" onerror="this.outerHTML='<div class=\\'media-placeholder\\'>Image unavailable</div>'">`;
+  }
+  for (const v of vids.slice(0,2)) {
+    h += `<div class="media-placeholder" onclick="window.open('${esc(v)}','_blank')" style="cursor:pointer;background:var(--surface2)">
+      <div style="text-align:center"><div style="font-size:24px">&#9654;</div><div style="font-size:10px;margin-top:2px">Video</div></div>
+    </div>`;
+  }
+  if (all.length + vids.length > 7) h += `<div class="media-placeholder">+${all.length + vids.length - 7}</div>`;
+  return h + '</div>';
+}
+
+function renderMediaGrid(mp, vid) {
+  if (!mp) return '';
+  const allImgs = (mp.gallery || []).filter(Boolean);
+  const allVids = (mp.videos || []).filter(Boolean);
+  if (allImgs.length + allVids.length < 2) return '';
+  const selectedImgs = new Set((mp.selected_images || []).filter(Boolean));
+  const selectedVid = mp.selected_video;
+
+  let h = `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">Edit media (${allImgs.length} images, ${allVids.length} videos)</summary>`;
+  h += `<div class="media-grid" id="mgrid-${vid}">`;
+  for (const img of allImgs) {
+    const sel = selectedImgs.has(img);
+    h += `<div class="media-grid-item ${sel?'selected':''}" onclick="toggleMediaItem(this,'${vid}','image','${esc(img)}')">
+      <img src="${esc(img)}" loading="lazy" onerror="this.parentElement.remove()">
+    </div>`;
+  }
+  for (const v of allVids) {
+    const sel = v === selectedVid;
+    h += `<div class="media-grid-item ${sel?'selected':''}" onclick="toggleMediaItem(this,'${vid}','video','${esc(v)}')">
+      <div style="width:100%;height:100%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px">&#9654;</div>
+      <span class="vid-badge">MP4</span>
+    </div>`;
+  }
+  h += `</div><button class="btn btn-sm" style="margin-top:6px" onclick="saveMediaSelection('${vid}')">Update Media</button></details>`;
+  return h;
+}
+
+function toggleMediaItem(el, vid, type, url) {
+  el.classList.toggle('selected');
+}
+
+async function saveMediaSelection(vid) {
+  const grid = document.getElementById('mgrid-' + vid);
+  if (!grid) return;
+  const v = window._variants?.[vid];
+  if (!v) return;
+  const mp = { ...v.media_plan_json };
+  const selectedEls = grid.querySelectorAll('.media-grid-item.selected');
+  const newImages = [];
+  let newVideo = null;
+  selectedEls.forEach(el => {
+    const img = el.querySelector('img');
+    const badge = el.querySelector('.vid-badge');
+    if (badge) { newVideo = el.onclick.toString().match(/'([^']+)'\)$/)?.[1] || mp.selected_video; }
+    else if (img) newImages.push(img.src);
+  });
+  mp.selected_images = newImages;
+  mp.selected_video = newVideo;
+  mp.hero_image = newImages[0] || mp.hero_image;
+
+  const res = await apiCall(`/api/creatives/${vid}`, { method: 'PUT', body: JSON.stringify({ media_plan_json: mp }) });
+  if (res.success) { showToast('Media updated'); v.media_plan_json = mp; }
+  else showToast('Update failed');
+}
+
+function renderStoryboard(timeline) {
+  if (!timeline || !timeline.scenes) return '';
+  let h = '<div style="margin-top:12px"><div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">REEL STORYBOARD (' + timeline.total_duration_sec + 's)</div><div class="storyboard">';
+  for (const s of timeline.scenes) {
+    const src = s.source || '';
+    const isVid = src.includes('video') || src.includes('.mp4');
+    h += `<div class="storyboard-scene">
+      ${src ? (isVid ? `<div style="width:100%;height:56px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:18px">&#9654;</div>` : `<img src="${esc(src)}" onerror="this.outerHTML='<div style=\\'width:100%;height:56px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:10px\\'>No media</div>'">`) : '<div style="width:100%;height:56px;background:var(--surface2)"></div>'}
+      <div class="scene-info">
+        <div class="scene-time">${s.start_sec}s-${s.start_sec+s.duration_sec}s</div>
+        <div class="scene-text">${esc(s.overlay_text||'')}</div>
+      </div>
+    </div>`;
+  }
+  return h + '</div></div>';
 }
 
 // ── Save edited copy ──
@@ -273,47 +441,39 @@ async function renderCreatives(el) {
 async function saveCopy(variantId, platform) {
   const textEl = document.getElementById('text-' + variantId);
   const hlEl = document.getElementById('hl-' + variantId);
+  const descEl = document.getElementById('desc-' + variantId);
   const newText = textEl?.innerText || '';
   const newHeadline = hlEl?.value || '';
-
+  const newDesc = descEl?.value || '';
   const v = window._variants?.[variantId];
   if (!v) return;
   const copy = { ...v.copy_json };
 
-  if (platform === 'facebook') { copy.primary_text = newText; if (newHeadline) copy.headline = newHeadline; }
+  if (platform === 'facebook') { copy.primary_text = newText; if (newHeadline) copy.headline = newHeadline; if (newDesc) copy.description = newDesc; }
   else if (platform === 'instagram') { copy.caption = newText; }
-  else if (platform === 'tiktok') {
-    const parts = newText.split('\n\n');
-    copy.hook = parts[0] || copy.hook;
-    copy.voiceover_script = parts.slice(1).join('\n\n') || copy.voiceover_script;
-  }
+  else if (platform === 'tiktok') { const parts = newText.split('\n\n'); copy.hook = parts[0] || copy.hook; copy.voiceover_script = parts.slice(1).join('\n\n') || copy.voiceover_script; }
 
   const res = await apiCall(`/api/creatives/${variantId}`, { method: 'PUT', body: JSON.stringify({ copy_json: copy }) });
-  if (res.success) {
-    showToast('Creative text saved');
-    window._variants[variantId].copy_json = copy;
-  } else { showToast('Save failed: ' + (res.error || '')); }
+  if (res.success) { showToast('Creative saved'); window._variants[variantId].copy_json = copy; }
+  else showToast('Save failed: ' + (res.error || ''));
 }
 
-// ── Preview popup (all platforms with tabs) ──
+// ── Preview popup ──
 
 function openPreview(variantId, platform) {
   const v = window._variants?.[variantId];
   if (!v) return;
   const media = v.media_plan_json || {};
-  const heroImg = media.hero_image || (media.selected_images||[])[0] || '';
+  const heroImg = media.hero_image || (media.selected_images||[]).filter(Boolean)[0] || '';
   const lang = v.copy_json?.language || 'en';
 
-  // Collect all variants for the same entity & language
   const entityId = v.batch?.entity_id || v.entity?.id;
   const allVariants = {};
   Object.values(window._variants || {}).forEach(vr => {
-    if ((vr.batch?.entity_id || vr.entity?.id) === entityId && vr.copy_json?.language === lang) {
-      allVariants[vr.platform] = vr;
-    }
+    if ((vr.batch?.entity_id || vr.entity?.id) === entityId && vr.copy_json?.language === lang) allVariants[vr.platform] = vr;
   });
 
-  // Read current edited text for this variant
+  // Read current edited text
   const copy = { ...v.copy_json };
   const textEl = document.getElementById('text-' + variantId);
   const hlEl = document.getElementById('hl-' + variantId);
@@ -326,16 +486,13 @@ function openPreview(variantId, platform) {
   if (hlEl && platform === 'facebook') copy.headline = hlEl.value;
   allVariants[platform] = { ...v, copy_json: copy };
 
-  // Build copies for missing platforms from the current variant's data
-  const fbCopy = allVariants.facebook?.copy_json || buildFBFromCopy(copy, v);
-  const igCopy = allVariants.instagram?.copy_json || buildIGFromCopy(copy, v);
-  const tkCopy = allVariants.tiktok?.copy_json || buildTKFromCopy(copy, v);
-  const fbMedia = allVariants.facebook?.media_plan_json || media;
-  const igMedia = allVariants.instagram?.media_plan_json || media;
-  const tkMedia = allVariants.tiktok?.media_plan_json || media;
-  const fbImg = fbMedia.hero_image || (fbMedia.selected_images||[])[0] || heroImg;
-  const igImg = igMedia.hero_image || (igMedia.selected_images||[])[0] || heroImg;
-  const tkImg = tkMedia.hero_image || (tkMedia.selected_images||[])[0] || heroImg;
+  const fbV = allVariants.facebook; const igV = allVariants.instagram; const tkV = allVariants.tiktok;
+  const fbCopy = fbV?.copy_json || buildFBFromCopy(copy);
+  const igCopy = igV?.copy_json || buildIGFromCopy(copy);
+  const tkCopy = tkV?.copy_json || buildTKFromCopy(copy);
+  const fbMedia = fbV?.media_plan_json || media;
+  const igMedia = igV?.media_plan_json || media;
+  const tkMedia = tkV?.media_plan_json || media;
 
   const overlay = document.createElement('div');
   overlay.className = 'preview-overlay';
@@ -345,21 +502,15 @@ function openPreview(variantId, platform) {
     <div class="preview-popup-header">Ad Preview · ${lang==='he'?'Hebrew':'English'}</div>
     <div style="padding:0 16px">
       <div style="display:flex;gap:4px;margin:12px 0;background:var(--surface2);border-radius:8px;padding:3px">
-        <button class="prev-tab active" data-p="facebook" onclick="switchPreviewTab(this,'facebook')">
-          <span style="color:#1877f2">●</span> Facebook
-        </button>
-        <button class="prev-tab" data-p="instagram" onclick="switchPreviewTab(this,'instagram')">
-          <span style="color:#e4405f">●</span> Instagram
-        </button>
-        <button class="prev-tab" data-p="tiktok" onclick="switchPreviewTab(this,'tiktok')">
-          <span style="color:#fff">●</span> TikTok
-        </button>
+        <button class="prev-tab ${platform==='facebook'?'active':''}" data-p="facebook" onclick="switchPreviewTab(this,'facebook')"><span style="color:#1877f2">&#9679;</span> Facebook</button>
+        <button class="prev-tab ${platform==='instagram'?'active':''}" data-p="instagram" onclick="switchPreviewTab(this,'instagram')"><span style="color:#e4405f">&#9679;</span> Instagram</button>
+        <button class="prev-tab ${platform==='tiktok'?'active':''}" data-p="tiktok" onclick="switchPreviewTab(this,'tiktok')"><span style="color:#fff">&#9679;</span> TikTok</button>
       </div>
     </div>
     <div style="padding:0 16px 16px">
-      <div class="prev-panel" data-p="facebook">${previewFB(fbCopy, fbImg)}</div>
-      <div class="prev-panel" data-p="instagram" style="display:none">${previewIG(igCopy, igImg, igMedia)}</div>
-      <div class="prev-panel" data-p="tiktok" style="display:none">${previewTK(tkCopy, tkImg)}</div>
+      <div class="prev-panel" data-p="facebook" style="display:${platform==='facebook'?'block':'none'}">${previewFB(fbCopy, fbMedia)}</div>
+      <div class="prev-panel" data-p="instagram" style="display:${platform==='instagram'?'block':'none'}">${previewIG(igCopy, igMedia)}</div>
+      <div class="prev-panel" data-p="tiktok" style="display:${platform==='tiktok'?'block':'none'}">${previewTK(tkCopy, tkMedia)}</div>
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -372,31 +523,55 @@ function switchPreviewTab(btn, platform) {
   popup.querySelectorAll('.prev-panel').forEach(p => p.style.display = p.dataset.p === platform ? 'block' : 'none');
 }
 
-// Build cross-platform copy from whatever we have
-function buildFBFromCopy(c, v) {
-  return { primary_text: c.primary_text || c.caption || c.voiceover_script || '', headline: c.headline || '', description: c.description || '', cta: c.cta || 'Learn More', language: c.language };
-}
-function buildIGFromCopy(c, v) {
-  return { caption: c.caption || c.primary_text || c.voiceover_script || '', hashtags: c.hashtags || [], cta: c.cta || 'Link in Bio', language: c.language };
-}
-function buildTKFromCopy(c, v) {
-  return { hook: c.hook || (c.primary_text||'').split('\n')[0] || '', voiceover_script: c.voiceover_script || c.primary_text || c.caption || '', closing_cta: c.closing_cta || c.cta || 'Learn More', language: c.language };
-}
+function buildFBFromCopy(c) { return { primary_text: c.primary_text||c.caption||c.voiceover_script||'', headline: c.headline||'', description: c.description||'', cta: c.cta||'Learn More', language: c.language }; }
+function buildIGFromCopy(c) { return { caption: c.caption||c.primary_text||c.voiceover_script||'', hashtags: c.hashtags||[], cta: c.cta||'Link in Bio', language: c.language }; }
+function buildTKFromCopy(c) { return { hook: c.hook||(c.primary_text||'').split('\n')[0]||'', voiceover_script: c.voiceover_script||c.primary_text||c.caption||'', closing_cta: c.closing_cta||c.cta||'Learn More', on_screen_text: c.on_screen_text||[], language: c.language }; }
 
-function previewFB(c, img) {
+function previewFB(c, media) {
+  const imgs = (media.selected_images||[]).filter(Boolean);
+  const hero = media.hero_image || imgs[0] || '';
+  const vid = (media.videos||[])[0];
+  const hasVideo = !!vid;
+  let mediaHtml = '';
+  if (hasVideo) {
+    mediaHtml = `<div class="fb-video-overlay">${hero?`<img class="fb-image" src="${esc(hero)}" onerror="this.style.background='#f0f2f5';this.style.height='200px'">`:'<div style="height:200px;background:#f0f2f5"></div>'}
+      <div class="fb-play"><div class="fb-play-icon">&#9654;</div></div></div>`;
+  } else if (imgs.length > 1) {
+    mediaHtml = `<div class="fb-carousel">${imgs.slice(0,5).map(i=>`<img src="${esc(i)}" style="width:100%" onerror="this.remove()">`).join('')}</div>`;
+  } else if (hero) {
+    mediaHtml = `<img class="fb-image" src="${esc(hero)}" onerror="this.style.display='none'">`;
+  }
   return `<div class="fb-card">
     <div class="fb-header"><div class="fb-avatar">RE</div><div><div class="fb-name">Real Estate Marketing</div><div class="fb-meta">Sponsored</div></div></div>
     <div class="fb-text">${esc(c.primary_text||'')}</div>
-    ${img?`<img class="fb-image" src="${esc(img)}" onerror="this.style.display='none'">`:''}
+    ${mediaHtml}
     <div class="fb-link-bar"><div class="fb-link-domain">findus.co.il</div><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="fb-link-title">${esc(c.headline||'')}</div><div class="fb-link-desc">${esc(c.description||'')}</div></div><button class="fb-cta-btn">${esc(c.cta||'Learn More')}</button></div></div>
-    <div class="fb-actions"><div class="fb-action">👍 Like</div><div class="fb-action">💬 Comment</div><div class="fb-action">↗ Share</div></div>
+    <div class="fb-actions"><div class="fb-action">&#128077; Like</div><div class="fb-action">&#128172; Comment</div><div class="fb-action">&#8599; Share</div></div>
   </div>`;
 }
 
-function previewIG(c, img, media) {
+function previewIG(c, media) {
+  const imgs = (media.selected_images||[]).filter(Boolean);
+  const hero = media.hero_image || imgs[0] || '';
+  const vids = (media.videos||[]).filter(Boolean);
+  const isReel = vids.length > 0 || c.ad_type === 'reel';
+  const isCarousel = !isReel && imgs.length > 1;
+
+  let mediaHtml = '';
+  if (isReel) {
+    mediaHtml = `<div style="position:relative">${hero?`<img class="ig-image" src="${esc(hero)}" onerror="this.style.background='#262626'">`:'<div class="ig-image" style="background:#262626"></div>'}
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2)"><div style="width:50px;height:50px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px">&#9654;</div></div>
+      <div style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,.5);padding:3px 8px;border-radius:4px;font-size:11px;color:#fff">Reel</div></div>`;
+  } else if (isCarousel) {
+    mediaHtml = `<div class="ig-carousel"><div class="ig-carousel-inner" id="ig-carousel-inner">${imgs.slice(0,5).map(i=>`<img src="${esc(i)}" onerror="this.remove()">`).join('')}</div></div>
+      <div class="ig-dots">${imgs.slice(0,5).map((_,i)=>`<span class="ig-dot ${i===0?'active':''}"></span>`).join('')}</div>`;
+  } else {
+    mediaHtml = hero ? `<img class="ig-image" src="${esc(hero)}" onerror="this.style.background='#262626'">` : '<div class="ig-image" style="background:#262626"></div>';
+  }
+
   return `<div class="ig-card">
-    <div class="ig-header"><div class="ig-avatar">RE</div><div style="flex:1"><div class="ig-name">realestate.marketing</div><div class="ig-sponsored">Sponsored</div></div><span style="color:#a8a8a8;font-size:18px">•••</span></div>
-    ${img?`<img class="ig-image" src="${esc(img)}">`:'<div class="ig-image" style="background:#262626"></div>'}
+    <div class="ig-header"><div class="ig-avatar">RE</div><div style="flex:1"><div class="ig-name">realestate.marketing</div><div class="ig-sponsored">Sponsored</div></div><span style="color:#a8a8a8;font-size:18px">&bull;&bull;&bull;</span></div>
+    ${mediaHtml}
     <div class="ig-actions-bar">
       <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       <svg class="ig-action-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -411,22 +586,26 @@ function previewIG(c, img, media) {
   </div>`;
 }
 
-function previewTK(c, img) {
+function previewTK(c, media) {
+  const hero = media.hero_image || (media.selected_images||[]).filter(Boolean)[0] || '';
+  const vid = (media.videos||[])[0];
+  const timeline = media.reel_timeline;
   return `<div class="tk-card">
-    <div class="tk-bg">${img?`<img src="${esc(img)}">`:'<div style="width:100%;height:100%;background:#111"></div>'}</div>
+    <div class="tk-bg">${hero?`<img src="${esc(hero)}" onerror="this.style.background='#111'">`:'<div style="width:100%;height:100%;background:#111"></div>'}</div>
     <div class="tk-sponsored">Sponsored</div>
     <div class="tk-hook">${esc(c.hook||'')}</div>
     <div class="tk-right">
-      <div class="tk-right-btn"><div class="tk-right-icon">❤️</div>24.5K</div>
-      <div class="tk-right-btn"><div class="tk-right-icon">💬</div>482</div>
-      <div class="tk-right-btn"><div class="tk-right-icon">↗</div>Share</div>
+      <div class="tk-right-btn"><div class="tk-right-icon">&#10084;</div>24.5K</div>
+      <div class="tk-right-btn"><div class="tk-right-icon">&#128172;</div>482</div>
+      <div class="tk-right-btn"><div class="tk-right-icon">&#8599;</div>Share</div>
     </div>
     <div class="tk-overlay"><div>
       <div class="tk-name">@realestate.mkt</div>
       <div class="tk-desc">${esc(c.voiceover_script||c.on_screen_text?.join(' · ')||'')}</div>
       <div class="tk-cta">${esc(c.closing_cta||c.cta||'Learn More')}</div>
     </div></div>
-  </div>`;
+  </div>
+  ${timeline ? renderStoryboard(timeline) : ''}`;
 }
 
 // ── Approvals ──
@@ -437,13 +616,11 @@ async function renderApprovals(el) {
   if (!tasks.length) { el.innerHTML = '<div class="empty-state"><h3>No approved ads yet</h3><p>Approve creatives in the Creatives tab first.</p></div>'; return; }
   el.innerHTML = `<div class="card-grid">${tasks.map(t=>{
     const v=t.variant||{};const copy=v.copy_json||{};const media=v.media_plan_json||{};
-    const heroImg = media.hero_image || (media.selected_images||[])[0] || '';
     const platform = v.platform || 'facebook';
-    // Render embedded platform preview
     let preview = '';
-    if (platform === 'facebook') preview = previewFB(copy, heroImg);
-    else if (platform === 'instagram') preview = previewIG(copy, heroImg, media);
-    else if (platform === 'tiktok') preview = previewTK(copy, heroImg);
+    if (platform === 'facebook') preview = previewFB(copy, media);
+    else if (platform === 'instagram') preview = previewIG(copy, media);
+    else if (platform === 'tiktok') preview = previewTK(copy, media);
     return `<div class="card">
       <div class="card-header">
         <div><h3>${t.entity?.title_he||t.entity?.title_en||'-'}</h3>
@@ -485,37 +662,32 @@ async function syncDrive() {
   else showToast('Drive sync failed');
   loadAll();
 }
-
 async function syncClient() {
-  showToast('Syncing...');
+  showToast('Syncing & creating...');
   const r = await apiCall(`/api/clients/${clientId}/sync`, { method: 'POST', body: JSON.stringify({ run_pipeline: true }) });
-  if (r.success) showToast(`Synced: ${r.result.properties_fetched} props, ${r.result.pipeline?.variants||0} creatives`);
+  if (r.success) { const p = r.result; showToast(`Synced: ${p.properties_fetched||0} props, ${p.drive_files_synced||0} Drive files, ${p.pipeline?.variants||0} creatives`); }
   else showToast('Sync failed: '+(r.error||''));
   loadAll();
 }
-
 async function runPipeline() {
   showToast('Running pipeline...');
   const r = await apiCall(`/api/clients/${clientId}/pipeline`, { method: 'POST', body: JSON.stringify({}) });
   if (r.success) showToast(`Pipeline: ${r.result.selected} selected, ${r.result.variants} creatives`);
   loadAll();
 }
-
 async function generateFor(candidateId) {
   showToast('Generating...');
   const r = await apiCall('/api/creatives/generate', { method: 'POST', body: JSON.stringify({ candidate_id: candidateId }) });
   if (r.success) { showToast(`Generated ${r.variants.length} variants`); switchTab('creatives'); }
   loadAll();
 }
-
 async function publishTo(platform, variantId) {
   if (!confirm(`Publish this ad to ${platform}?`)) return;
   showToast(`Publishing to ${platform}...`);
   const res = await apiCall(`/api/publish/${platform}/${variantId}`, { method: 'POST', body: '{}' });
   if (res.success) showToast(`Published to ${platform}! Post ID: ${res.post_id}`);
-  else showToast(`Publish failed: ${res.error || 'Check that ${platform} is connected in client settings'}`);
+  else showToast(`Publish failed: ${res.error || 'Check connection'}`);
 }
-
 async function approve(taskId, status) {
   const notes = status === 'rejected' ? prompt('Rejection reason:') : null;
   await apiCall(`/api/approvals/${taskId}`, { method: 'PUT', body: JSON.stringify({ status, decision_notes: notes }) });
@@ -523,26 +695,13 @@ async function approve(taskId, status) {
   loadAll();
 }
 
-// ── Media helpers ──
-
-function renderMedia(mp) {
-  if (!mp) return '';
-  const imgs = mp.selected_images || [];
-  const hero = mp.hero_image;
-  const all = hero && !imgs.includes(hero) ? [hero, ...imgs] : imgs;
-  if (!all.length) return '';
-  let h = '<div class="media-strip">';
-  for (const img of all.slice(0,6)) h += `<img src="${esc(img)}" alt="" onclick="openLightbox('${esc(img)}')" loading="lazy">`;
-  if (all.length > 6) h += `<div style="min-width:60px;height:75px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2)">+${all.length-6}</div>`;
-  return h + '</div>';
-}
+// ── Helpers ──
 
 function openLightbox(src) {
   const lb = document.createElement('div'); lb.className = 'lightbox'; lb.onclick = () => lb.remove();
   lb.innerHTML = `<button class="lightbox-close" onclick="this.parentElement.remove()">&#10005;</button><img src="${esc(src)}">`;
   document.body.appendChild(lb);
 }
-
 function esc(s) { return escapeHtml(s); }
 
 init();

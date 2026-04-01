@@ -650,10 +650,37 @@ app.put('/api/creatives/:id', async (req, res) => {
     const id = paramId(req);
     const variant = await store.getVariant(id);
     if (!variant) return res.status(404).json({ error: 'Variant not found' });
-    const { copy_json } = req.body;
-    if (copy_json) await store.updateVariant(id, { copy_json });
+    const updates: Record<string, unknown> = {};
+    if (req.body.copy_json) updates.copy_json = req.body.copy_json;
+    if (req.body.media_plan_json) updates.media_plan_json = req.body.media_plan_json;
+    if (Object.keys(updates).length > 0) await store.updateVariant(id, updates);
     res.json({ success: true });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.delete('/api/creatives/:id', async (req, res) => {
+  try {
+    const deleted = await store.deleteVariant(paramId(req));
+    if (!deleted) return res.status(404).json({ error: 'Variant not found' });
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/creatives/bulk-delete', async (req, res) => {
+  try {
+    const { variant_ids } = req.body;
+    if (!Array.isArray(variant_ids) || variant_ids.length === 0) return res.status(400).json({ error: 'No variant_ids provided' });
+    const count = await store.deleteVariants(variant_ids);
+    res.json({ success: true, deleted: count });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/batches/:id', async (req, res) => {
+  try {
+    const deleted = await store.deleteBatch(paramId(req));
+    if (!deleted) return res.status(404).json({ error: 'Batch not found' });
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Approvals ──

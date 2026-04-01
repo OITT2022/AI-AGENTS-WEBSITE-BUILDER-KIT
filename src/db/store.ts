@@ -207,6 +207,29 @@ export async function addVariant(variant: CreativeVariant): Promise<void> {
   );
 }
 
+export async function deleteVariant(id: string): Promise<boolean> {
+  await query('DELETE FROM approval_tasks WHERE creative_variant_id = $1', [id]);
+  await query('DELETE FROM qa_reviews WHERE creative_variant_id = $1', [id]);
+  const rows = await query('DELETE FROM creative_variants WHERE id = $1 RETURNING id', [id]);
+  return rows.length > 0;
+}
+
+export async function deleteVariants(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  await query('DELETE FROM approval_tasks WHERE creative_variant_id = ANY($1::uuid[])', [ids]);
+  await query('DELETE FROM qa_reviews WHERE creative_variant_id = ANY($1::uuid[])', [ids]);
+  const rows = await query('DELETE FROM creative_variants WHERE id = ANY($1::uuid[]) RETURNING id', [ids]);
+  return rows.length;
+}
+
+export async function deleteBatch(id: string): Promise<boolean> {
+  const variants = await getVariants(id);
+  const vids = variants.map(v => v.id);
+  if (vids.length > 0) await deleteVariants(vids);
+  const rows = await query('DELETE FROM creative_batches WHERE id = $1 RETURNING id', [id]);
+  return rows.length > 0;
+}
+
 // ── QA Reviews ──
 
 export async function getReviews(variantId?: string): Promise<QAReview[]> {
@@ -535,8 +558,8 @@ export const store = {
   getSnapshots, getSnapshot, addSnapshot,
   getChangeEvents, addChangeEvent,
   getCandidates, getCandidate, upsertCandidate, getCandidatesByClient,
-  getBatches, addBatch, getBatchesByClient,
-  getVariants, getVariant, addVariant, updateVariant,
+  getBatches, addBatch, getBatchesByClient, deleteBatch,
+  getVariants, getVariant, addVariant, updateVariant, deleteVariant, deleteVariants,
   getReviews, addReview,
   getApprovalTasks, getApprovalTask, getApprovalTaskForVariant, upsertApprovalTask,
   getPublishActions, addPublishAction, updatePublishAction,

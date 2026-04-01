@@ -68,9 +68,13 @@
     .card-delete{position:absolute;top:12px;right:12px;z-index:2;background:rgba(239,68,68,.9);color:#fff;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
     .card:hover .card-delete{opacity:1}
     .bulk-bar{background:var(--surface);border:1px solid var(--red);border-radius:var(--radius);padding:12px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
-    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer}
-    .lightbox img{max-width:90vw;max-height:90vh;border-radius:8px}
-    .lightbox-close{position:absolute;top:20px;right:24px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none}
+    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;display:flex;align-items:center;justify-content:center}
+    .lightbox img,.lightbox video{max-width:90vw;max-height:80vh;border-radius:8px}
+    .lightbox-close{position:absolute;top:20px;right:24px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none;z-index:2}
+    .gallery-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);color:#fff;border:none;width:48px;height:48px;border-radius:50%;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;transition:background .15s;z-index:2}
+    .gallery-nav:hover{background:rgba(255,255,255,.25)}
+    .gallery-prev{left:20px}.gallery-next{right:20px}
+    .gallery-counter{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:14px;font-weight:500;background:rgba(0,0,0,.5);padding:4px 14px;border-radius:20px}
     .empty-state{text-align:center;padding:60px 20px;color:var(--text2)}.empty-state h3{font-size:18px;margin-bottom:8px;color:var(--text)}
     .loading{text-align:center;padding:40px;color:var(--text2)}
     .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--green);color:var(--text);padding:14px 24px;border-radius:var(--radius);font-size:14px;z-index:1000;animation:slideIn .3s ease}
@@ -384,21 +388,24 @@ function renderMediaGrid(mp, vid) {
   const selectedImgs = new Set((mp.selected_images || []).filter(Boolean));
   const selectedVid = mp.selected_video;
 
-  let h = `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">Edit media (${allImgs.length} images, ${allVids.length} videos)</summary>`;
+  let h = `<details open style="margin-top:8px"><summary style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">Edit media (${allImgs.length} images, ${allVids.length} videos)</summary>`;
   h += `<div class="media-grid" id="mgrid-${vid}">`;
+  let mediaIdx = 0;
   for (const img of allImgs) {
     const sel = selectedImgs.has(img);
+    const idx = mediaIdx++;
     h += `<div class="media-grid-item ${sel?'selected':''}" onclick="toggleMediaItem(this,'${vid}','image','${esc(img)}')">
       <img src="${esc(img)}" loading="lazy" onerror="this.parentElement.remove()">
-      <button class="media-view-btn" onclick="event.stopPropagation();openLightbox('${esc(img)}')" title="View full size">&#128065;</button>
+      <button class="media-view-btn" onclick="event.stopPropagation();openGallery('${vid}',${idx})" title="View full size">&#128065;</button>
     </div>`;
   }
   for (const v of allVids) {
     const sel = v === selectedVid;
+    const idx = mediaIdx++;
     h += `<div class="media-grid-item ${sel?'selected':''}" onclick="toggleMediaItem(this,'${vid}','video','${esc(v)}')">
       <div style="width:100%;height:100%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px">&#9654;</div>
       <span class="vid-badge">MP4</span>
-      <button class="media-view-btn" onclick="event.stopPropagation();window.open('${esc(v)}','_blank')" title="View video">&#128065;</button>
+      <button class="media-view-btn" onclick="event.stopPropagation();openGallery('${vid}',${idx})" title="View video">&#128065;</button>
     </div>`;
   }
   h += `</div><button class="btn btn-sm" style="margin-top:6px" onclick="saveMediaSelection('${vid}')">Update Media</button></details>`;
@@ -746,11 +753,76 @@ async function approve(taskId, status) {
 
 // ── Helpers ──
 
+// Gallery viewer with left/right navigation
+let _galleryItems = [];
+let _galleryIdx = 0;
+
+function openGallery(vid, startIdx) {
+  const v = window._variants?.[vid];
+  if (!v) return;
+  const mp = v.media_plan_json || {};
+  const imgs = (mp.gallery || []).filter(Boolean);
+  const vids = (mp.videos || []).filter(Boolean);
+  _galleryItems = [
+    ...imgs.map(u => ({ type: 'image', url: u })),
+    ...vids.map(u => ({ type: 'video', url: u })),
+  ];
+  if (_galleryItems.length === 0) return;
+  _galleryIdx = Math.min(startIdx || 0, _galleryItems.length - 1);
+  renderGallery();
+}
+
 function openLightbox(src) {
-  const lb = document.createElement('div'); lb.className = 'lightbox'; lb.onclick = () => lb.remove();
-  lb.innerHTML = `<button class="lightbox-close" onclick="this.parentElement.remove()">&#10005;</button><img src="${esc(src)}">`;
+  _galleryItems = [{ type: 'image', url: src }];
+  _galleryIdx = 0;
+  renderGallery();
+}
+
+function renderGallery() {
+  closeGallery();
+  const item = _galleryItems[_galleryIdx];
+  if (!item) return;
+  const lb = document.createElement('div');
+  lb.className = 'lightbox';
+  lb.id = 'gallery-overlay';
+  lb.onclick = (e) => { if (e.target === lb) closeGallery(); };
+
+  const counter = _galleryItems.length > 1 ? `<span class="gallery-counter">${_galleryIdx + 1} / ${_galleryItems.length}</span>` : '';
+  const prevBtn = _galleryItems.length > 1 ? `<button class="gallery-nav gallery-prev" onclick="event.stopPropagation();galleryNav(-1)">&#10094;</button>` : '';
+  const nextBtn = _galleryItems.length > 1 ? `<button class="gallery-nav gallery-next" onclick="event.stopPropagation();galleryNav(1)">&#10095;</button>` : '';
+
+  let content;
+  if (item.type === 'video') {
+    content = `<video src="${esc(item.url)}" controls autoplay style="max-width:90vw;max-height:80vh;border-radius:8px"></video>`;
+  } else {
+    content = `<img src="${esc(item.url)}" style="max-width:90vw;max-height:80vh;border-radius:8px">`;
+  }
+
+  lb.innerHTML = `
+    <button class="lightbox-close" onclick="closeGallery()">&#10005;</button>
+    ${prevBtn}
+    ${content}
+    ${nextBtn}
+    ${counter}
+  `;
   document.body.appendChild(lb);
 }
+
+function galleryNav(dir) {
+  _galleryIdx = (_galleryIdx + dir + _galleryItems.length) % _galleryItems.length;
+  renderGallery();
+}
+
+function closeGallery() {
+  document.getElementById('gallery-overlay')?.remove();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('gallery-overlay')) return;
+  if (e.key === 'ArrowLeft') galleryNav(-1);
+  else if (e.key === 'ArrowRight') galleryNav(1);
+  else if (e.key === 'Escape') closeGallery();
+});
 function esc(s) { return escapeHtml(s); }
 
 init();

@@ -1252,7 +1252,33 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       scenes.push({ overlay: `${city} | ${price}\n${cta}` });
     }
 
-    // ── Phase 1: Scene images via OpenAI ──
+    // ── Phase 1: Video via Runway (runs first — independent of OpenAI billing) ──
+    let videoResult: { url: string; duration_sec: number; provider: string } | null = null;
+    if (videoAi.isConfigured()) {
+      try {
+        if (timeline) {
+          const vid = await videoAi.generateAdVideo(payload, timeline, req.body.template_id);
+          videoResult = { url: vid.url, duration_sec: vid.duration_sec, provider: vid.provider };
+        } else {
+          const heroImage = (mediaPlan.hero_image as string) || ((mediaPlan.selected_images as string[]) ?? [])[0];
+          if (heroImage) {
+            const title = String(payload.title_he || payload.title_en || '');
+            const city = String(payload.city || '');
+            const clip = await videoAi.animateImage(
+              heroImage,
+              `Cinematic real estate tour of ${title} in ${city}. Slow smooth camera movement, golden hour lighting.`,
+              5, '9:16',
+            );
+            videoResult = { url: clip.url, duration_sec: clip.duration_sec, provider: clip.provider };
+          }
+        }
+        if (videoResult) servicesUsed.push('video_' + videoResult.provider);
+      } catch (err: any) {
+        errors.push({ service: 'video_ai', error: err.message });
+      }
+    }
+
+    // ── Phase 2: Scene images via OpenAI ──
     const sceneImages: Array<{ scene: number; url: string; overlay: string; width: number; height: number }> = [];
     if (imageAi.isConfigured()) {
       const size = imageAi.PLATFORM_SIZES[platformSize];
@@ -1284,34 +1310,6 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
         }
       }
       if (sceneImages.length > 0) servicesUsed.push('openai_image');
-    }
-
-    // ── Phase 2: Video via Runway/Pika/etc (conditional) ──
-    let videoResult: { url: string; duration_sec: number; provider: string } | null = null;
-    if (videoAi.isConfigured()) {
-      try {
-        if (timeline) {
-          // Full timeline: generate ad video from scene structure
-          const vid = await videoAi.generateAdVideo(payload, timeline, req.body.template_id);
-          videoResult = { url: vid.url, duration_sec: vid.duration_sec, provider: vid.provider };
-        } else {
-          // No timeline: animate the hero image into a short clip
-          const heroImage = (mediaPlan.hero_image as string) || ((mediaPlan.selected_images as string[]) ?? [])[0];
-          if (heroImage) {
-            const title = String(payload.title_he || payload.title_en || '');
-            const city = String(payload.city || '');
-            const clip = await videoAi.animateImage(
-              heroImage,
-              `Cinematic real estate tour of ${title} in ${city}. Slow smooth camera movement, golden hour lighting.`,
-              5, '9:16',
-            );
-            videoResult = { url: clip.url, duration_sec: clip.duration_sec, provider: clip.provider };
-          }
-        }
-        if (videoResult) servicesUsed.push('video_' + videoResult.provider);
-      } catch (err: any) {
-        errors.push({ service: 'video_ai', error: err.message });
-      }
     }
 
     // ── Phase 3: Canva (conditional) ──

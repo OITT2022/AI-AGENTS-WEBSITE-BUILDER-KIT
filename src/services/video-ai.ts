@@ -97,18 +97,24 @@ const ASPECT_DIMENSIONS = {
 
 async function generateRunway(req: VideoGenerationRequest): Promise<GeneratedVideo> {
   const apiKey = requireKey('RUNWAY_API_KEY', 'Runway');
-  const model = process.env.RUNWAY_MODEL?.trim() || 'gen3a_turbo';
+  const model = process.env.RUNWAY_MODEL?.trim() || 'gen4_turbo';
   const duration = req.duration_sec ?? 5;
   const ratio = req.aspect_ratio ?? '9:16';
 
+  // Runway uses pixel ratio format (width:height)
+  const ratioMap: Record<string, string> = {
+    '16:9': '1280:720', '9:16': '720:1280', '1:1': '1080:1080',
+  };
+  const runwayRatio = ratioMap[ratio] || '1280:720';
+
   const body: Record<string, unknown> = {
     model,
-    prompt: req.prompt,
+    promptText: req.prompt,
     duration,
-    ratio,
+    ratio: runwayRatio,
   };
   if (req.source_image_url) {
-    body.image = req.source_image_url;
+    body.promptImage = req.source_image_url;
   }
 
   // Start generation
@@ -118,7 +124,7 @@ async function generateRunway(req: VideoGenerationRequest): Promise<GeneratedVid
     body: JSON.stringify(body),
   });
   const data: any = await res.json();
-  if (data.error) throw new Error(`Runway: ${data.error}`);
+  if (data.error) throw new Error(`Runway: ${typeof data.error === 'string' ? data.error : JSON.stringify(data.error)}`);
 
   const taskId = data.id;
 

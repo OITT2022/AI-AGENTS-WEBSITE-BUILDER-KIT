@@ -331,6 +331,7 @@ async function renderCreatives(el) {
         ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
         ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
         ${copy.cta?`<div class="detail-row"><span class="label">CTA</span><span>${copy.cta}</span></div>`:''}
+        ${b.entity?.listing_url?`<div class="detail-row"><span class="label">Ad URL</span><a href="${esc(b.entity.listing_url)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:12px;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;display:inline-block" title="${esc(b.entity.listing_url)}">${esc(b.entity.listing_url)}</a></div>`:''}
         ${copy.hashtags?`<div class="detail-row"><span class="label">Hashtags</span><span style="font-size:12px">${copy.hashtags.join(' ')}</span></div>`:''}
         <div class="creative-preview" contenteditable="true" id="text-${vid}">${esc(mainText.trim())}</div>
         ${media.reel_timeline ? renderStoryboard(media.reel_timeline) : ''}
@@ -529,9 +530,9 @@ function openPreview(variantId, platform) {
       </div>
     </div>
     <div style="padding:0 16px 16px">
-      <div class="prev-panel" data-p="facebook" style="display:${platform==='facebook'?'block':'none'}">${previewFB(fbCopy, fbMedia)}</div>
-      <div class="prev-panel" data-p="instagram" style="display:${platform==='instagram'?'block':'none'}">${previewIG(igCopy, igMedia)}</div>
-      <div class="prev-panel" data-p="tiktok" style="display:${platform==='tiktok'?'block':'none'}">${previewTK(tkCopy, tkMedia)}</div>
+      <div class="prev-panel" data-p="facebook" style="display:${platform==='facebook'?'block':'none'}">${previewFB(fbCopy, fbMedia, v.entity?.listing_url)}</div>
+      <div class="prev-panel" data-p="instagram" style="display:${platform==='instagram'?'block':'none'}">${previewIG(igCopy, igMedia, v.entity?.listing_url)}</div>
+      <div class="prev-panel" data-p="tiktok" style="display:${platform==='tiktok'?'block':'none'}">${previewTK(tkCopy, tkMedia, v.entity?.listing_url)}</div>
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -564,11 +565,13 @@ function videoPlayer(url, aspectRatio, autoplay) {
   return `<video src="${esc(url)}" style="width:100%;aspect-ratio:${aspectRatio};object-fit:cover;border-radius:4px" controls ${autoplay?'autoplay muted':''}></video>`;
 }
 
-function previewFB(c, media) {
+function previewFB(c, media, listingUrl) {
   const imgs = (media.selected_images||[]).filter(Boolean);
   const hero = media.hero_image || imgs[0] || '';
   const vid = (media.videos||[])[0];
   const hasVideo = !!vid;
+  const url = listingUrl || '';
+  const domain = url ? new URL(url).hostname.replace('www.','') : '';
   let mediaHtml = '';
   if (hasVideo) {
     mediaHtml = videoPlayer(vid, '1.91/1', false);
@@ -577,16 +580,17 @@ function previewFB(c, media) {
   } else if (hero) {
     mediaHtml = `<img class="fb-image" src="${esc(hero)}" onerror="this.style.display='none'">`;
   }
+  const linkClick = url ? `onclick="window.open('${esc(url)}','_blank')" style="cursor:pointer"` : '';
   return `<div class="fb-card">
     <div class="fb-header"><div class="fb-avatar">RE</div><div><div class="fb-name">Real Estate Marketing</div><div class="fb-meta">Sponsored</div></div></div>
     <div class="fb-text">${esc(c.primary_text||'')}</div>
     ${mediaHtml}
-    <div class="fb-link-bar"><div class="fb-link-domain">findus.co.il</div><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="fb-link-title">${esc(c.headline||'')}</div><div class="fb-link-desc">${esc(c.description||'')}</div></div><button class="fb-cta-btn">${esc(c.cta||'Learn More')}</button></div></div>
+    <div class="fb-link-bar" ${linkClick}><div class="fb-link-domain">${esc(domain)}</div><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="fb-link-title">${esc(c.headline||'')}</div><div class="fb-link-desc">${esc(c.description||'')}</div></div><button class="fb-cta-btn">${esc(c.cta||'Learn More')}</button></div></div>
     <div class="fb-actions"><div class="fb-action">&#128077; Like</div><div class="fb-action">&#128172; Comment</div><div class="fb-action">&#8599; Share</div></div>
   </div>`;
 }
 
-function previewIG(c, media) {
+function previewIG(c, media, listingUrl) {
   const imgs = (media.selected_images||[]).filter(Boolean);
   const hero = media.hero_image || imgs[0] || '';
   const vids = (media.videos||[]).filter(Boolean);
@@ -622,11 +626,11 @@ function previewIG(c, media) {
     <div class="ig-caption"><span class="cname">realestate.marketing</span> ${esc(c.caption||'')}
       ${c.hashtags?`<div class="ig-hashtags">${c.hashtags.join(' ')}</div>`:''}
     </div>
-    ${c.cta?`<div class="ig-cta-bar">${esc(c.cta)}</div>`:''}
+    ${c.cta?`<div class="ig-cta-bar" ${listingUrl?`onclick="window.open('${esc(listingUrl)}','_blank')" style="cursor:pointer"`:''}>${esc(c.cta)}</div>`:''}
   </div>`;
 }
 
-function previewTK(c, media) {
+function previewTK(c, media, listingUrl) {
   const hero = media.hero_image || (media.selected_images||[]).filter(Boolean)[0] || '';
   const vid = (media.videos||[])[0];
   const timeline = media.reel_timeline;
@@ -658,7 +662,7 @@ function previewTK(c, media) {
     <div class="tk-overlay"><div>
       <div class="tk-name">@realestate.mkt</div>
       <div class="tk-desc">${esc(c.voiceover_script||c.on_screen_text?.join(' · ')||'')}</div>
-      <div class="tk-cta">${esc(c.closing_cta||c.cta||'Learn More')}</div>
+      <div class="tk-cta" ${listingUrl?`onclick="window.open('${esc(listingUrl)}','_blank')" style="cursor:pointer"`:''}>${esc(c.closing_cta||c.cta||'Learn More')}</div>
     </div></div>
   </div>
   ${timeline ? renderStoryboard(timeline) : ''}`;

@@ -10,6 +10,7 @@ import {
   EntitySnapshot,
 } from '../models/schemas';
 import { store } from '../db/store';
+import * as log from '../lib/logger';
 
 // Deep clone to plain JSON-safe object (removes circular refs, class instances, etc.)
 function toPlainJson(obj: unknown): any {
@@ -108,6 +109,7 @@ async function ingestEntity(
 ): Promise<IngestResult> {
   const now = new Date().toISOString();
   const checksum = computeChecksum(normalizedPayload);
+  const ctx = { entity_type: entityType, source_entity_id: sourceId, client_id: entityFields.client_id };
 
   let entity = await store.getEntityBySourceId(entityType, sourceId);
   const isNew = !entity;
@@ -123,6 +125,7 @@ async function ingestEntity(
       created_at: now, updated_at: now,
     };
     await store.upsertEntity(entity);
+    log.info('ingest.entity', `New ${entityType} created`, { ...ctx, entity_id: entity.id });
   }
 
   const existingSnapshots = await store.getSnapshots(entity.id);
@@ -130,7 +133,6 @@ async function ingestEntity(
   const changed = !latestSnapshot || latestSnapshot.checksum !== checksum;
 
   if (!changed) {
-    // Still update client_id if it wasn't set before
     if (entityFields.client_id && entity.client_id !== entityFields.client_id) {
       entity.client_id = entityFields.client_id;
       entity.updated_at = now;
@@ -176,6 +178,10 @@ async function ingestEntity(
   await store.addChangeEvent({
     id: uuid(), entity_id: entity.id, from_snapshot_id: latestSnapshot?.id,
     to_snapshot_id: snapshotId, change_type: changeType, diff_json: diffJson, created_at: now,
+  });
+
+  log.info('ingest.snapshot', `Snapshot v${versionNo} (${changeType})`, {
+    ...ctx, entity_id: entity.id, snapshot_id: snapshotId, change_type: changeType, version: versionNo,
   });
 
   return { entity_id: entity.id, source_entity_id: sourceId, entity_type: entityType,

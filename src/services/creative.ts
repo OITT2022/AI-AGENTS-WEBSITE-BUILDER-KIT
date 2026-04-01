@@ -193,9 +193,12 @@ export async function generateCreativesForCandidate(candidate: CampaignCandidate
   const hasVideo = merged.videos.length > 0;
 
   const angle = candidate.recommended_angle ?? 'location';
+  // Derive language from entity's actual marketing languages
+  const entityLanguages = (p.languages as string[]) ?? [];
+  const primaryLang = entityLanguages[0] ?? (p.title_he ? 'he' : p.title_en ? 'en' : 'he');
   const batch: CreativeBatch = {
     id: uuid(), client_id: entity.client_id, entity_id: entity.id, candidate_id: candidate.id,
-    language_code: 'he', angle, audience: candidate.recommended_audiences[0] ?? 'general',
+    language_code: primaryLang, angle, audience: candidate.recommended_audiences[0] ?? 'general',
     batch_status: 'generated', created_at: new Date().toISOString(),
   };
   await store.addBatch(batch);
@@ -246,6 +249,11 @@ export async function generateCreativesForCandidate(candidate: CampaignCandidate
           has_video: hasVideo,
           video_count: merged.videos.length,
           image_count: merged.gallery.length,
+          drive_image_count: merged.source_breakdown.drive,
+          api_image_count: merged.source_breakdown.api,
+          generator: 'template_v1',
+          entity_snapshot_version: latest.version_no,
+          candidate_score: candidate.score_total,
           generated_at: new Date().toISOString(),
         },
         created_at: new Date().toISOString(),

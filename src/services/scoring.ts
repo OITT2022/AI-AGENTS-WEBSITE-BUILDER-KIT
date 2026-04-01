@@ -24,6 +24,35 @@ function scoreUrgency(p: Record<string, unknown>): number {
   let s = 0; if (p.urgent === true) s += 50; if (p.price_changed === true) s += 30; if (p.is_new === true) s += 20;
   return Math.min(s, 100);
 }
+
+/** Score history from real performance_metrics data. Falls back to 50 when no data exists. */
+async function scoreHistory(entityId: string): Promise<number> {
+  const perf = await store.getEntityPerformance(entityId);
+  if (!perf || perf.campaign_count === 0) return 50; // neutral when no history
+  // Scale CTR relative to a 1% baseline (typical for real-estate ads)
+  const ctrScore = Math.min((perf.avg_ctr / 0.01) * 50, 80);
+  // Bonus for volume of successful campaigns
+  const volumeBonus = Math.min(perf.campaign_count * 5, 20);
+  return Math.min(Math.round(ctrScore + volumeBonus), 100);
+}
+
+/** Score audience from real cross-campaign performance. Falls back to 50 when no data. */
+async function scoreAudience(audiences: string[]): Promise<number> {
+  if (audiences.length === 0) return 50;
+  const results = await Promise.all(audiences.map(aud => store.getAudiencePerformance(aud)));
+  let totalCtr = 0;
+  let count = 0;
+  for (const perf of results) {
+    if (perf && perf.campaign_count > 0) {
+      totalCtr += perf.avg_ctr;
+      count++;
+    }
+  }
+  if (count === 0) return 50;
+  const avgCtr = totalCtr / count;
+  return Math.min(Math.round((avgCtr / 0.01) * 60), 100);
+}
+
 function recommendAngle(p: Record<string, unknown>): string {
   const a = (p.angles as string[]) ?? [];
   if (a.length > 0) return a[0];
@@ -38,23 +67,27 @@ function recommendPlatforms(p: Record<string, unknown>, driveMediaCount = 0, dri
 }
 function recommendAudiences(p: Record<string, unknown>): string[] {
   const a = (p.target_audiences as string[]) ?? [];
-  return a.length > 0 ? a : ['investors', 'families'];
+  return a.length > 0 ? a : ['general'];
 }
+
+/** Max publishes per entity in the suppression window before it is penalized. */
+const OVERUSE_THRESHOLD = 3;
+const OVERUSE_WINDOW_DAYS = 7;
 
 export async function scoreAndSelectCandidates(date: string, maxCandidates: number = 10, clientId?: string): Promise<CampaignCandidate[]> {
   let entities = await store.getEntities();
   entities = entities.filter(e => e.campaign_ready && e.source_status === 'active');
   if (clientId) entities = entities.filter(e => e.client_id === clientId);
 
-  // Pre-fetch Drive media counts per client for scoring bonus
+  // Pre-fetch Drive media counts per client for scoring bonus (parallel)
   const driveCountCache = new Map<string, number>();
   const driveVideoCountCache = new Map<string, number>();
-  for (const e of entities) {
-    if (e.client_id && !driveCountCache.has(e.client_id)) {
-      driveCountCache.set(e.client_id, await store.getDriveMediaCount(e.client_id));
-      driveVideoCountCache.set(e.client_id, await store.getDriveVideoCount(e.client_id));
-    }
-  }
+  const uniqueClientIds = [...new Set(entities.map(e => e.client_id).filter((id): id is string => !!id))];
+  await Promise.all(uniqueClientIds.map(async (cid) => {
+    const [count, videoCount] = await Promise.all([store.getDriveMediaCount(cid), store.getDriveVideoCount(cid)]);
+    driveCountCache.set(cid, count);
+    driveVideoCountCache.set(cid, videoCount);
+  }));
 
   const candidates: CampaignCandidate[] = [];
   for (const entity of entities) {
@@ -66,14 +99,21 @@ export async function scoreAndSelectCandidates(date: string, maxCandidates: numb
     // Relax media requirement: accept entities with Drive media even if no API media
     if (!(p.title_he || p.title_en) || p.price_amount == null || !p.city || !(p.hero_image || (p.gallery_count as number) > 0 || driveCount > 0) || !p.listing_url) continue;
 
-    const sf = scoreFreshness(p), sm = scoreMedia(p, driveCount), sb = scoreBusiness(p), su = scoreUrgency(p), sh = 50;
-    const total = sf * WEIGHTS.freshness + sm * WEIGHTS.media + sb * WEIGHTS.business + su * WEIGHTS.urgency + 50 * WEIGHTS.audience + sh * WEIGHTS.history;
+    // Overuse suppression: skip entities published too recently
+    const recentPublishes = await store.getRecentPublishCount(entity.id, OVERUSE_WINDOW_DAYS);
+    if (recentPublishes >= OVERUSE_THRESHOLD) continue;
+
+    const audiences = recommendAudiences(p);
+    const sf = scoreFreshness(p), sm = scoreMedia(p, driveCount), sb = scoreBusiness(p), su = scoreUrgency(p);
+    const sh = await scoreHistory(entity.id);
+    const sa = await scoreAudience(audiences);
+    const total = sf * WEIGHTS.freshness + sm * WEIGHTS.media + sb * WEIGHTS.business + su * WEIGHTS.urgency + sa * WEIGHTS.audience + sh * WEIGHTS.history;
 
     candidates.push({
       id: uuid(), client_id: entity.client_id, entity_id: entity.id, candidate_date: date,
       score_total: Math.round(total * 100) / 100, score_freshness: sf, score_media: sm,
       score_business: sb, score_urgency: su, score_history: sh,
-      recommended_angle: recommendAngle(p), recommended_audiences: recommendAudiences(p),
+      recommended_angle: recommendAngle(p), recommended_audiences: audiences,
       recommended_platforms: recommendPlatforms(p, driveCount, entity.client_id ? driveVideoCountCache.get(entity.client_id) ?? 0 : 0), selected: false, created_at: new Date().toISOString(),
     });
   }

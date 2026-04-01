@@ -19,12 +19,32 @@ import {
   createUser, updateUser, deleteUser, listUsers,
   requireAuth, requireRole, AuthRequest,
 } from './services/auth';
+import * as imageAi from './services/image-ai';
+import * as videoAi from './services/video-ai';
+import * as canva from './services/canva';
 
 const app = express();
 
 function paramId(req: express.Request): string {
   const id = req.params.id;
   return Array.isArray(id) ? id[0] : id;
+}
+
+/** Prevent open-redirect: only allow relative paths starting with / */
+function sanitizeReturnTo(raw: string | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  // Block absolute URLs, protocol-relative, and backslash-based redirects
+  if (raw.includes('://') || raw.startsWith('//') || raw.startsWith('\\')) return fallback;
+  if (!raw.startsWith('/')) return fallback;
+  return raw;
+}
+
+/** Validate that a state/clientId parameter looks like a UUID (not injection payload) */
+function validateStateId(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw.trim();
+  if (/^[a-f0-9-]{36}$/i.test(cleaned)) return cleaned;
+  return null;
 }
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
@@ -56,7 +76,8 @@ app.post('/api/auth/login', async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   const result = await login(email, password);
   if (!result) return res.status(401).json({ error: 'Invalid email or password' });
-  res.setHeader('Set-Cookie', `auth_token=${result.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${24 * 3600}`);
+  const securePart = process.env.NODE_ENV === 'production' || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `auth_token=${result.token}; Path=/; HttpOnly; SameSite=Lax${securePart}; Max-Age=${24 * 3600}`);
   res.json({ success: true, user: result.user, token: result.token });
 });
 
@@ -142,11 +163,11 @@ app.get('/api/google/callback', async (req, res) => {
     const { code, state: stateRaw } = req.query;
     if (!code) return res.status(400).send('Missing authorization code');
 
-    // Parse state (JSON with returnTo + clientId)
+    // Parse state (JSON with returnTo + clientId) — validate to prevent open redirect
     let editClientId = '';
     try {
       const st = JSON.parse(stateRaw as string);
-      returnTo = st.returnTo || returnTo;
+      returnTo = sanitizeReturnTo(st.returnTo, returnTo);
       editClientId = st.clientId || '';
     } catch { returnTo = (stateRaw as string) || returnTo; }
 
@@ -207,15 +228,12 @@ function callbackPage(redirectUrl: string, error: string | null): string {
 <script>
   var url = ${JSON.stringify(redirectUrl)};
   if (window.opener) {
-    // We're in a popup — send result to parent and close
-    window.opener.postMessage({ type: 'google-auth-result', url: url, error: ${JSON.stringify(error)} }, '*');
+    window.opener.postMessage({ type: 'google-auth-result', url: url, error: ${JSON.stringify(error)} }, window.location.origin);
     window.close();
   } else {
-    // Normal redirect (same window)
     window.location.replace(url);
   }
-  // Fallback if popup doesn't close
-  setTimeout(function() { document.body.innerHTML = '<p>Redirecting... <a href="' + url + '">Click here</a> if not redirected.</p>'; }, 2000);
+  setTimeout(function() { document.body.textContent = 'Redirecting... If not redirected, close this window.'; }, 2000);
 </script>
 <p>Completing sign-in...</p>
 </body></html>`;
@@ -715,18 +733,8 @@ app.put('/api/approvals/:id', async (req, res) => {
 // ── Dashboard ──
 
 app.get('/api/dashboard/summary', async (_req, res) => {
-  const [entities, candidates, batches, variants, approvals, reviews] = await Promise.all([
-    store.getEntities(), store.getCandidates(), store.getBatches(), store.getVariants(), store.getApprovalTasks(), store.getReviews(),
-  ]);
-  res.json({
-    total_entities: entities.length, campaign_ready: entities.filter(e => e.campaign_ready).length,
-    total_candidates: candidates.length, selected_candidates: candidates.filter(c => c.selected).length,
-    total_batches: batches.length, total_variants: variants.length,
-    approvals_pending: approvals.filter(a => a.status === 'pending').length,
-    approvals_approved: approvals.filter(a => a.status === 'approved').length,
-    approvals_rejected: approvals.filter(a => a.status === 'rejected').length,
-    qa_pass: reviews.filter(r => r.status === 'pass').length, qa_warn: reviews.filter(r => r.status === 'warn').length, qa_fail: reviews.filter(r => r.status === 'fail').length,
-  });
+  // Single SQL query with aggregates — replaces 8 full-table fetches
+  res.json(await store.getDashboardSummary());
 });
 
 // ── FindUs Connector ──
@@ -781,14 +789,15 @@ app.get('/api/meta/connect/:clientId', async (req, res) => {
 
 app.get('/api/meta/callback', async (req, res) => {
   try {
-    const { code, state: clientId } = req.query;
-    if (!code || !clientId) return res.status(400).send('Missing code or state');
+    const { code, state: rawState } = req.query;
+    const clientId = validateStateId(rawState);
+    if (!code || !clientId) return res.status(400).send('Missing or invalid code/state');
     const redirectUri = `${req.protocol}://${req.get('host')}/api/meta/callback`;
     const { access_token, user_id } = await exchangeMetaCode(code as string, redirectUri);
 
     // Get pages
     const pages = await getMetaPages(access_token);
-    const client = await store.getClient(clientId as string);
+    const client = await store.getClient(clientId);
     if (!client) return res.status(404).send('Client not found');
 
     // Auto-select first page
@@ -807,7 +816,8 @@ app.get('/api/meta/callback', async (req, res) => {
     // Redirect back to client form with success
     res.redirect(`/dashboard/client-form.html?id=${clientId}&meta=connected`);
   } catch (err: any) {
-    res.redirect(`/dashboard/client-form.html?id=${req.query.state}&meta=error&msg=${encodeURIComponent(err.message)}`);
+    const safeId = validateStateId(req.query.state) || '';
+    res.redirect(`/dashboard/client-form.html?id=${safeId}&meta=error&msg=${encodeURIComponent(err.message)}`);
   }
 });
 
@@ -847,13 +857,14 @@ app.get('/api/tiktok/connect/:clientId', async (req, res) => {
 
 app.get('/api/tiktok/callback', async (req, res) => {
   try {
-    const { code, state: clientId } = req.query;
-    if (!code || !clientId) return res.status(400).send('Missing code or state');
+    const { code, state: rawState } = req.query;
+    const clientId = validateStateId(rawState);
+    if (!code || !clientId) return res.status(400).send('Missing or invalid code/state');
     const redirectUri = `${req.protocol}://${req.get('host')}/api/tiktok/callback`;
     const tokens = await exchangeTikTokCode(code as string, redirectUri);
     const userInfo = await getTikTokUserInfo(tokens.access_token);
 
-    const client = await store.getClient(clientId as string);
+    const client = await store.getClient(clientId);
     if (!client) return res.status(404).send('Client not found');
 
     client.tiktok_config = {
@@ -866,7 +877,8 @@ app.get('/api/tiktok/callback', async (req, res) => {
 
     res.redirect(`/dashboard/client-form.html?id=${clientId}&tiktok=connected`);
   } catch (err: any) {
-    res.redirect(`/dashboard/client-form.html?id=${req.query.state}&tiktok=error&msg=${encodeURIComponent(err.message)}`);
+    const safeId = validateStateId(req.query.state) || '';
+    res.redirect(`/dashboard/client-form.html?id=${safeId}&tiktok=error&msg=${encodeURIComponent(err.message)}`);
   }
 });
 
@@ -875,6 +887,11 @@ app.post('/api/publish/facebook/:variantId', async (req, res) => {
   try {
     const variant = await store.getVariant(paramId(req));
     if (!variant) return res.status(404).json({ error: 'Variant not found' });
+
+    // Idempotency: skip if already published to this platform
+    const existing = await store.getExistingPublish(variant.id, 'facebook');
+    if (existing) return res.json({ success: true, post_id: existing.external_object_id, already_published: true });
+
     const batches = await store.getBatches();
     const batch = batches.find(b => b.id === variant.batch_id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
@@ -883,21 +900,53 @@ app.post('/api/publish/facebook/:variantId', async (req, res) => {
     const client = await store.getClient(entity.client_id);
     if (!client) return res.status(404).json({ error: 'Client not found' });
 
+    const publishMode = req.body.mode || 'live';
+    const copy = variant.copy_json as any;
+    const media = variant.media_plan_json as any;
+    const requestPayload = {
+      page_id: client.meta_config?.page_id,
+      message: copy.primary_text || copy.caption || '',
+      image_url: media?.hero_image || (media?.selected_images || [])[0] || null,
+      variant_id: variant.id,
+      entity_id: batch.entity_id,
+      client_id: entity.client_id,
+      platform: 'facebook',
+      mode: publishMode,
+      requested_at: new Date().toISOString(),
+    };
+
     const result = await publishToFacebook(client, variant);
     await store.addPublishAction({
       id: require('uuid').v4(), creative_variant_id: variant.id, platform: 'facebook',
-      publish_mode: 'live', status: 'published', external_object_id: result.post_id,
-      request_json: {}, response_json: result, published_at: new Date().toISOString(),
+      publish_mode: publishMode, status: 'published', external_object_id: result.post_id,
+      request_json: requestPayload, response_json: result, published_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     });
     res.json({ success: true, post_id: result.post_id });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err: any) {
+    // Record failed publish attempt for auditability
+    const variant = await store.getVariant(paramId(req));
+    if (variant) {
+      await store.addPublishAction({
+        id: require('uuid').v4(), creative_variant_id: variant.id, platform: 'facebook',
+        publish_mode: req.body.mode || 'live', status: 'failed',
+        request_json: { error: err.message, variant_id: variant.id, requested_at: new Date().toISOString() },
+        response_json: {}, created_at: new Date().toISOString(),
+      });
+    }
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post('/api/publish/instagram/:variantId', async (req, res) => {
   try {
     const variant = await store.getVariant(paramId(req));
     if (!variant) return res.status(404).json({ error: 'Variant not found' });
+
+    // Idempotency: skip if already published to this platform
+    const existing = await store.getExistingPublish(variant.id, 'instagram');
+    if (existing) return res.json({ success: true, post_id: existing.external_object_id, already_published: true });
+
     const batches = await store.getBatches();
     const batch = batches.find(b => b.id === variant.batch_id);
     if (!batch) return res.status(404).json({ error: 'Batch not found' });
@@ -906,15 +955,44 @@ app.post('/api/publish/instagram/:variantId', async (req, res) => {
     const client = await store.getClient(entity.client_id);
     if (!client) return res.status(404).json({ error: 'Client not found' });
 
+    const publishMode = req.body.mode || 'live';
+    const copy = variant.copy_json as any;
+    const media = variant.media_plan_json as any;
+    const heroImg = media?.hero_image || (media?.selected_images || [])[0];
+    const requestPayload = {
+      instagram_account_id: client.meta_config?.instagram_account_id,
+      image_url: heroImg,
+      caption: copy.caption || copy.primary_text || '',
+      hashtags: copy.hashtags || [],
+      variant_id: variant.id,
+      entity_id: batch.entity_id,
+      client_id: entity.client_id,
+      platform: 'instagram',
+      mode: publishMode,
+      requested_at: new Date().toISOString(),
+    };
+
     const result = await publishToInstagram(client, variant);
     await store.addPublishAction({
       id: require('uuid').v4(), creative_variant_id: variant.id, platform: 'instagram',
-      publish_mode: 'live', status: 'published', external_object_id: result.id,
-      request_json: {}, response_json: result, published_at: new Date().toISOString(),
+      publish_mode: publishMode, status: 'published', external_object_id: result.id,
+      request_json: requestPayload, response_json: result, published_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     });
     res.json({ success: true, post_id: result.id });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err: any) {
+    // Record failed publish attempt for auditability
+    const variant = await store.getVariant(paramId(req));
+    if (variant) {
+      await store.addPublishAction({
+        id: require('uuid').v4(), creative_variant_id: variant.id, platform: 'instagram',
+        publish_mode: req.body.mode || 'live', status: 'failed',
+        request_json: { error: err.message, variant_id: variant.id, requested_at: new Date().toISOString() },
+        response_json: {}, created_at: new Date().toISOString(),
+      });
+    }
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Social connection status
@@ -943,6 +1021,313 @@ app.post('/api/clients/:id/disconnect/:platform', async (req, res) => {
     res.json({ success: true });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
+
+// ── Service Status (public read, safe) ──
+
+app.get('/api/services/status', async (_req, res) => {
+  res.json({
+    image_ai: { configured: imageAi.isConfigured(), provider: process.env.IMAGE_AI_PROVIDER || 'openai' },
+    video_ai: { configured: videoAi.isConfigured(), provider: process.env.VIDEO_AI_PROVIDER || 'runway' },
+    canva: { configured: canva.isConfigured() },
+  });
+});
+
+// ── Image AI triggers ──
+
+app.post('/api/generate/image/:variantId', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    if (!imageAi.isConfigured()) return res.status(503).json({ error: 'Image generation service not configured. Contact your administrator.' });
+
+    const variant = await store.getVariant(paramId(req));
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+
+    const batches = await store.getBatches();
+    const batch = batches.find(b => b.id === variant.batch_id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity) return res.status(404).json({ error: 'Entity not found' });
+    const snapshot = entity.current_snapshot_id ? await store.getSnapshot(entity.current_snapshot_id) : undefined;
+    if (!snapshot) return res.status(400).json({ error: 'No snapshot for entity' });
+
+    const platformSize = (req.body.platform_size || `${variant.platform}_feed`) as imageAi.PlatformSize;
+    const images = await imageAi.generateAdImage(snapshot.normalized_payload, variant.copy_json, platformSize);
+
+    // Store generated URLs in variant's media_plan
+    const mediaPlan = { ...variant.media_plan_json } as Record<string, unknown>;
+    mediaPlan.ai_generated_images = images.map(img => ({
+      url: img.url,
+      b64: !!img.b64_data,
+      width: img.width,
+      height: img.height,
+      provider: img.provider,
+      model: img.model,
+      generation_id: img.generation_id,
+    }));
+    await store.updateVariant(variant.id, { media_plan_json: mediaPlan });
+
+    res.json({ success: true, images: images.map(i => ({ url: i.url, width: i.width, height: i.height, provider: i.provider })) });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.post('/api/generate/image/batch/:batchId', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    if (!imageAi.isConfigured()) return res.status(503).json({ error: 'Image AI not configured' });
+
+    const variants = await store.getVariants(paramId(req));
+    if (variants.length === 0) return res.status(404).json({ error: 'No variants in batch' });
+
+    const batch = (await store.getBatches()).find(b => b.id === paramId(req));
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity?.current_snapshot_id) return res.status(400).json({ error: 'No snapshot' });
+    const snapshot = await store.getSnapshot(entity.current_snapshot_id);
+    if (!snapshot) return res.status(400).json({ error: 'Snapshot not found' });
+
+    const results: Array<{ variant_id: string; platform: string; images: number; error?: string }> = [];
+    for (const variant of variants) {
+      try {
+        const sizeKey = `${variant.platform}_feed` as imageAi.PlatformSize;
+        const platformSize = sizeKey in imageAi.PLATFORM_SIZES ? sizeKey : 'facebook_feed' as imageAi.PlatformSize;
+        const images = await imageAi.generateAdImage(snapshot.normalized_payload, variant.copy_json, platformSize);
+        const mediaPlan = { ...variant.media_plan_json } as Record<string, unknown>;
+        mediaPlan.ai_generated_images = images.map(img => ({
+          url: img.url, width: img.width, height: img.height,
+          provider: img.provider, model: img.model, generation_id: img.generation_id,
+        }));
+        await store.updateVariant(variant.id, { media_plan_json: mediaPlan });
+        results.push({ variant_id: variant.id, platform: variant.platform, images: images.length });
+      } catch (err: any) {
+        results.push({ variant_id: variant.id, platform: variant.platform, images: 0, error: err.message });
+      }
+    }
+    res.json({ success: true, results });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ── Video AI triggers ──
+
+app.post('/api/generate/video/:variantId', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    if (!videoAi.isConfigured()) return res.status(503).json({ error: 'Video generation service not configured. Contact your administrator.' });
+
+    const variant = await store.getVariant(paramId(req));
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+
+    const mediaPlan = variant.media_plan_json as Record<string, unknown>;
+    const timeline = mediaPlan.reel_timeline as videoAi.ReelTimeline | undefined;
+
+    const batches = await store.getBatches();
+    const batch = batches.find(b => b.id === variant.batch_id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity?.current_snapshot_id) return res.status(400).json({ error: 'No snapshot' });
+    const snapshot = await store.getSnapshot(entity.current_snapshot_id);
+    if (!snapshot) return res.status(400).json({ error: 'Snapshot not found' });
+
+    let result: videoAi.VideoCompositeResult;
+    if (timeline) {
+      result = await videoAi.generateAdVideo(snapshot.normalized_payload, timeline, req.body.template_id);
+    } else {
+      // No timeline: animate the hero image
+      const heroImage = (mediaPlan.hero_image as string) || ((mediaPlan.selected_images as string[]) ?? [])[0];
+      if (!heroImage) return res.status(400).json({ error: 'No source image or reel timeline for video generation' });
+      const title = String(snapshot.normalized_payload.title_he || snapshot.normalized_payload.title_en || '');
+      const clip = await videoAi.animateImage(heroImage, `Cinematic real estate tour of ${title}. Slow camera movement.`);
+      result = { url: clip.url, duration_sec: clip.duration_sec, provider: clip.provider, render_id: clip.generation_id };
+    }
+
+    // Store in variant
+    const updatedPlan = { ...mediaPlan };
+    updatedPlan.ai_generated_video = {
+      url: result.url,
+      duration_sec: result.duration_sec,
+      thumbnail_url: result.thumbnail_url ?? null,
+      provider: result.provider,
+      render_id: result.render_id,
+      generated_at: new Date().toISOString(),
+    };
+    await store.updateVariant(variant.id, { media_plan_json: updatedPlan });
+
+    res.json({ success: true, video: { url: result.url, duration_sec: result.duration_sec, provider: result.provider } });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.post('/api/generate/video/batch/:batchId', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    if (!videoAi.isConfigured()) return res.status(503).json({ error: 'Video AI not configured' });
+
+    const variants = await store.getVariants(paramId(req));
+    const videoVariants = variants.filter(v => {
+      const mp = v.media_plan_json as Record<string, unknown>;
+      return mp.reel_timeline || mp.video_ad || ((mp.videos as string[]) ?? []).length > 0;
+    });
+    if (videoVariants.length === 0) return res.status(400).json({ error: 'No video-eligible variants in batch' });
+
+    const batch = (await store.getBatches()).find(b => b.id === paramId(req));
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity?.current_snapshot_id) return res.status(400).json({ error: 'No snapshot' });
+    const snapshot = await store.getSnapshot(entity.current_snapshot_id);
+    if (!snapshot) return res.status(400).json({ error: 'Snapshot not found' });
+
+    const results: Array<{ variant_id: string; platform: string; success: boolean; error?: string }> = [];
+    for (const variant of videoVariants) {
+      try {
+        const mediaPlan = variant.media_plan_json as Record<string, unknown>;
+        const timeline = mediaPlan.reel_timeline as videoAi.ReelTimeline | undefined;
+        let video: videoAi.VideoCompositeResult;
+        if (timeline) {
+          video = await videoAi.generateAdVideo(snapshot.normalized_payload, timeline, req.body.template_id);
+        } else {
+          const heroImage = (mediaPlan.hero_image as string) || ((mediaPlan.selected_images as string[]) ?? [])[0];
+          if (!heroImage) { results.push({ variant_id: variant.id, platform: variant.platform, success: false, error: 'No source image' }); continue; }
+          const clip = await videoAi.animateImage(heroImage, `Cinematic real estate property tour. Smooth movement.`);
+          video = { url: clip.url, duration_sec: clip.duration_sec, provider: clip.provider, render_id: clip.generation_id };
+        }
+        const updatedPlan = { ...mediaPlan };
+        updatedPlan.ai_generated_video = { url: video.url, duration_sec: video.duration_sec, provider: video.provider, render_id: video.render_id, generated_at: new Date().toISOString() };
+        await store.updateVariant(variant.id, { media_plan_json: updatedPlan });
+        results.push({ variant_id: variant.id, platform: variant.platform, success: true });
+      } catch (err: any) {
+        results.push({ variant_id: variant.id, platform: variant.platform, success: false, error: err.message });
+      }
+    }
+    res.json({ success: true, results });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ── Canva triggers ──
+
+app.get('/api/canva/connect/:clientId', async (req, res) => {
+  try {
+    if (!canva.isConfigured()) return res.status(503).json({ error: 'Canva integration not configured. Contact your administrator.' });
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/canva/callback`;
+    const url = canva.getCanvaAuthUrl(paramId(req), redirectUri);
+    res.json({ url });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/canva/callback', async (req, res) => {
+  try {
+    const { code, state: rawState } = req.query;
+    const clientId = validateStateId(rawState);
+    if (!code || !clientId) return res.status(400).send('Missing or invalid code/state');
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/canva/callback`;
+    const tokens = await canva.exchangeCanvaCode(code as string, redirectUri);
+
+    const client = await store.getClient(clientId);
+    if (!client) return res.status(404).send('Client not found');
+
+    (client as any).canva_config = tokens;
+    client.updated_at = new Date().toISOString();
+    await store.upsertClient(client);
+
+    res.redirect(`/dashboard/client-form.html?id=${clientId}&canva=connected`);
+  } catch (err: any) {
+    const safeId = validateStateId(req.query.state) || '';
+    res.redirect(`/dashboard/client-form.html?id=${safeId}&canva=error&msg=${encodeURIComponent(err.message)}`);
+  }
+});
+
+app.get('/api/canva/templates/:clientId', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    if (!canva.isConfigured()) return res.status(503).json({ error: 'Canva not configured' });
+    const client = await store.getClient(paramId(req));
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    if (!canva.isClientConnected(client)) return res.status(400).json({ error: 'Canva not connected for this client' });
+    res.json(await canva.listTemplates(client));
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/canva/design/:variantId', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    if (!canva.isConfigured()) return res.status(503).json({ error: 'Canva not configured' });
+
+    const variant = await store.getVariant(paramId(req));
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+    const templateId = req.body.template_id;
+    if (!templateId) return res.status(400).json({ error: 'template_id is required' });
+
+    const batches = await store.getBatches();
+    const batch = batches.find(b => b.id === variant.batch_id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity?.client_id) return res.status(400).json({ error: 'No client' });
+    const client = await store.getClient(entity.client_id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    if (!canva.isClientConnected(client)) return res.status(400).json({ error: 'Canva not connected' });
+
+    const snapshot = entity.current_snapshot_id ? await store.getSnapshot(entity.current_snapshot_id) : undefined;
+    if (!snapshot) return res.status(400).json({ error: 'No snapshot' });
+
+    const mediaPlan = variant.media_plan_json as Record<string, unknown>;
+    const mediaUrls = (mediaPlan.selected_images as string[]) ?? [];
+    const bindings = canva.mapPropertyToBindings(snapshot.normalized_payload, variant.copy_json, mediaUrls);
+
+    const title = String(snapshot.normalized_payload.title_he || snapshot.normalized_payload.title_en || 'Ad');
+    const design = await canva.createDesignFromTemplate(client, templateId, `${title} - ${variant.platform}`, bindings);
+
+    // Store Canva design info in variant
+    const updatedPlan = { ...mediaPlan };
+    updatedPlan.canva_design = {
+      design_id: design.id,
+      edit_url: design.edit_url,
+      thumbnail_url: design.thumbnail_url ?? null,
+      template_id: templateId,
+      created_at: new Date().toISOString(),
+    };
+    await store.updateVariant(variant.id, { media_plan_json: updatedPlan });
+
+    res.json({ success: true, design });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.post('/api/canva/export/:variantId', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    if (!canva.isConfigured()) return res.status(503).json({ error: 'Canva not configured' });
+
+    const variant = await store.getVariant(paramId(req));
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+
+    const mediaPlan = variant.media_plan_json as Record<string, unknown>;
+    const canvaDesign = mediaPlan.canva_design as { design_id: string } | undefined;
+    if (!canvaDesign?.design_id) return res.status(400).json({ error: 'No Canva design for this variant. Create one first via POST /api/canva/design/:variantId' });
+
+    const batches = await store.getBatches();
+    const batch = batches.find(b => b.id === variant.batch_id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    const entity = await store.getEntity(batch.entity_id);
+    if (!entity?.client_id) return res.status(400).json({ error: 'No client' });
+    const client = await store.getClient(entity.client_id);
+    if (!client || !canva.isClientConnected(client)) return res.status(400).json({ error: 'Canva not connected' });
+
+    const format = (req.body.format || 'png') as 'png' | 'jpg' | 'pdf';
+    const exportResult = await canva.startExport(client, canvaDesign.design_id, format);
+    const final = await canva.waitForExport(client, exportResult.export_id, req.body.timeout_ms || 60000);
+
+    if (final.status === 'failed') return res.status(500).json({ success: false, error: 'Canva export failed' });
+
+    // Store exported URLs in variant
+    const updatedPlan = { ...mediaPlan };
+    (updatedPlan.canva_design as any).exported_urls = final.urls;
+    (updatedPlan.canva_design as any).exported_at = new Date().toISOString();
+    (updatedPlan.canva_design as any).export_format = format;
+    await store.updateVariant(variant.id, { media_plan_json: updatedPlan });
+
+    res.json({ success: true, urls: final.urls, format });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.get('/api/clients/:id/canva-status', async (req, res) => {
+  const client = await store.getClient(paramId(req));
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+  res.json({
+    platform_configured: canva.isConfigured(),
+    client_connected: canva.isClientConnected(client),
+  });
+});
+
+// ── Campaign Reset ──
 
 app.post('/api/reset-campaigns', requireRole('admin'), async (_req: AuthRequest, res) => {
   try {

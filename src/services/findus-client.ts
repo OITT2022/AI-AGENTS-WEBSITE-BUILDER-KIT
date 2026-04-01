@@ -2,6 +2,7 @@ import { PropertyPayloadSchema } from '../models/schemas';
 import { ingestProperty, ingestProject, IngestResult } from './ingest';
 import { runDailyPipeline } from './pipeline';
 import { store } from '../db/store';
+import * as log from '../lib/logger';
 
 export interface FindUsConfig {
   api_token: string;
@@ -84,13 +85,86 @@ interface FindUsProject {
   city?: string;
   country?: string;
   description?: string;
+  features?: string[];
+  videoUrl?: string;
   images?: Array<{ url: string; isPrimary?: boolean }>;
   documents?: Array<{ url: string; category: string }>;
   properties?: FindUsProperty[];
   [key: string]: unknown;
 }
 
-function mapFindUsProperty(fp: FindUsProperty): Record<string, unknown> {
+// ── Marketing-flag adapters: derive from real API data instead of hardcoding ──
+
+function deriveMarketingFlags(
+  fp: FindUsProperty,
+  previousSnapshot?: Record<string, unknown>,
+): Record<string, unknown> {
+  const images = fp.images ?? [];
+  const hasHero = images.some(i => i.isPrimary) || images.length > 0;
+  const hasVideo = !!fp.videoUrl;
+  const hasPrice = fp.price != null;
+  const hasCity = !!fp.city;
+  const hasTitle = !!fp.title;
+
+  // campaign_ready: entity must have minimum viable data per docs/04-api-spec.md
+  const campaign_ready = hasTitle && hasPrice && hasCity && (hasHero || images.length > 0);
+
+  // priority_score: derived from data completeness (0-100)
+  let priority_score = 0;
+  if (hasTitle) priority_score += 15;
+  if (hasPrice) priority_score += 15;
+  if (hasCity) priority_score += 10;
+  if (hasHero) priority_score += 15;
+  if (images.length >= 3) priority_score += 10;
+  if (hasVideo) priority_score += 15;
+  if (fp.rooms != null) priority_score += 5;
+  if (fp.areaSqm != null) priority_score += 5;
+  if ((fp.features ?? []).length > 0) priority_score += 5;
+  if (fp.description) priority_score += 5;
+
+  // target_audiences: infer from property attributes
+  const target_audiences: string[] = [];
+  const price = typeof fp.price === 'string' ? parseFloat(fp.price) || 0 : (fp.price ?? 0);
+  if (price > 0 && price <= 300000) target_audiences.push('investors');
+  if (price > 300000) target_audiences.push('families');
+  if ((fp.rooms ?? 0) >= 4) target_audiences.push('families');
+  if ((fp.rooms ?? 0) <= 2 && price <= 200000) target_audiences.push('investors');
+  if (target_audiences.length === 0) target_audiences.push('general');
+  // Deduplicate
+  const uniqueAudiences = [...new Set(target_audiences)];
+
+  // angles: infer from available data
+  const angles: string[] = [];
+  if (fp.city) angles.push('location');
+  if (price > 0 && price <= 250000) angles.push('value');
+  if (hasVideo || images.length >= 5) angles.push('lifestyle');
+  if (fp.project?.id) angles.push('investment');
+  if (angles.length === 0) angles.push('location');
+
+  // is_new: true if no previous snapshot exists
+  const is_new = !previousSnapshot;
+
+  // price_changed: compare with previous snapshot
+  const price_changed = previousSnapshot != null && previousSnapshot.price_amount != null
+    && price !== previousSnapshot.price_amount;
+
+  // urgent: price drop or newly listed
+  const urgent = price_changed || is_new;
+
+  return {
+    campaign_ready,
+    priority_score,
+    target_audiences: uniqueAudiences,
+    angles,
+    urgent,
+    is_new,
+    price_changed,
+    video_preferred: hasVideo,
+    languages: ['he', 'en'],
+  };
+}
+
+function mapFindUsProperty(fp: FindUsProperty, previousSnapshot?: Record<string, unknown>, baseUrl?: string): Record<string, unknown> {
   const images = fp.images ?? [];
   const primaryImage = images.find(i => i.isPrimary)?.url ?? images[0]?.url;
   const gallery = images.map(i => i.url);
@@ -107,7 +181,7 @@ function mapFindUsProperty(fp: FindUsProperty): Record<string, unknown> {
       short: { he: fp.shortDescription || fp.description || '', en: fp.shortDescription || fp.description || '' },
       long: { he: fp.description || '', en: fp.description || '' },
     },
-    country: fp.country ?? 'Cyprus',
+    country: fp.country ?? '',
     city: fp.city ?? '',
     area: fp.area || fp.address || '',
     project_id: fp.project?.id,
@@ -126,25 +200,54 @@ function mapFindUsProperty(fp: FindUsProperty): Record<string, unknown> {
       videos: fp.videoUrl ? [fp.videoUrl] : [],
       floorplans: (fp.documents ?? []).filter(d => d.category === 'plan').map(d => d.url),
     },
-    marketing: {
-      campaign_ready: true,
-      priority_score: 70,
-      target_audiences: ['investors', 'families'],
-      angles: ['location', 'value'],
-      urgent: false,
-      is_new: false,
-      price_changed: false,
-      video_preferred: !!fp.videoUrl,
-      languages: ['he', 'en'],
-    },
-    seo: { url: fp.websiteUrl || `https://www.findus.co.il/property/${fp.id}` },
+    marketing: deriveMarketingFlags(fp, previousSnapshot),
+    seo: { url: fp.websiteUrl || (baseUrl ? `${baseUrl.replace(/\/api\/v1$/, '')}/property/${fp.id}` : '') },
     updated_at: new Date().toISOString(),
   };
 }
 
-function mapFindUsProject(proj: FindUsProject): Record<string, unknown> {
+/** Derive features from project's child properties when the project itself has none. */
+function deriveProjectFeatures(proj: FindUsProject): string[] {
+  const featureSet = new Set<string>();
+  for (const p of proj.properties ?? []) {
+    for (const f of p.features ?? []) featureSet.add(f);
+  }
+  return [...featureSet].slice(0, 10);
+}
+
+/** Collect video URLs from project's child properties. */
+function collectProjectVideos(proj: FindUsProject): string[] {
+  const videos: string[] = [];
+  for (const p of proj.properties ?? []) {
+    if (p.videoUrl) videos.push(p.videoUrl);
+  }
+  return videos;
+}
+
+function mapFindUsProject(proj: FindUsProject, baseUrl?: string): Record<string, unknown> {
   const images = proj.images ?? [];
   const primaryImage = images.find(i => i.isPrimary)?.url ?? images[0]?.url;
+
+  const hasTitle = !!proj.title;
+  const hasCity = !!proj.city;
+  const hasImages = images.length > 0;
+
+  // Derive marketing flags from real project data
+  let priority_score = 0;
+  if (hasTitle) priority_score += 20;
+  if (hasCity) priority_score += 15;
+  if (hasImages) priority_score += 15;
+  if (images.length >= 3) priority_score += 10;
+  if (proj.developerName) priority_score += 10;
+  if (proj.totalUnits != null) priority_score += 10;
+  if (proj.completionDate) priority_score += 10;
+  if (proj.description) priority_score += 10;
+
+  const angles: string[] = [];
+  if (proj.city) angles.push('location');
+  if (proj.totalUnits != null) angles.push('investment');
+  if (proj.completionDate) angles.push('new_development');
+  if (angles.length === 0) angles.push('location');
 
   return {
     id: proj.id,
@@ -160,10 +263,10 @@ function mapFindUsProject(proj: FindUsProject): Record<string, unknown> {
         en: proj.developerName ? `Project by ${proj.developerName}` : '',
       },
     },
-    country: proj.country ?? 'Cyprus',
+    country: proj.country ?? '',
     city: proj.city ?? '',
     total_units: proj.totalUnits,
-    features: [],
+    features: proj.features ?? deriveProjectFeatures(proj),
     delivery: proj.completionDate ? {
       status: 'under_construction',
       expected_date: proj.completionDate,
@@ -171,16 +274,16 @@ function mapFindUsProject(proj: FindUsProject): Record<string, unknown> {
     media: {
       hero_image: primaryImage,
       gallery: images.map(i => i.url),
-      videos: [],
+      videos: proj.videoUrl ? [proj.videoUrl] : collectProjectVideos(proj),
     },
     marketing: {
-      campaign_ready: true,
-      priority_score: 75,
+      campaign_ready: hasTitle && hasCity && hasImages,
+      priority_score,
       target_audiences: ['investors'],
-      angles: ['investment', 'location'],
+      angles,
       languages: ['he', 'en'],
     },
-    seo: { url: `https://www.findus.co.il/project/${proj.id}` },
+    seo: { url: baseUrl ? `${baseUrl.replace(/\/api\/v1$/, '')}/project/${proj.id}` : '' },
     updated_at: new Date().toISOString(),
   };
 }
@@ -200,11 +303,16 @@ export interface SyncResult {
   errors: string[];
 }
 
-export async function fetchProperties(config: FindUsConfig): Promise<FindUsProperty[]> {
+/**
+ * Fetch properties from FindUS API.
+ * @param since — ISO timestamp for incremental sync (only fetch updated after this point)
+ */
+export async function fetchProperties(config: FindUsConfig, since?: string): Promise<FindUsProperty[]> {
   const params = new URLSearchParams();
   params.set('limit', '100');
   if (config.filters.city) params.set('city', config.filters.city);
   if (config.filters.propertyType) params.set('propertyType', config.filters.propertyType);
+  if (since) params.set('updated_since', since);
 
   const allProperties: FindUsProperty[] = [];
   let page = 1;
@@ -222,8 +330,15 @@ export async function fetchProperties(config: FindUsConfig): Promise<FindUsPrope
   return allProperties;
 }
 
-export async function fetchProjects(config: FindUsConfig): Promise<FindUsProject[]> {
-  const result = await apiFetch('/projects', config);
+/**
+ * Fetch projects from FindUS API.
+ * @param since — ISO timestamp for incremental sync
+ */
+export async function fetchProjects(config: FindUsConfig, since?: string): Promise<FindUsProject[]> {
+  const params = new URLSearchParams();
+  if (since) params.set('updated_since', since);
+  const endpoint = params.toString() ? `/projects?${params}` : '/projects';
+  const result = await apiFetch(endpoint, config);
   return result.data ?? result ?? [];
 }
 
@@ -235,42 +350,71 @@ export async function syncFromFindUs(runPipeline: boolean = true, clientId?: str
   const propertyResults: IngestResult[] = [];
   const projectResults: IngestResult[] = [];
 
+  // Track this sync run in source_sync_runs
+  const { v4: uuidv4 } = await import('uuid');
+  const syncRunId = uuidv4();
+  const lastCheckpoint = await store.getLastSyncCheckpoint();
+  await store.createSyncRun(syncRunId, lastCheckpoint ?? undefined);
+  const syncLog = log.child({ run_id: syncRunId, client_id: clientId });
+
+  syncLog.info('sync.start', lastCheckpoint
+    ? `Incremental sync since ${lastCheckpoint}`
+    : 'Full sync (no prior checkpoint)');
+
   let properties: FindUsProperty[] = [];
   let projects: FindUsProject[] = [];
 
-  // Fetch properties
+  // Fetch properties (incremental when checkpoint exists, full otherwise)
   try {
-    properties = await fetchProperties(config);
+    properties = await fetchProperties(config, lastCheckpoint ?? undefined);
+    syncLog.info('sync.fetch', `Fetched ${properties.length} properties`);
   } catch (err: any) {
     errors.push(`Properties fetch failed: ${err.message}`);
+    syncLog.error('sync.fetch', `Properties fetch failed: ${err.message}`);
   }
 
   // Fetch projects
   try {
-    projects = await fetchProjects(config);
+    projects = await fetchProjects(config, lastCheckpoint ?? undefined);
+    syncLog.info('sync.fetch', `Fetched ${projects.length} projects`);
   } catch (err: any) {
     errors.push(`Projects fetch failed: ${err.message}`);
+    syncLog.error('sync.fetch', `Projects fetch failed: ${err.message}`);
   }
 
-  // Ingest properties
+  // Ingest properties — pass previous snapshot so marketing flags are derived from real delta
   for (const fp of properties) {
     try {
-      const mapped = mapFindUsProperty(fp);
+      const existing = await store.getEntityBySourceId('property', fp.id);
+      let previousPayload: Record<string, unknown> | undefined;
+      if (existing) {
+        const snapshots = await store.getSnapshots(existing.id);
+        previousPayload = snapshots[0]?.normalized_payload;
+      }
+      const mapped = mapFindUsProperty(fp, previousPayload, config.base_url);
       const result = await ingestProperty(mapped, clientId);
       propertyResults.push(result);
+      syncLog.info('sync.ingest', `Property ${fp.id}: ${result.is_new ? 'new' : result.changed ? result.change_type : 'unchanged'}`, {
+        source_entity_id: fp.id, entity_id: result.entity_id,
+      });
     } catch (err: any) {
       errors.push(`Property ${fp.id}: ${err.message}`);
+      syncLog.error('sync.ingest', `Property ${fp.id} failed: ${err.message}`, { source_entity_id: fp.id });
     }
   }
 
   // Ingest projects
   for (const proj of projects) {
     try {
-      const mapped = mapFindUsProject(proj);
+      const mapped = mapFindUsProject(proj, config.base_url);
       const result = await ingestProject(mapped, clientId);
       projectResults.push(result);
+      syncLog.info('sync.ingest', `Project ${proj.id}: ${result.is_new ? 'new' : result.changed ? result.change_type : 'unchanged'}`, {
+        source_entity_id: proj.id, entity_id: result.entity_id,
+      });
     } catch (err: any) {
       errors.push(`Project ${proj.id}: ${err.message}`);
+      syncLog.error('sync.ingest', `Project ${proj.id} failed: ${err.message}`, { source_entity_id: proj.id });
     }
   }
 
@@ -288,6 +432,21 @@ export async function syncFromFindUs(runPipeline: boolean = true, clientId?: str
 
   const syncedAt = new Date().toISOString();
   await saveConfig({ last_sync_at: syncedAt });
+
+  // Finalize sync run tracking
+  const stats = {
+    properties_fetched: properties.length,
+    projects_fetched: projects.length,
+    properties_ingested: propertyResults.length,
+    projects_ingested: projectResults.length,
+    new_entities: propertyResults.filter(r => r.is_new).length + projectResults.filter(r => r.is_new).length,
+    changed_entities: propertyResults.filter(r => r.changed).length + projectResults.filter(r => r.changed).length,
+    errors: errors.length,
+  };
+  const syncStatus = errors.length > 0 && (propertyResults.length + projectResults.length) === 0 ? 'failed' : 'completed';
+  await store.finishSyncRun(syncRunId, syncStatus, stats, errors.length > 0 ? errors.join('; ') : undefined);
+
+  syncLog.info('sync.complete', `Sync ${syncStatus}: ${stats.properties_ingested} properties, ${stats.projects_ingested} projects, ${stats.new_entities} new, ${stats.changed_entities} changed, ${stats.errors} errors`);
 
   return {
     properties_fetched: properties.length,

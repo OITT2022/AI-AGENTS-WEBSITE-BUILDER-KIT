@@ -470,6 +470,17 @@ export async function initDatabase(): Promise<void> {
       synced_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(client_id, file_id))`,
     `CREATE INDEX IF NOT EXISTS idx_client_drive_media_client ON client_drive_media(client_id)`,
     `CREATE INDEX IF NOT EXISTS idx_client_drive_media_type ON client_drive_media(client_id, media_type)`,
+    // Performance indexes for scoring, creative, and publishing queries
+    `CREATE INDEX IF NOT EXISTS idx_entity_snapshots_entity ON entity_snapshots(entity_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_creative_batches_entity ON creative_batches(entity_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_creative_batches_client ON creative_batches(client_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_creative_variants_batch ON creative_variants(batch_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_publish_actions_variant ON publish_actions(creative_variant_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_publish_actions_status ON publish_actions(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_performance_metrics_action ON performance_metrics(publish_action_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_approval_tasks_variant ON approval_tasks(creative_variant_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_approval_tasks_status ON approval_tasks(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_qa_reviews_variant ON qa_reviews(creative_variant_id)`,
   ];
 
   for (const stmt of migrations) {
@@ -552,6 +563,134 @@ export async function getDriveVideoCount(clientId: string): Promise<number> {
   return parseInt(row?.count ?? '0', 10);
 }
 
+// ── Scoring adapters: real data for history + audience + suppression ──
+
+/** Recent publish count for an entity (last N days). Used for overuse suppression. */
+export async function getRecentPublishCount(entityId: string, days: number = 7): Promise<number> {
+  const row = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM publish_actions pa
+     JOIN creative_variants cv ON cv.id = pa.creative_variant_id
+     JOIN creative_batches cb ON cb.id = cv.batch_id
+     WHERE cb.entity_id = $1 AND pa.status = 'published'
+       AND pa.published_at > NOW() - INTERVAL '1 day' * $2`,
+    [entityId, days]
+  );
+  return parseInt(row?.count ?? '0', 10);
+}
+
+/** Average CTR for an entity from published campaigns. Returns null if no data. */
+export async function getEntityPerformance(entityId: string): Promise<{ avg_ctr: number; total_impressions: number; total_clicks: number; campaign_count: number } | null> {
+  const row = await queryOne<{ avg_ctr: string; total_impressions: string; total_clicks: string; campaign_count: string }>(
+    `SELECT
+       COALESCE(AVG(pm.ctr), 0) as avg_ctr,
+       COALESCE(SUM(pm.impressions), 0) as total_impressions,
+       COALESCE(SUM(pm.clicks), 0) as total_clicks,
+       COUNT(DISTINCT pa.id) as campaign_count
+     FROM publish_actions pa
+     JOIN creative_variants cv ON cv.id = pa.creative_variant_id
+     JOIN creative_batches cb ON cb.id = cv.batch_id
+     LEFT JOIN performance_metrics pm ON pm.publish_action_id = pa.id
+     WHERE cb.entity_id = $1 AND pa.status = 'published'`,
+    [entityId]
+  );
+  if (!row || parseInt(row.campaign_count) === 0) return null;
+  return {
+    avg_ctr: parseFloat(row.avg_ctr),
+    total_impressions: parseInt(row.total_impressions),
+    total_clicks: parseInt(row.total_clicks),
+    campaign_count: parseInt(row.campaign_count),
+  };
+}
+
+/** Average CTR for a given audience segment across all campaigns. Returns null if no data. */
+export async function getAudiencePerformance(audience: string): Promise<{ avg_ctr: number; campaign_count: number } | null> {
+  const row = await queryOne<{ avg_ctr: string; campaign_count: string }>(
+    `SELECT
+       COALESCE(AVG(pm.ctr), 0) as avg_ctr,
+       COUNT(DISTINCT pa.id) as campaign_count
+     FROM publish_actions pa
+     JOIN creative_variants cv ON cv.id = pa.creative_variant_id
+     JOIN creative_batches cb ON cb.id = cv.batch_id
+     LEFT JOIN performance_metrics pm ON pm.publish_action_id = pa.id
+     WHERE cb.audience = $1 AND pa.status = 'published'`,
+    [audience]
+  );
+  if (!row || parseInt(row.campaign_count) === 0) return null;
+  return {
+    avg_ctr: parseFloat(row.avg_ctr),
+    campaign_count: parseInt(row.campaign_count),
+  };
+}
+
+/** Dashboard summary using SQL aggregates instead of fetching all rows. */
+export async function getDashboardSummary(): Promise<Record<string, number>> {
+  const rows = await query<Record<string, string>>(`
+    SELECT
+      (SELECT COUNT(*) FROM source_entities)::int as total_entities,
+      (SELECT COUNT(*) FROM source_entities WHERE campaign_ready = true)::int as campaign_ready,
+      (SELECT COUNT(*) FROM campaign_candidates)::int as total_candidates,
+      (SELECT COUNT(*) FROM campaign_candidates WHERE selected = true)::int as selected_candidates,
+      (SELECT COUNT(*) FROM creative_batches)::int as total_batches,
+      (SELECT COUNT(*) FROM creative_variants)::int as total_variants,
+      (SELECT COUNT(*) FROM approval_tasks WHERE status = 'pending')::int as approvals_pending,
+      (SELECT COUNT(*) FROM approval_tasks WHERE status = 'approved')::int as approvals_approved,
+      (SELECT COUNT(*) FROM approval_tasks WHERE status = 'rejected')::int as approvals_rejected,
+      (SELECT COUNT(*) FROM qa_reviews WHERE status = 'pass')::int as qa_pass,
+      (SELECT COUNT(*) FROM qa_reviews WHERE status = 'warn')::int as qa_warn,
+      (SELECT COUNT(*) FROM qa_reviews WHERE status = 'fail')::int as qa_fail,
+      (SELECT COUNT(*) FROM publish_actions WHERE status = 'published')::int as total_published,
+      (SELECT COUNT(*) FROM publish_actions WHERE status = 'failed')::int as publish_failed,
+      (SELECT COUNT(*) FROM publish_actions WHERE status = 'published' AND platform = 'facebook')::int as published_facebook,
+      (SELECT COUNT(*) FROM publish_actions WHERE status = 'published' AND platform = 'instagram')::int as published_instagram,
+      (SELECT COUNT(*) FROM publish_actions WHERE status = 'published' AND platform = 'tiktok')::int as published_tiktok,
+      (SELECT COUNT(*) FROM performance_metrics)::int as total_metrics_records,
+      COALESCE((SELECT SUM(impressions) FROM performance_metrics), 0)::int as total_impressions,
+      COALESCE((SELECT SUM(clicks) FROM performance_metrics), 0)::int as total_clicks,
+      COALESCE((SELECT SUM(spend) FROM performance_metrics), 0)::numeric as total_spend,
+      COALESCE((SELECT SUM(leads) FROM performance_metrics), 0)::int as total_leads
+  `);
+  const row = rows[0];
+  if (!row) return {};
+  const result: Record<string, number> = {};
+  for (const [key, val] of Object.entries(row)) {
+    result[key] = Number(val) || 0;
+  }
+  return result;
+}
+
+/** Check if a variant+platform combo was already published. Used for idempotency. */
+export async function getExistingPublish(variantId: string, platform: string): Promise<PublishAction | undefined> {
+  return queryOne<PublishAction>(
+    `SELECT * FROM publish_actions WHERE creative_variant_id = $1 AND platform = $2 AND status = 'published' LIMIT 1`,
+    [variantId, platform]
+  );
+}
+
+/** Create a source_sync_runs row at the start of a sync. */
+export async function createSyncRun(id: string, checkpointFrom?: string): Promise<void> {
+  await query(
+    `INSERT INTO source_sync_runs (id, started_at, checkpoint_from, status)
+     VALUES ($1, NOW(), $2, 'running')`,
+    [id, checkpointFrom ?? null]
+  );
+}
+
+/** Finish a source_sync_runs row. */
+export async function finishSyncRun(id: string, status: string, stats: Record<string, unknown>, error?: string): Promise<void> {
+  await query(
+    `UPDATE source_sync_runs SET finished_at = NOW(), checkpoint_to = NOW(), status = $2, stats_json = $3, error_text = $4 WHERE id = $1`,
+    [id, status, JSON.stringify(stats), error ?? null]
+  );
+}
+
+/** Get the last successful sync checkpoint. */
+export async function getLastSyncCheckpoint(): Promise<string | null> {
+  const row = await queryOne<{ checkpoint_to: string }>(
+    `SELECT checkpoint_to FROM source_sync_runs WHERE status = 'completed' ORDER BY finished_at DESC LIMIT 1`
+  );
+  return row?.checkpoint_to ?? null;
+}
+
 // Some files import { store } - provide a compatible wrapper
 export const store = {
   getEntities, getEntity, getEntityBySourceId, upsertEntity, getEntitiesByClient,
@@ -568,6 +707,8 @@ export const store = {
   getSessionByToken, addSession, deleteSession, deleteExpiredSessions,
   getClients, getClient, upsertClient, deleteClient,
   upsertDriveMedia, getDriveMediaByClient, getDriveMediaCount, getDriveVideoCount,
+  getRecentPublishCount, getEntityPerformance, getAudiencePerformance, getExistingPublish, getDashboardSummary,
+  createSyncRun, finishSyncRun, getLastSyncCheckpoint,
   getConfig, setConfig,
   initDatabase,
 };

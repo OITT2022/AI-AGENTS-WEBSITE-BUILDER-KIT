@@ -10,7 +10,41 @@ interface Violation { check: string; message: string; severity: 'error' | 'warni
 function checkFacts(v: CreativeVariant, src: Record<string, unknown>): Violation[] {
   const violations: Violation[] = [];
   const text = JSON.stringify(v.copy_json).toLowerCase();
+
+  // Check listing is still active
   if (src.status !== 'active') violations.push({ check: 'inactive_listing', message: `Status "${src.status}" not active`, severity: 'error' });
+
+  // Check price in copy matches source
+  const srcPrice = src.price_text as string | undefined;
+  const srcAmount = src.price_amount as number | undefined;
+  if (srcPrice || srcAmount) {
+    const copyText = JSON.stringify(v.copy_json);
+    // If source has a price, the copy must not contain a different price number
+    if (srcAmount != null) {
+      // Extract numbers from copy that look like prices (4+ digits)
+      const pricePattern = /[\d,]+(?:\.\d+)?/g;
+      const matches = copyText.match(pricePattern) ?? [];
+      for (const m of matches) {
+        const num = parseFloat(m.replace(/,/g, ''));
+        if (num >= 1000 && Math.abs(num - srcAmount) > 1 && num !== srcAmount) {
+          violations.push({ check: 'price_mismatch', message: `Copy contains "${m}" but source price is ${srcAmount}`, severity: 'error' });
+          break;
+        }
+      }
+    }
+  }
+
+  // Check city in copy matches source
+  const srcCity = (src.city as string ?? '').toLowerCase().trim();
+  if (srcCity) {
+    const copyCity = text;
+    // Check that copy doesn't mention a different well-known city while missing the source city
+    // Simple check: source city should appear somewhere in the copy
+    if (!copyCity.includes(srcCity)) {
+      violations.push({ check: 'city_missing', message: `Copy does not mention source city "${src.city}"`, severity: 'warning' });
+    }
+  }
+
   return violations;
 }
 

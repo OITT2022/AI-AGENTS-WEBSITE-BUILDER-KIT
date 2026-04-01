@@ -58,6 +58,8 @@
     .media-grid-item{position:relative;width:80px;height:60px;border-radius:6px;overflow:hidden;border:2px solid transparent;cursor:pointer;transition:all .15s}
     .media-grid-item.selected{border-color:var(--green)}.media-grid-item.selected::after{content:'\\2713';position:absolute;top:2px;right:4px;color:var(--green);font-size:14px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.8)}
     .media-grid-item img,.media-grid-item video{width:100%;height:100%;object-fit:cover}
+    .media-view-btn{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.6);color:#fff;border:none;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;padding:0;line-height:1}
+    .media-grid-item:hover .media-view-btn{opacity:1}
     .media-grid-item .vid-badge{position:absolute;bottom:2px;left:4px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;padding:1px 4px;border-radius:3px}
     .creative-preview{background:var(--bg);border-radius:8px;padding:14px;margin-top:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto}
     .creative-preview[contenteditable=true]{border:1px solid var(--border);cursor:text}
@@ -321,7 +323,6 @@ async function renderCreatives(el) {
         <span class="badge ${qb}">QA: ${qs}</span>
       </div>
       <div class="card-body">
-        ${renderMedia(media, vid)}
         ${renderMediaGrid(media, vid)}
         ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
         ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
@@ -379,7 +380,7 @@ function renderMediaGrid(mp, vid) {
   if (!mp) return '';
   const allImgs = (mp.gallery || []).filter(Boolean);
   const allVids = (mp.videos || []).filter(Boolean);
-  if (allImgs.length + allVids.length < 2) return '';
+  if (allImgs.length + allVids.length === 0) return '<div style="padding:12px;color:var(--text2);font-size:12px">No media available</div>';
   const selectedImgs = new Set((mp.selected_images || []).filter(Boolean));
   const selectedVid = mp.selected_video;
 
@@ -389,6 +390,7 @@ function renderMediaGrid(mp, vid) {
     const sel = selectedImgs.has(img);
     h += `<div class="media-grid-item ${sel?'selected':''}" onclick="toggleMediaItem(this,'${vid}','image','${esc(img)}')">
       <img src="${esc(img)}" loading="lazy" onerror="this.parentElement.remove()">
+      <button class="media-view-btn" onclick="event.stopPropagation();openLightbox('${esc(img)}')" title="View full size">&#128065;</button>
     </div>`;
   }
   for (const v of allVids) {
@@ -396,6 +398,7 @@ function renderMediaGrid(mp, vid) {
     h += `<div class="media-grid-item ${sel?'selected':''}" onclick="toggleMediaItem(this,'${vid}','video','${esc(v)}')">
       <div style="width:100%;height:100%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px">&#9654;</div>
       <span class="vid-badge">MP4</span>
+      <button class="media-view-btn" onclick="event.stopPropagation();window.open('${esc(v)}','_blank')" title="View video">&#128065;</button>
     </div>`;
   }
   h += `</div><button class="btn btn-sm" style="margin-top:6px" onclick="saveMediaSelection('${vid}')">Update Media</button></details>`;

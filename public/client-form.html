@@ -42,6 +42,16 @@
     @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
     .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
+    .drive-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;font-size:14px}
+    .drive-item:last-child{border-bottom:none}
+    .drive-item:hover{background:var(--surface2)}
+    .drive-item .folder-icon{font-size:18px;flex-shrink:0}
+    .drive-item .folder-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .drive-item .folder-meta{font-size:12px;color:var(--text2);flex-shrink:0}
+    .drive-item input[type="checkbox"]{width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+    .drive-crumb{cursor:pointer;color:var(--primary);text-decoration:none;font-weight:500}.drive-crumb:hover{text-decoration:underline}
+    .selected-tag{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;font-size:13px}
+    .selected-tag .remove{cursor:pointer;color:var(--red);font-weight:700;font-size:16px;line-height:1}
     @media(max-width:768px){.container{padding:16px}.form-row{grid-template-columns:1fr}}
   </style>
 </head>
@@ -127,29 +137,24 @@
         </button>
       </div>
 
-      <!-- Folder selection (shown after sign-in) -->
+      <!-- Folder browser (shown after sign-in) -->
       <div id="drive-picker-section" style="display:none">
         <div class="form-group">
-          <label>Media Folder</label>
-          <div style="display:flex;gap:10px">
-            <input type="text" id="f-drive-url" placeholder="Click 'Choose Folder' to open Google Drive" readonly style="flex:1;cursor:pointer" onclick="openPicker()">
-            <button class="btn btn-primary" onclick="openPicker()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              Choose Folder
-            </button>
+          <label>Browse & Select Folders</label>
+          <div id="drive-breadcrumb" style="display:flex;align-items:center;gap:4px;margin-bottom:10px;font-size:13px;color:var(--text2);flex-wrap:wrap"></div>
+          <div id="drive-folder-list" style="border:1px solid var(--border);border-radius:8px;max-height:320px;overflow-y:auto;background:var(--bg)">
+            <div style="padding:20px;text-align:center;color:var(--text2);font-size:13px">Loading folders...</div>
           </div>
-          <div class="hint">Opens Google Drive picker to select the folder with images and videos for this client</div>
+          <div class="hint">Click a folder to browse into it. Use checkboxes to select folders for this client's media.</div>
         </div>
 
-        <div id="selected-folder" style="display:none">
-          <div class="selected-folder">
-            <div class="info"><span style="font-size:20px">📁</span><span id="sel-folder-name">—</span></div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-sm" onclick="openPicker()">Change</button>
-              <button class="btn btn-sm" onclick="clearFolder()">Clear</button>
-            </div>
-          </div>
+        <!-- Selected folders summary -->
+        <div id="selected-folders-summary" style="display:none;margin-top:12px">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Selected Folders</label>
+          <div id="selected-folders-list" style="display:flex;flex-direction:column;gap:6px"></div>
+          <button class="btn btn-sm" onclick="clearAllFolders()" style="margin-top:10px">Clear All</button>
         </div>
+        <input type="hidden" id="f-drive-url" value="">
       </div>
     </div>
   </div>
@@ -202,20 +207,18 @@
 
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<!-- Google Picker API -->
-<script src="https://apis.google.com/js/api.js" async defer></script>
 
 <script src="/dashboard/shared.js"></script>
 <script>
-const GOOGLE_CLIENT_ID = '451825178687-53dlr1g9db2lsn3cq7rjc3oje5hog8lf.apps.googleusercontent.com';
-const GOOGLE_API_KEY = 'AIzaSyCb5OadUEVfmj0QEMX5Qcx1RgdxzeVD6LM';
+let GOOGLE_CLIENT_ID = '';
+let GOOGLE_API_KEY = '';
 const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 const params = new URLSearchParams(window.location.search);
 const editId = params.get('id');
-let selectedFolderId = '';
-let selectedFolderName = '';
+let selectedFolders = []; // Array of {id, name, path}
 let googleAccessToken = '';
 let tokenClient;
+let currentBrowsePath = []; // breadcrumb: [{id, name}, ...]
 
 async function init() {
   await requireLogin();
@@ -228,7 +231,23 @@ async function init() {
     loadSocialStatus();
   }
 
-  initGoogleAuth();
+  // Load Google config from server (env vars), then init OAuth
+  try {
+    const cfg = await apiCall('/api/config/google');
+    if (cfg && !cfg.error) {
+      GOOGLE_CLIENT_ID = cfg.client_id;
+      GOOGLE_API_KEY = cfg.api_key;
+      initGoogleAuth();
+    } else {
+      console.error('Google config error:', cfg?.error);
+      document.getElementById('drive-signin').innerHTML =
+        '<p style="color:var(--red);font-size:13px">Google Drive not configured. Set GOOGLE_CLIENT_ID and GOOGLE_API_KEY in environment variables.</p>';
+    }
+  } catch (e) {
+    console.error('Failed to load Google config:', e);
+    document.getElementById('drive-signin').innerHTML =
+      '<p style="color:var(--red);font-size:13px">Failed to load Google config. Check server logs.</p>';
+  }
 }
 
 // ── Google OAuth ──
@@ -264,7 +283,15 @@ function googleSignIn() {
 
 function handleTokenResponse(resp) {
   console.log('Google token response:', resp);
-  if (resp.error) { showToast('Google sign-in failed: ' + resp.error + (resp.error_description ? ' - ' + resp.error_description : '')); return; }
+  if (resp.error) {
+    console.error('Google OAuth error details:', JSON.stringify(resp));
+    let msg = 'Google sign-in failed: ' + resp.error;
+    if (resp.error_description) msg += ' - ' + resp.error_description;
+    if (resp.error === 'access_denied') msg += '. Check that the OAuth consent screen is configured and the user is authorized.';
+    if (resp.error === 'invalid_client') msg += '. The Google Client ID may be invalid — check Google Cloud Console.';
+    showToast(msg);
+    return;
+  }
   googleAccessToken = resp.access_token;
   sessionStorage.setItem('google_access_token', googleAccessToken);
   showGoogleAccount();
@@ -283,6 +310,8 @@ async function showGoogleAccount() {
     document.getElementById('drive-account').style.display = 'flex';
     document.getElementById('drive-signin').style.display = 'none';
     document.getElementById('drive-picker-section').style.display = 'block';
+    // Auto-load root folders after sign-in
+    browseDriveFolder('root');
   } catch {
     googleSignOut();
   }
@@ -294,59 +323,167 @@ function googleSignOut() {
   document.getElementById('drive-account').style.display = 'none';
   document.getElementById('drive-signin').style.display = 'block';
   document.getElementById('drive-picker-section').style.display = 'none';
+  currentBrowsePath = [];
 }
 
-// ── Google Picker ──
+// ── Drive Folder Browser ──
 
-function openPicker() {
-  if (!googleAccessToken) { googleSignIn(); return; }
+async function driveFetch(url) {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${googleAccessToken}` } });
+  if (res.status === 401) { googleSignOut(); showToast('Google session expired, please sign in again'); return null; }
+  if (!res.ok) { const t = await res.text(); console.error('Drive API error:', res.status, t); showToast('Drive API error: ' + res.status); return null; }
+  return res.json();
+}
 
-  gapi.load('picker', () => {
-    const folderView = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
-      .setSelectFolderEnabled(true)
-      .setMimeTypes('application/vnd.google-apps.folder');
+async function browseDriveFolder(folderId) {
+  const listEl = document.getElementById('drive-folder-list');
+  listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:13px"><span class="spinner"></span> Loading...</div>';
 
-    const picker = new google.picker.PickerBuilder()
-      .setTitle('Select media folder for this client')
-      .addView(folderView)
-      .setDeveloperKey(GOOGLE_API_KEY)
-      .setOAuthToken(googleAccessToken)
-      .setCallback(pickerCallback)
-      .setOrigin(window.location.origin)
-      .build();
-    picker.setVisible(true);
+  // Update breadcrumb path
+  if (folderId === 'root') {
+    currentBrowsePath = [{ id: 'root', name: 'My Drive' }];
+  }
+  renderBreadcrumb();
+
+  // Fetch folders and media files in current folder
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const fields = encodeURIComponent('files(id, name, mimeType, size), nextPageToken');
+  const data = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=200&fields=${fields}&orderBy=folder,name`);
+  if (!data) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:13px">Failed to load. Check permissions.</div>'; return; }
+
+  const folders = (data.files || []).filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+  const mediaFiles = (data.files || []).filter(f => f.mimeType?.startsWith('image/') || f.mimeType?.startsWith('video/'));
+
+  if (folders.length === 0 && mediaFiles.length === 0) {
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:13px">This folder is empty</div>';
+    return;
+  }
+
+  let html = '';
+  // Render folders with checkboxes
+  for (const f of folders) {
+    const isSelected = selectedFolders.some(s => s.id === f.id);
+    html += `<div class="drive-item">
+      <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleFolderSelect('${f.id}', '${f.name.replace(/'/g, "\\'")}', this.checked)" title="Select this folder">
+      <span class="folder-icon" onclick="navigateToFolder('${f.id}', '${f.name.replace(/'/g, "\\'")}')">📁</span>
+      <span class="folder-name" onclick="navigateToFolder('${f.id}', '${f.name.replace(/'/g, "\\'")}')"><strong>${escapeHtml(f.name)}</strong></span>
+      <span class="folder-meta" onclick="navigateToFolder('${f.id}', '${f.name.replace(/'/g, "\\'")}')">▸</span>
+    </div>`;
+  }
+  // Show media file count summary if any
+  if (mediaFiles.length > 0) {
+    const imgs = mediaFiles.filter(f => f.mimeType?.startsWith('image/')).length;
+    const vids = mediaFiles.filter(f => f.mimeType?.startsWith('video/')).length;
+    const parts = [];
+    if (imgs > 0) parts.push(`${imgs} image${imgs !== 1 ? 's' : ''}`);
+    if (vids > 0) parts.push(`${vids} video${vids !== 1 ? 's' : ''}`);
+    html += `<div class="drive-item" style="background:rgba(99,102,241,.05);cursor:default">
+      <span class="folder-icon">🖼</span>
+      <span class="folder-name" style="color:var(--text2)">${parts.join(', ')} in this folder</span>
+    </div>`;
+  }
+
+  listEl.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function navigateToFolder(folderId, folderName) {
+  // Check if we're going back (clicked breadcrumb) or forward
+  const existingIdx = currentBrowsePath.findIndex(p => p.id === folderId);
+  if (existingIdx >= 0) {
+    currentBrowsePath = currentBrowsePath.slice(0, existingIdx + 1);
+  } else {
+    currentBrowsePath.push({ id: folderId, name: folderName });
+  }
+  browseDriveFolder(folderId);
+}
+
+function renderBreadcrumb() {
+  const el = document.getElementById('drive-breadcrumb');
+  let html = '';
+  currentBrowsePath.forEach((crumb, i) => {
+    if (i > 0) html += ' <span style="color:var(--text2)">›</span> ';
+    if (i < currentBrowsePath.length - 1) {
+      html += `<a class="drive-crumb" onclick="navigateToFolder('${crumb.id}', '${crumb.name.replace(/'/g, "\\'")}')">${escapeHtml(crumb.name)}</a>`;
+    } else {
+      html += `<span style="font-weight:600">${escapeHtml(crumb.name)}</span>`;
+    }
+  });
+  el.innerHTML = html;
+}
+
+async function toggleFolderSelect(folderId, folderName, checked) {
+  if (checked) {
+    if (selectedFolders.some(f => f.id === folderId)) return;
+    const pathStr = currentBrowsePath.map(p => p.name).join(' / ') + ' / ' + folderName;
+    // Count media files in folder
+    let mediaInfo = '';
+    try {
+      const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+      const data = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=200&fields=${encodeURIComponent('files(id, mimeType)')}`);
+      if (data) {
+        const imgs = (data.files || []).filter(f => f.mimeType?.startsWith('image/')).length;
+        const vids = (data.files || []).filter(f => f.mimeType?.startsWith('video/')).length;
+        const parts = [];
+        if (imgs > 0) parts.push(`${imgs} img`);
+        if (vids > 0) parts.push(`${vids} vid`);
+        mediaInfo = parts.length > 0 ? ` (${parts.join(', ')})` : ' (empty)';
+      }
+    } catch {}
+    selectedFolders.push({ id: folderId, name: folderName, path: pathStr, mediaInfo });
+  } else {
+    selectedFolders = selectedFolders.filter(f => f.id !== folderId);
+  }
+  updateSelectedFoldersUI();
+}
+
+function removeFolderSelect(folderId) {
+  selectedFolders = selectedFolders.filter(f => f.id !== folderId);
+  updateSelectedFoldersUI();
+  // Update checkbox if visible
+  const listEl = document.getElementById('drive-folder-list');
+  const checkboxes = listEl.querySelectorAll('input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    if (cb.getAttribute('onclick')?.includes(folderId)) cb.checked = false;
   });
 }
 
-async function pickerCallback(data) {
-  if (data.action === google.picker.Action.PICKED) {
-    const folder = data.docs[0];
-    selectedFolderId = folder.id;
-    selectedFolderName = folder.name;
-    document.getElementById('f-drive-url').value = `https://drive.google.com/drive/folders/${folder.id}`;
-    document.getElementById('selected-folder').style.display = 'block';
-    document.getElementById('sel-folder-name').textContent = folder.name + ' — counting files...';
-
-    // Count files in the folder
-    try {
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q='${folder.id}'+in+parents+and+trashed=false&fields=files(id,mimeType)&pageSize=200`, {
-        headers: { Authorization: `Bearer ${googleAccessToken}` }
-      });
-      const files = await res.json();
-      const imgs = (files.files || []).filter(f => f.mimeType?.startsWith('image/')).length;
-      const vids = (files.files || []).filter(f => f.mimeType?.startsWith('video/')).length;
-      document.getElementById('sel-folder-name').textContent = `${folder.name} — ${imgs} images, ${vids} videos`;
-    } catch {
-      document.getElementById('sel-folder-name').textContent = folder.name;
-    }
+function clearAllFolders() {
+  selectedFolders = [];
+  updateSelectedFoldersUI();
+  // Refresh the current view to uncheck boxes
+  if (currentBrowsePath.length > 0) {
+    browseDriveFolder(currentBrowsePath[currentBrowsePath.length - 1].id);
   }
 }
 
-function clearFolder() {
-  selectedFolderId = '';
-  selectedFolderName = '';
-  document.getElementById('f-drive-url').value = '';
-  document.getElementById('selected-folder').style.display = 'none';
+function updateSelectedFoldersUI() {
+  const summaryEl = document.getElementById('selected-folders-summary');
+  const listEl = document.getElementById('selected-folders-list');
+  const hiddenInput = document.getElementById('f-drive-url');
+
+  if (selectedFolders.length === 0) {
+    summaryEl.style.display = 'none';
+    hiddenInput.value = '';
+    return;
+  }
+
+  summaryEl.style.display = 'block';
+  listEl.innerHTML = selectedFolders.map(f =>
+    `<div class="selected-tag">
+      <span>📁 <strong>${escapeHtml(f.name)}</strong>${f.mediaInfo || ''}</span>
+      <span style="color:var(--text2);font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(f.path)}</span>
+      <span class="remove" onclick="removeFolderSelect('${f.id}')" title="Remove">&times;</span>
+    </div>`
+  ).join('');
+
+  // Store first folder URL for backward compat, store all IDs as comma-separated
+  hiddenInput.value = selectedFolders.map(f => `https://drive.google.com/drive/folders/${f.id}`).join(',');
 }
 
 // ── Load/Save ──
@@ -365,16 +502,20 @@ async function loadClient() {
   document.getElementById('f-filter-type').value = c.api_config?.filters?.propertyType || '';
 
   if (c.google_drive_folder_id || c.google_drive_folder_url) {
-    selectedFolderId = c.google_drive_folder_id || '';
-    const folderUrl = c.google_drive_folder_url || (selectedFolderId ? `https://drive.google.com/drive/folders/${selectedFolderId}` : '');
-    document.getElementById('f-drive-url').value = folderUrl;
-    document.getElementById('selected-folder').style.display = 'block';
-    // Show drive picker section even without Google sign-in so user can see existing folder
+    const ids = (c.google_drive_folder_id || '').split(',').filter(Boolean);
+    const urls = (c.google_drive_folder_url || '').split(',').filter(Boolean);
+    // Restore selected folders from saved data
+    selectedFolders = ids.map((id, i) => ({
+      id,
+      name: id,
+      path: urls[i] || `https://drive.google.com/drive/folders/${id}`,
+      mediaInfo: '',
+    }));
+    document.getElementById('f-drive-url').value = c.google_drive_folder_url || '';
     document.getElementById('drive-picker-section').style.display = 'block';
+    updateSelectedFoldersUI();
     if (c.drive_file_count) {
-      document.getElementById('sel-folder-name').textContent = `Folder: ${selectedFolderId} — ${c.drive_file_count} media files`;
-    } else {
-      document.getElementById('sel-folder-name').textContent = `Folder: ${selectedFolderId}`;
+      selectedFolders.forEach(f => { f.mediaInfo = ''; });
     }
   }
 }
@@ -398,7 +539,7 @@ async function saveClient() {
     phone: document.getElementById('f-phone').value.trim() || undefined,
     notes: document.getElementById('f-notes').value.trim() || undefined,
     google_drive_folder_url: driveUrl || undefined,
-    google_drive_folder_id: selectedFolderId || undefined,
+    google_drive_folder_id: selectedFolders.length > 0 ? selectedFolders.map(f => f.id).join(',') : undefined,
   };
 
   const apiUrl = document.getElementById('f-api-url').value.trim();

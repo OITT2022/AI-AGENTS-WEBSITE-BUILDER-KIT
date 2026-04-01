@@ -133,27 +133,37 @@ export interface DriveSyncResult {
 export async function syncDriveMedia(client: Client): Promise<DriveSyncResult> {
   const fi = client.google_drive_folder_id ?? client.google_drive_folder_url;
   if (!fi) throw new Error('No Google Drive folder configured');
-  const folderId = extractFolderId(fi);
 
-  let folderName: string | undefined;
-  try { folderName = (await driveGet(`/files/${folderId}?fields=name&supportsAllDrives=true`)).name; } catch {}
+  // Support comma-separated folder IDs (multi-folder selection)
+  const folderIds = fi.split(',').map(id => extractFolderId(id.trim())).filter(Boolean);
+  if (folderIds.length === 0) throw new Error('No valid folder IDs');
 
-  const files = await listFolderFiles(folderId);
-  const images = files.filter(f => IMAGE_MIMES.includes(f.mimeType));
-  const videos = files.filter(f => VIDEO_MIMES.includes(f.mimeType));
+  const allFiles: DriveMediaFile[] = [];
+  const folderNames: string[] = [];
+
+  for (const folderId of folderIds) {
+    let name: string | undefined;
+    try { name = (await driveGet(`/files/${folderId}?fields=name&supportsAllDrives=true`)).name; } catch {}
+    if (name) folderNames.push(name);
+    const files = await listFolderFiles(folderId);
+    allFiles.push(...files);
+  }
+
+  const images = allFiles.filter(f => IMAGE_MIMES.includes(f.mimeType));
+  const videos = allFiles.filter(f => VIDEO_MIMES.includes(f.mimeType));
   const syncedAt = new Date().toISOString();
 
   const updated = await store.getClient(client.id);
   if (updated) {
     updated.drive_last_sync_at = syncedAt;
-    updated.drive_file_count = files.length;
+    updated.drive_file_count = allFiles.length;
     updated.updated_at = syncedAt;
     await store.upsertClient(updated);
   }
 
   return {
-    folder_id: folderId, folder_name: folderName, total_files: files.length,
-    images: images.length, videos: videos.length, files,
+    folder_id: folderIds.join(','), folder_name: folderNames.join(', '), total_files: allFiles.length,
+    images: images.length, videos: videos.length, files: allFiles,
     media_urls: { images: images.map(getFileUrl), videos: videos.map(getFileUrl) },
     synced_at: syncedAt,
   };
@@ -163,9 +173,14 @@ export async function getDriveMediaForEntity(client: Client) {
   const fi = client.google_drive_folder_id ?? client.google_drive_folder_url;
   if (!fi) return { gallery: [], videos: [] };
   try {
-    const files = await listFolderFiles(extractFolderId(fi));
-    const imgs = files.filter(f => IMAGE_MIMES.includes(f.mimeType)).map(getFileUrl);
-    const vids = files.filter(f => VIDEO_MIMES.includes(f.mimeType)).map(getFileUrl);
+    const folderIds = fi.split(',').map(id => extractFolderId(id.trim())).filter(Boolean);
+    const allFiles: DriveMediaFile[] = [];
+    for (const folderId of folderIds) {
+      const files = await listFolderFiles(folderId);
+      allFiles.push(...files);
+    }
+    const imgs = allFiles.filter(f => IMAGE_MIMES.includes(f.mimeType)).map(getFileUrl);
+    const vids = allFiles.filter(f => VIDEO_MIMES.includes(f.mimeType)).map(getFileUrl);
     return { hero_image: imgs[0], gallery: imgs, videos: vids };
   } catch { return { gallery: [], videos: [] }; }
 }

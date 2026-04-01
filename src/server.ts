@@ -255,6 +255,15 @@ app.post('/api/clients/:id/pipeline', async (req, res) => {
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ── Google Config (client-side OAuth + Picker) ──
+
+app.get('/api/config/google', (_req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || '';
+  const apiKey = process.env.GOOGLE_API_KEY || '';
+  if (!clientId || !apiKey) return res.status(500).json({ error: 'Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_API_KEY env vars.' });
+  res.json({ client_id: clientId, api_key: apiKey });
+});
+
 // ── Google Drive ──
 
 app.get('/api/drive/status', (_req, res) => {
@@ -293,8 +302,10 @@ app.get('/api/clients/:id/drive/files', async (req, res) => {
     if (!client) return res.status(404).json({ error: 'Client not found' });
     const fi = client.google_drive_folder_id ?? client.google_drive_folder_url;
     if (!fi) return res.status(400).json({ error: 'No Drive folder' });
-    const files = await listFolderFiles(extractFolderId(fi));
-    res.json({ folder_id: extractFolderId(fi), files, total: files.length });
+    const folderIds = fi.split(',').map((id: string) => extractFolderId(id.trim())).filter(Boolean);
+    const allFiles: Awaited<ReturnType<typeof listFolderFiles>> = [];
+    for (const fid of folderIds) { allFiles.push(...await listFolderFiles(fid)); }
+    res.json({ folder_ids: folderIds, files: allFiles, total: allFiles.length });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 

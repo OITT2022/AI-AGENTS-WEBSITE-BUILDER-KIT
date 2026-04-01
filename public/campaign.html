@@ -527,6 +527,22 @@ function buildFBFromCopy(c) { return { primary_text: c.primary_text||c.caption||
 function buildIGFromCopy(c) { return { caption: c.caption||c.primary_text||c.voiceover_script||'', hashtags: c.hashtags||[], cta: c.cta||'Link in Bio', language: c.language }; }
 function buildTKFromCopy(c) { return { hook: c.hook||(c.primary_text||'').split('\n')[0]||'', voiceover_script: c.voiceover_script||c.primary_text||c.caption||'', closing_cta: c.closing_cta||c.cta||'Learn More', on_screen_text: c.on_screen_text||[], language: c.language }; }
 
+function driveVideoEmbed(url) {
+  // Extract file ID from Drive URL and return embeddable preview URL
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+  return url;
+}
+
+function videoPlayer(url, aspectRatio, autoplay) {
+  const embed = driveVideoEmbed(url);
+  const isDrive = url.includes('drive.google.com');
+  if (isDrive) {
+    return `<iframe src="${esc(embed)}${autoplay?'?autoplay=1':''}" style="width:100%;aspect-ratio:${aspectRatio};border:none;border-radius:4px" allow="autoplay;encrypted-media" allowfullscreen></iframe>`;
+  }
+  return `<video src="${esc(url)}" style="width:100%;aspect-ratio:${aspectRatio};object-fit:cover;border-radius:4px" controls ${autoplay?'autoplay muted':''}></video>`;
+}
+
 function previewFB(c, media) {
   const imgs = (media.selected_images||[]).filter(Boolean);
   const hero = media.hero_image || imgs[0] || '';
@@ -534,8 +550,7 @@ function previewFB(c, media) {
   const hasVideo = !!vid;
   let mediaHtml = '';
   if (hasVideo) {
-    mediaHtml = `<div class="fb-video-overlay">${hero?`<img class="fb-image" src="${esc(hero)}" onerror="this.style.background='#f0f2f5';this.style.height='200px'">`:'<div style="height:200px;background:#f0f2f5"></div>'}
-      <div class="fb-play"><div class="fb-play-icon">&#9654;</div></div></div>`;
+    mediaHtml = videoPlayer(vid, '1.91/1', false);
   } else if (imgs.length > 1) {
     mediaHtml = `<div class="fb-carousel">${imgs.slice(0,5).map(i=>`<img src="${esc(i)}" style="width:100%" onerror="this.remove()">`).join('')}</div>`;
   } else if (hero) {
@@ -558,9 +573,13 @@ function previewIG(c, media) {
   const isCarousel = !isReel && imgs.length > 1;
 
   let mediaHtml = '';
-  if (isReel) {
+  if (isReel && vids.length > 0) {
+    mediaHtml = `<div style="position:relative">
+      ${videoPlayer(vids[0], '1/1', false)}
+      <div style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,.6);padding:3px 10px;border-radius:4px;font-size:11px;color:#fff;font-weight:600;z-index:2">Reel</div>
+    </div>`;
+  } else if (isReel) {
     mediaHtml = `<div style="position:relative">${hero?`<img class="ig-image" src="${esc(hero)}" onerror="this.style.background='#262626'">`:'<div class="ig-image" style="background:#262626"></div>'}
-      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2)"><div style="width:50px;height:50px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px">&#9654;</div></div>
       <div style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,.5);padding:3px 8px;border-radius:4px;font-size:11px;color:#fff">Reel</div></div>`;
   } else if (isCarousel) {
     mediaHtml = `<div class="ig-carousel"><div class="ig-carousel-inner" id="ig-carousel-inner">${imgs.slice(0,5).map(i=>`<img src="${esc(i)}" onerror="this.remove()">`).join('')}</div></div>
@@ -590,8 +609,24 @@ function previewTK(c, media) {
   const hero = media.hero_image || (media.selected_images||[]).filter(Boolean)[0] || '';
   const vid = (media.videos||[])[0];
   const timeline = media.reel_timeline;
-  return `<div class="tk-card">
-    <div class="tk-bg">${hero?`<img src="${esc(hero)}" onerror="this.style.background='#111'">`:'<div style="width:100%;height:100%;background:#111"></div>'}</div>
+  let bgHtml = '';
+  if (vid) {
+    // Embed video as TikTok background
+    const embed = driveVideoEmbed(vid);
+    const isDrive = vid.includes('drive.google.com');
+    if (isDrive) {
+      bgHtml = `<iframe src="${esc(embed)}?autoplay=1" style="width:100%;height:100%;border:none;position:absolute;inset:0" allow="autoplay;encrypted-media" allowfullscreen></iframe>`;
+    } else {
+      bgHtml = `<video src="${esc(vid)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" autoplay muted loop></video>`;
+    }
+  } else if (hero) {
+    bgHtml = `<img src="${esc(hero)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;filter:brightness(.7)" onerror="this.style.background='#111'">`;
+  } else {
+    bgHtml = '<div style="width:100%;height:100%;background:#111;position:absolute;inset:0"></div>';
+  }
+  return `<div class="tk-card" style="overflow:hidden">
+    <div class="tk-bg">${bgHtml}</div>
+    ${!vid?'':'<div style="position:absolute;inset:0;background:rgba(0,0,0,.25);z-index:0"></div>'}
     <div class="tk-sponsored">Sponsored</div>
     <div class="tk-hook">${esc(c.hook||'')}</div>
     <div class="tk-right">

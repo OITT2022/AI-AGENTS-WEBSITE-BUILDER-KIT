@@ -109,8 +109,8 @@ function getBaseUrl(req: express.Request): string {
 const googleTokens = new Map<string, { access_token: string; refresh_token?: string; expiry?: number }>();
 
 app.get('/api/google/auth', (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) return res.status(500).json({ error: 'Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET env vars.' });
 
   const baseUrl = getBaseUrl(req);
@@ -135,8 +135,8 @@ app.get('/api/google/callback', async (req, res) => {
     const { code, state } = req.query;
     if (!code) return res.status(400).send('Missing authorization code');
 
-    const clientId = process.env.GOOGLE_CLIENT_ID!;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
+    const clientId = process.env.GOOGLE_CLIENT_ID!.trim();
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET!.trim();
     const baseUrl = getBaseUrl(req);
     const redirectUri = `${baseUrl}/api/google/callback`;
 

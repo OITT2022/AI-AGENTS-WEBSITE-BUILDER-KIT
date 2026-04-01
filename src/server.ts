@@ -26,7 +26,8 @@ import * as canva from './services/canva';
 const app = express();
 
 function paramId(req: express.Request): string {
-  const id = req.params.id;
+  // Support :id, :variantId, :batchId, :clientId — take the first param value
+  const id = req.params.id ?? req.params.variantId ?? req.params.batchId ?? req.params.clientId ?? Object.values(req.params)[0];
   return Array.isArray(id) ? id[0] : id;
 }
 

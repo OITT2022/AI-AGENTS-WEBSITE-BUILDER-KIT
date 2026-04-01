@@ -11,10 +11,12 @@ function scoreFreshness(p: Record<string, unknown>): number {
   const h = (Date.now() - new Date(u).getTime()) / 3600000;
   return h < 24 ? 90 : h < 72 ? 70 : h < 168 ? 50 : 30;
 }
-function scoreMedia(p: Record<string, unknown>): number {
+function scoreMedia(p: Record<string, unknown>, driveMediaCount = 0): number {
   let s = p.hero_image ? 40 : 0;
   s += Math.min(((p.gallery_count as number) ?? 0) * 10, 30);
   s += Math.min(((p.video_count as number) ?? 0) * 15, 30);
+  // Bonus for Drive media availability
+  if (driveMediaCount > 0) s = Math.min(s + 15, 100);
   return s;
 }
 function scoreBusiness(p: Record<string, unknown>): number { return Math.min((p.priority_score as number) ?? 0, 100); }
@@ -44,15 +46,25 @@ export async function scoreAndSelectCandidates(date: string, maxCandidates: numb
   entities = entities.filter(e => e.campaign_ready && e.source_status === 'active');
   if (clientId) entities = entities.filter(e => e.client_id === clientId);
 
+  // Pre-fetch Drive media counts per client for scoring bonus
+  const driveCountCache = new Map<string, number>();
+  for (const e of entities) {
+    if (e.client_id && !driveCountCache.has(e.client_id)) {
+      driveCountCache.set(e.client_id, await store.getDriveMediaCount(e.client_id));
+    }
+  }
+
   const candidates: CampaignCandidate[] = [];
   for (const entity of entities) {
     const snapshots = await store.getSnapshots(entity.id);
     const latest = snapshots[0];
     if (!latest) continue;
     const p = latest.normalized_payload;
-    if (!(p.title_he || p.title_en) || p.price_amount == null || !p.city || !(p.hero_image || (p.gallery_count as number) > 0) || !p.listing_url) continue;
+    const driveCount = entity.client_id ? driveCountCache.get(entity.client_id) ?? 0 : 0;
+    // Relax media requirement: accept entities with Drive media even if no API media
+    if (!(p.title_he || p.title_en) || p.price_amount == null || !p.city || !(p.hero_image || (p.gallery_count as number) > 0 || driveCount > 0) || !p.listing_url) continue;
 
-    const sf = scoreFreshness(p), sm = scoreMedia(p), sb = scoreBusiness(p), su = scoreUrgency(p), sh = 50;
+    const sf = scoreFreshness(p), sm = scoreMedia(p, driveCount), sb = scoreBusiness(p), su = scoreUrgency(p), sh = 50;
     const total = sf * WEIGHTS.freshness + sm * WEIGHTS.media + sb * WEIGHTS.business + su * WEIGHTS.urgency + 50 * WEIGHTS.audience + sh * WEIGHTS.history;
 
     candidates.push({

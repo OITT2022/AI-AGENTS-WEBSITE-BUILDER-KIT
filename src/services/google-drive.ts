@@ -1,8 +1,9 @@
 import { GoogleAuth } from 'google-auth-library';
+import { v4 as uuid } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import { store } from '../db/store';
-import { DriveMediaFile, Client } from '../models/schemas';
+import { DriveMediaFile, DriveMediaCacheRow, Client } from '../models/schemas';
 
 const CREDENTIALS_PATH = path.join(process.env.VERCEL ? '/tmp' : process.cwd(), 'data', 'google-credentials.json');
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
@@ -30,7 +31,7 @@ export function getServiceAccountEmail(): string | null {
   return (getCredentials()?.client_email as string) ?? null;
 }
 
-async function getAccessToken(): Promise<string> {
+async function getServiceAccountToken(): Promise<string> {
   const creds = getCredentials();
   if (!creds) throw new Error('Google credentials not configured. Upload a service account JSON key file.');
   const auth = new GoogleAuth({ credentials: creds as any, scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
@@ -39,11 +40,45 @@ async function getAccessToken(): Promise<string> {
   return (token as any).token ?? token;
 }
 
-async function driveGet(path: string): Promise<any> {
-  const token = await getAccessToken();
-  const res = await fetch(`${DRIVE_API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+// Get access token using client's stored OAuth refresh token
+export async function getOAuthAccessToken(client: Client): Promise<string | null> {
+  if (!client.google_refresh_token) return null;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) return null;
+  try {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId, client_secret: clientSecret,
+        refresh_token: client.google_refresh_token, grant_type: 'refresh_token',
+      }),
+    });
+    const data = await res.json() as any;
+    if (data.error) { console.error('OAuth refresh failed:', data.error); return null; }
+    return data.access_token;
+  } catch (err) { console.error('OAuth refresh error:', err); return null; }
+}
+
+// Get best available token: OAuth refresh token first, then service account
+async function getAccessToken(client?: Client): Promise<string> {
+  if (client) {
+    const oauthToken = await getOAuthAccessToken(client);
+    if (oauthToken) return oauthToken;
+  }
+  return getServiceAccountToken();
+}
+
+async function driveGet(apiPath: string, client?: Client): Promise<any> {
+  const token = await getAccessToken(client);
+  const res = await fetch(`${DRIVE_API}${apiPath}`, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Drive API error: ${res.status} ${await res.text()}`);
   return res.json();
+}
+
+async function driveGetWithClient(apiPath: string, client: Client): Promise<any> {
+  return driveGet(apiPath, client);
 }
 
 // ── Extract folder ID ──
@@ -72,7 +107,7 @@ export async function browseDriveFolder(folderId: string): Promise<Array<{ id: s
   }));
 }
 
-export async function listFolderFiles(folderId: string, recursive = true): Promise<DriveMediaFile[]> {
+export async function listFolderFiles(folderId: string, recursive = true, client?: Client): Promise<DriveMediaFile[]> {
   const files: DriveMediaFile[] = [];
 
   async function fetchPage(parentId: string, pageToken?: string) {
@@ -81,7 +116,7 @@ export async function listFolderFiles(folderId: string, recursive = true): Promi
     let url = `/files?q=${q}&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
     if (pageToken) url += `&pageToken=${pageToken}`;
 
-    const data = await driveGet(url);
+    const data = await driveGet(url, client);
     for (const f of data.files ?? []) {
       if (f.mimeType === 'application/vnd.google-apps.folder') {
         if (recursive) await fetchPage(f.id);
@@ -143,9 +178,9 @@ export async function syncDriveMedia(client: Client): Promise<DriveSyncResult> {
 
   for (const folderId of folderIds) {
     let name: string | undefined;
-    try { name = (await driveGet(`/files/${folderId}?fields=name&supportsAllDrives=true`)).name; } catch {}
+    try { name = (await driveGet(`/files/${folderId}?fields=name&supportsAllDrives=true`, client)).name; } catch {}
     if (name) folderNames.push(name);
-    const files = await listFolderFiles(folderId);
+    const files = await listFolderFiles(folderId, true, client);
     allFiles.push(...files);
   }
 
@@ -167,6 +202,27 @@ export async function syncDriveMedia(client: Client): Promise<DriveSyncResult> {
     media_urls: { images: images.map(getFileUrl), videos: videos.map(getFileUrl) },
     synced_at: syncedAt,
   };
+}
+
+// Sync and persist Drive media to cache table for use in creative generation
+export async function syncAndCacheDriveMedia(client: Client): Promise<DriveSyncResult> {
+  const result = await syncDriveMedia(client);
+  const rows: DriveMediaCacheRow[] = result.files.map(f => ({
+    id: uuid(),
+    client_id: client.id,
+    file_id: f.id,
+    file_name: f.name,
+    mime_type: f.mimeType,
+    media_type: (IMAGE_MIMES.includes(f.mimeType) ? 'image' : 'video') as 'image' | 'video',
+    url: getFileUrl(f),
+    thumbnail_url: f.thumbnailLink,
+    size: f.size,
+    drive_created_at: f.createdTime,
+    drive_modified_at: f.modifiedTime,
+    synced_at: result.synced_at,
+  }));
+  await store.upsertDriveMedia(client.id, rows);
+  return result;
 }
 
 export async function getDriveMediaForEntity(client: Client) {

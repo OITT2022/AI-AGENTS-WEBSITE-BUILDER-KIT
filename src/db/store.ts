@@ -13,6 +13,7 @@ import {
   User,
   Session,
   Client,
+  DriveMediaCacheRow,
 } from '../models/schemas';
 
 // ── Helper to run queries ──
@@ -367,18 +368,20 @@ export async function getClient(id: string): Promise<Client | undefined> {
 
 export async function upsertClient(client: Client): Promise<Client> {
   const row = await queryOne<Client>(
-    `INSERT INTO clients (id, name, company, contact_person, email, phone, google_drive_folder_id, google_drive_folder_url, drive_last_sync_at, drive_file_count, api_config, meta_config, tiktok_config, notes, active, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+    `INSERT INTO clients (id, name, company, contact_person, email, phone, google_drive_folder_id, google_drive_folder_url, google_refresh_token, google_email, drive_last_sync_at, drive_file_count, api_config, meta_config, tiktok_config, notes, active, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      ON CONFLICT (id) DO UPDATE SET
        name=EXCLUDED.name, company=EXCLUDED.company, contact_person=EXCLUDED.contact_person,
        email=EXCLUDED.email, phone=EXCLUDED.phone, google_drive_folder_id=EXCLUDED.google_drive_folder_id,
-       google_drive_folder_url=EXCLUDED.google_drive_folder_url, drive_last_sync_at=EXCLUDED.drive_last_sync_at,
+       google_drive_folder_url=EXCLUDED.google_drive_folder_url, google_refresh_token=COALESCE(EXCLUDED.google_refresh_token, clients.google_refresh_token),
+       google_email=COALESCE(EXCLUDED.google_email, clients.google_email), drive_last_sync_at=EXCLUDED.drive_last_sync_at,
        drive_file_count=EXCLUDED.drive_file_count, api_config=EXCLUDED.api_config,
        meta_config=EXCLUDED.meta_config, tiktok_config=EXCLUDED.tiktok_config,
        notes=EXCLUDED.notes, active=EXCLUDED.active, updated_at=EXCLUDED.updated_at
      RETURNING *`,
     [client.id, client.name, client.company, client.contact_person, client.email, client.phone ?? null,
      client.google_drive_folder_id ?? null, client.google_drive_folder_url ?? null,
+     client.google_refresh_token ?? null, client.google_email ?? null,
      client.drive_last_sync_at ?? null, client.drive_file_count ?? 0,
      safeJson(client.api_config ?? {}), safeJson(client.meta_config ?? {}), safeJson(client.tiktok_config ?? {}),
      client.notes ?? null, client.active, client.created_at, client.updated_at]
@@ -467,6 +470,42 @@ export async function initDatabase(): Promise<void> {
 }
 
 // ── Legacy compatibility: store object ──
+// ── Drive Media Cache ──
+
+export async function upsertDriveMedia(clientId: string, files: DriveMediaCacheRow[]): Promise<void> {
+  if (files.length === 0) {
+    await query('DELETE FROM client_drive_media WHERE client_id = $1', [clientId]);
+    return;
+  }
+  // Upsert all files
+  for (const f of files) {
+    await query(
+      `INSERT INTO client_drive_media (id, client_id, file_id, file_name, mime_type, media_type, url, thumbnail_url, size, drive_created_at, drive_modified_at, synced_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       ON CONFLICT (client_id, file_id) DO UPDATE SET
+         file_name=EXCLUDED.file_name, mime_type=EXCLUDED.mime_type, media_type=EXCLUDED.media_type,
+         url=EXCLUDED.url, thumbnail_url=EXCLUDED.thumbnail_url, size=EXCLUDED.size,
+         drive_created_at=EXCLUDED.drive_created_at, drive_modified_at=EXCLUDED.drive_modified_at, synced_at=EXCLUDED.synced_at`,
+      [f.id, clientId, f.file_id, f.file_name, f.mime_type, f.media_type, f.url, f.thumbnail_url ?? null, f.size ?? null, f.drive_created_at ?? null, f.drive_modified_at ?? null, f.synced_at]
+    );
+  }
+  // Remove files no longer in Drive
+  const fileIds = files.map(f => f.file_id);
+  await query(
+    `DELETE FROM client_drive_media WHERE client_id = $1 AND file_id != ALL($2::text[])`,
+    [clientId, fileIds]
+  );
+}
+
+export async function getDriveMediaByClient(clientId: string): Promise<DriveMediaCacheRow[]> {
+  return query<DriveMediaCacheRow>('SELECT * FROM client_drive_media WHERE client_id = $1 ORDER BY drive_modified_at DESC NULLS LAST', [clientId]);
+}
+
+export async function getDriveMediaCount(clientId: string): Promise<number> {
+  const row = await queryOne<{ count: string }>('SELECT COUNT(*) as count FROM client_drive_media WHERE client_id = $1', [clientId]);
+  return parseInt(row?.count ?? '0', 10);
+}
+
 // Some files import { store } - provide a compatible wrapper
 export const store = {
   getEntities, getEntity, getEntityBySourceId, upsertEntity, getEntitiesByClient,
@@ -482,6 +521,7 @@ export const store = {
   getUsers, getUser, getUserByEmail, upsertUser, deleteUser,
   getSessionByToken, addSession, deleteSession, deleteExpiredSessions,
   getClients, getClient, upsertClient, deleteClient,
+  upsertDriveMedia, getDriveMediaByClient, getDriveMediaCount,
   getConfig, setConfig,
   initDatabase,
 };

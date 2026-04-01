@@ -1,15 +1,14 @@
 import { v4 as uuid } from 'uuid';
 import { store } from '../db/store';
 import { CampaignCandidate, CreativeBatch, CreativeVariant, Platform } from '../models/schemas';
+import { mergeMedia, MergedMedia } from './media-merge';
 
-function selectImagesForPlatform(p: Record<string, unknown>, platform: Platform): string[] {
-  const hero = p.hero_image as string | null;
-  const gallery = (p.gallery as string[]) ?? [];
-  const all = hero ? [hero, ...gallery.filter(u => u !== hero)] : gallery;
+function selectImagesForPlatform(m: MergedMedia, platform: Platform): string[] {
+  const all = m.hero_image ? [m.hero_image, ...m.gallery.filter(u => u !== m.hero_image)] : m.gallery;
   return platform === 'instagram' ? all.slice(0, 10) : platform === 'tiktok' ? all.slice(0, 1) : all.slice(0, 3);
 }
-function selectVideoForPlatform(p: Record<string, unknown>): string | null {
-  return ((p.videos as string[]) ?? [])[0] ?? null;
+function selectVideoForPlatform(m: MergedMedia): string | null {
+  return m.videos[0] ?? null;
 }
 
 function genFacebookCopy(p: Record<string, unknown>, angle: string, lang: string): Record<string, unknown> {
@@ -47,6 +46,11 @@ export async function generateCreativesForCandidate(candidate: CampaignCandidate
   if (!latest) throw new Error(`No snapshot for entity ${entity.id}`);
 
   const p = latest.normalized_payload;
+
+  // Merge API media with cached Google Drive media for this client
+  const driveMedia = entity.client_id ? await store.getDriveMediaByClient(entity.client_id) : [];
+  const merged = mergeMedia(p, driveMedia);
+
   const angle = candidate.recommended_angle ?? 'location';
   const batch: CreativeBatch = {
     id: uuid(), client_id: entity.client_id, entity_id: entity.id, candidate_id: candidate.id,
@@ -64,11 +68,12 @@ export async function generateCreativesForCandidate(candidate: CampaignCandidate
         id: uuid(), batch_id: batch.id, platform, variant_no: vn,
         copy_json: { ...copy, language: lang },
         media_plan_json: {
-          hero_image: p.hero_image ?? null, gallery: (p.gallery as string[]) ?? [],
-          videos: (p.videos as string[]) ?? [],
-          selected_images: selectImagesForPlatform(p, platform),
-          selected_video: selectVideoForPlatform(p),
+          hero_image: merged.hero_image, gallery: merged.gallery,
+          videos: merged.videos,
+          selected_images: selectImagesForPlatform(merged, platform),
+          selected_video: selectVideoForPlatform(merged),
           aspect_ratios: platform === 'tiktok' ? ['9:16'] : platform === 'instagram' ? ['1:1','4:5','9:16'] : ['1:1','4:5'],
+          source_breakdown: merged.source_breakdown,
         },
         generation_metadata: { angle, audience: candidate.recommended_audiences[0] ?? 'general', language: lang, generated_at: new Date().toISOString() },
         created_at: new Date().toISOString(),

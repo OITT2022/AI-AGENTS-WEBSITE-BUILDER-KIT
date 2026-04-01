@@ -305,6 +305,8 @@ export interface Client {
   phone?: string;
   google_drive_folder_id?: string;
   google_drive_folder_url?: string;
+  google_refresh_token?: string;
+  google_email?: string;
   drive_last_sync_at?: string;
   drive_file_count?: number;
   api_config?: ClientApiConfig;
@@ -329,6 +331,21 @@ export interface Client {
   active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface DriveMediaCacheRow {
+  id: string;
+  client_id: string;
+  file_id: string;
+  file_name: string;
+  mime_type: string;
+  media_type: 'image' | 'video';
+  url: string;
+  thumbnail_url?: string;
+  size?: number;
+  drive_created_at?: string;
+  drive_modified_at?: string;
+  synced_at: string;
 }
 
 export type PropertyPayload = z.infer<typeof PropertyPayloadSchema>;

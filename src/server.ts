@@ -12,7 +12,7 @@ import { runDailyPipeline, ingestAndRunPipeline } from './services/pipeline';
 import { loadConfig, saveConfig, syncFromFindUs, testConnection } from './services/findus-client';
 import {
   hasCredentials, saveCredentials, getServiceAccountEmail,
-  testDriveConnection, syncDriveMedia, listFolderFiles, extractFolderId,
+  testDriveConnection, syncDriveMedia, syncAndCacheDriveMedia, listFolderFiles, extractFolderId,
 } from './services/google-drive';
 import {
   ensureDefaultAdmin, login, logout, getSessionUser,
@@ -109,17 +109,19 @@ function getBaseUrl(req: express.Request): string {
 const googleTokens = new Map<string, { access_token: string; refresh_token?: string; expiry?: number }>();
 
 app.get('/api/google/auth', (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const oauthClientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
-  if (!clientId || !clientSecret) return res.status(500).json({ error: 'Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET env vars.' });
+  if (!oauthClientId || !clientSecret) return res.status(500).json({ error: 'Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET env vars.' });
 
   const baseUrl = getBaseUrl(req);
   const redirectUri = `${baseUrl}/api/google/callback`;
-  const state = (req.query.returnTo as string) || '/dashboard/client-form.html';
+  const returnTo = (req.query.returnTo as string) || '/dashboard/client-form.html';
+  const editClientId = req.query.clientId as string || '';
+  const state = JSON.stringify({ returnTo, clientId: editClientId });
   const scope = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-    `client_id=${encodeURIComponent(clientId)}` +
+    `client_id=${encodeURIComponent(oauthClientId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code` +
     `&scope=${encodeURIComponent(scope)}` +
@@ -131,11 +133,20 @@ app.get('/api/google/auth', (req, res) => {
 });
 
 app.get('/api/google/callback', async (req, res) => {
+  let returnTo = '/dashboard/client-form.html';
   try {
-    const { code, state } = req.query;
+    const { code, state: stateRaw } = req.query;
     if (!code) return res.status(400).send('Missing authorization code');
 
-    const clientId = process.env.GOOGLE_CLIENT_ID!.trim();
+    // Parse state (JSON with returnTo + clientId)
+    let editClientId = '';
+    try {
+      const st = JSON.parse(stateRaw as string);
+      returnTo = st.returnTo || returnTo;
+      editClientId = st.clientId || '';
+    } catch { returnTo = (stateRaw as string) || returnTo; }
+
+    const oauthClientId = process.env.GOOGLE_CLIENT_ID!.trim();
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET!.trim();
     const baseUrl = getBaseUrl(req);
     const redirectUri = `${baseUrl}/api/google/callback`;
@@ -144,34 +155,44 @@ app.get('/api/google/callback', async (req, res) => {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ code: code as string, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
+      body: new URLSearchParams({ code: code as string, client_id: oauthClientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
     });
     const tokens = await tokenRes.json() as any;
-    if (tokens.error) return res.redirect(`${state || '/dashboard/client-form.html'}?google=error&msg=${encodeURIComponent(tokens.error_description || tokens.error)}`);
+    if (tokens.error) {
+      const errUrl = `${returnTo}${returnTo.includes('?') ? '&' : '?'}google=error&msg=${encodeURIComponent(tokens.error_description || tokens.error)}`;
+      return res.type('html').send(callbackPage(errUrl, tokens.error_description || tokens.error));
+    }
 
     // Get user info
     const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${tokens.access_token}` } });
     const user = await userRes.json() as any;
 
-    // Store token keyed by app session user (from auth cookie)
+    // Store token in memory keyed by app session user
     const cookie = (req.headers.cookie ?? '').split(';').map(c => c.trim()).find(c => c.startsWith('auth_token='));
     const sessionToken = cookie?.split('=')[1];
     const sessionUser = sessionToken ? await getSessionUser(sessionToken) : null;
     const storeKey = sessionUser?.id || 'default';
-
     googleTokens.set(storeKey, {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expiry: Date.now() + (tokens.expires_in || 3600) * 1000,
     });
 
-    // Return HTML that handles both popup and same-window scenarios
-    const returnTo = (state as string) || '/dashboard/client-form.html';
+    // Persist refresh token on client record for automated pipeline access
+    if (editClientId && tokens.refresh_token) {
+      const client = await store.getClient(editClientId);
+      if (client) {
+        client.google_refresh_token = tokens.refresh_token;
+        client.google_email = user.email || undefined;
+        client.updated_at = new Date().toISOString();
+        await store.upsertClient(client);
+      }
+    }
+
     const sep = returnTo.includes('?') ? '&' : '?';
     const successUrl = `${returnTo}${sep}google=connected&g_name=${encodeURIComponent(user.name || '')}&g_email=${encodeURIComponent(user.email || '')}&g_picture=${encodeURIComponent(user.picture || '')}`;
     res.type('html').send(callbackPage(successUrl, null));
   } catch (err: any) {
-    const returnTo = (req.query.state as string) || '/dashboard/client-form.html';
     const errorUrl = `${returnTo}?google=error&msg=${encodeURIComponent(err.message)}`;
     res.type('html').send(callbackPage(errorUrl, err.message));
   }
@@ -449,7 +470,7 @@ app.post('/api/clients/:id/drive/sync', async (req, res) => {
   try {
     const client = await store.getClient(paramId(req));
     if (!client) return res.status(404).json({ error: 'Client not found' });
-    res.json({ success: true, result: await syncDriveMedia(client) });
+    res.json({ success: true, result: await syncAndCacheDriveMedia(client) });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 

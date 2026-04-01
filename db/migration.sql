@@ -62,3 +62,27 @@ CREATE TABLE IF NOT EXISTS app_config (
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS meta_config JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS tiktok_config JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Google OAuth refresh token for persistent Drive access
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_refresh_token TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_email TEXT;
+
+-- Cached Drive media for creative generation
+CREATE TABLE IF NOT EXISTS client_drive_media (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  file_id TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  media_type TEXT NOT NULL,
+  url TEXT NOT NULL,
+  thumbnail_url TEXT,
+  size INTEGER,
+  drive_created_at TIMESTAMPTZ,
+  drive_modified_at TIMESTAMPTZ,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(client_id, file_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_client_drive_media_client ON client_drive_media(client_id);
+CREATE INDEX IF NOT EXISTS idx_client_drive_media_type ON client_drive_media(client_id, media_type);

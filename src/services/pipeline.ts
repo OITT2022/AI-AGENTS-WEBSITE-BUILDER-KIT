@@ -3,6 +3,7 @@ import { ingestProperty, ingestProject, IngestResult } from './ingest';
 import { scoreAndSelectCandidates } from './scoring';
 import { generateCreativesForCandidate } from './creative';
 import { runQAAndCreateApprovals } from './qa';
+import { syncAndCacheDriveMedia } from './google-drive';
 
 export interface PipelineResult {
   ingest: IngestResult[];
@@ -14,8 +15,29 @@ export interface PipelineResult {
   approvals: number;
 }
 
+// Pre-sync Drive media for clients before creative generation
+async function syncDriveForPipeline(clientId?: string): Promise<void> {
+  const allClients = clientId
+    ? [await store.getClient(clientId)].filter((c): c is NonNullable<typeof c> => !!c)
+    : (await store.getClients()).filter(c => c.active && c.google_drive_folder_id);
+
+  for (const client of allClients) {
+    if (!client.google_drive_folder_id) continue;
+    try {
+      await syncAndCacheDriveMedia(client);
+    } catch (err) {
+      console.error(`[pipeline] Drive sync failed for client ${client.id}:`, err);
+      // Non-fatal: pipeline continues with cached/API-only media
+    }
+  }
+}
+
 export async function runDailyPipeline(date?: string, clientId?: string): Promise<PipelineResult> {
   const today = date ?? new Date().toISOString().split('T')[0];
+
+  // Pre-sync Drive media so creatives have latest files
+  await syncDriveForPipeline(clientId);
+
   const candidates = await scoreAndSelectCandidates(today, 10, clientId);
   const selected = candidates.filter(c => c.selected);
   let totalBatches = 0, totalVariants = 0, totalReviews = 0, totalApprovals = 0;

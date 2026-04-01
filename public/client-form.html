@@ -249,8 +249,8 @@ async function init() {
 
 function googleSignIn() {
   const returnTo = window.location.pathname + (editId ? '?id=' + editId : '');
-  const url = '/api/google/auth?returnTo=' + encodeURIComponent(returnTo);
-  // Navigate the current page to Google auth
+  let url = '/api/google/auth?returnTo=' + encodeURIComponent(returnTo);
+  if (editId) url += '&clientId=' + encodeURIComponent(editId);
   window.location.href = url;
 }
 
@@ -477,22 +477,22 @@ async function loadClient() {
   document.getElementById('f-filter-city').value = c.api_config?.filters?.city || '';
   document.getElementById('f-filter-type').value = c.api_config?.filters?.propertyType || '';
 
+  // Show persisted Google Drive connection
+  if (c.google_email) {
+    showGoogleAccount('', c.google_email, '');
+  }
   if (c.google_drive_folder_id || c.google_drive_folder_url) {
     const ids = (c.google_drive_folder_id || '').split(',').filter(Boolean);
     const urls = (c.google_drive_folder_url || '').split(',').filter(Boolean);
-    // Restore selected folders from saved data
     selectedFolders = ids.map((id, i) => ({
       id,
       name: id,
       path: urls[i] || `https://drive.google.com/drive/folders/${id}`,
-      mediaInfo: '',
+      mediaInfo: c.drive_file_count ? '' : '',
     }));
     document.getElementById('f-drive-url').value = c.google_drive_folder_url || '';
     document.getElementById('drive-picker-section').style.display = 'block';
     updateSelectedFoldersUI();
-    if (c.drive_file_count) {
-      selectedFolders.forEach(f => { f.mediaInfo = ''; });
-    }
   }
 }
 

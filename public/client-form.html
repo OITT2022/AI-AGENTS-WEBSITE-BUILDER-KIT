@@ -465,7 +465,15 @@ async function saveDriveFolders() {
       google_drive_folder_id: selectedFolders.map(f => f.id).join(','),
       google_drive_folder_url: selectedFolders.map(f => `https://drive.google.com/drive/folders/${f.id}`).join(','),
     };
-    await apiCall(`/api/clients/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
+    console.log('[saveDriveFolders] Saving:', body);
+    const putResult = await apiCall(`/api/clients/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
+    console.log('[saveDriveFolders] Result:', putResult);
+    if (!putResult || putResult.error || !putResult.success) {
+      showToast('Failed to save: ' + (putResult?.error || 'Check console'));
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Drive Folders';
+      return;
+    }
 
     // Trigger a Drive sync to cache the media files
     try {

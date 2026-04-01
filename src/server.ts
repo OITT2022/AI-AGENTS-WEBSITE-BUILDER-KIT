@@ -248,9 +248,14 @@ app.put('/api/clients/:id', requireRole('admin', 'manager'), async (req: AuthReq
     const client = await store.getClient(paramId(req));
     if (!client) return res.status(404).json({ error: 'Client not found' });
     const updated = { ...client, ...req.body, id: client.id, created_at: client.created_at, updated_at: new Date().toISOString() };
-    await store.upsertClient(updated);
-    res.json({ success: true, client: updated });
-  } catch (err: any) { res.status(400).json({ error: err.message }); }
+    console.log('[PUT client] Saving:', { id: updated.id, google_drive_folder_id: updated.google_drive_folder_id, google_email: updated.google_email, has_refresh: !!updated.google_refresh_token });
+    const saved = await store.upsertClient(updated);
+    console.log('[PUT client] Saved:', { id: saved.id, google_drive_folder_id: saved.google_drive_folder_id });
+    res.json({ success: true, client: saved });
+  } catch (err: any) {
+    console.error('[PUT client] Error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.delete('/api/clients/:id', requireRole('admin'), async (req: AuthRequest, res) => {

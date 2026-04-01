@@ -524,6 +524,11 @@ export async function getDriveMediaCount(clientId: string): Promise<number> {
   return parseInt(row?.count ?? '0', 10);
 }
 
+export async function getDriveVideoCount(clientId: string): Promise<number> {
+  const row = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM client_drive_media WHERE client_id = $1 AND media_type = 'video'", [clientId]);
+  return parseInt(row?.count ?? '0', 10);
+}
+
 // Some files import { store } - provide a compatible wrapper
 export const store = {
   getEntities, getEntity, getEntityBySourceId, upsertEntity, getEntitiesByClient,
@@ -539,7 +544,7 @@ export const store = {
   getUsers, getUser, getUserByEmail, upsertUser, deleteUser,
   getSessionByToken, addSession, deleteSession, deleteExpiredSessions,
   getClients, getClient, upsertClient, deleteClient,
-  upsertDriveMedia, getDriveMediaByClient, getDriveMediaCount,
+  upsertDriveMedia, getDriveMediaByClient, getDriveMediaCount, getDriveVideoCount,
   getConfig, setConfig,
   initDatabase,
 };

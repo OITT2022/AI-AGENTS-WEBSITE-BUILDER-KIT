@@ -31,9 +31,9 @@ function recommendAngle(p: Record<string, unknown>): string {
   if (p.is_new === true) return 'new_listing';
   return 'location';
 }
-function recommendPlatforms(p: Record<string, unknown>): Platform[] {
+function recommendPlatforms(p: Record<string, unknown>, driveMediaCount = 0, driveVideoCount = 0): Platform[] {
   const plat: Platform[] = ['facebook', 'instagram'];
-  if (((p.video_count as number) ?? 0) > 0 || p.video_preferred === true) plat.push('tiktok');
+  if (((p.video_count as number) ?? 0) > 0 || p.video_preferred === true || driveVideoCount > 0) plat.push('tiktok');
   return plat;
 }
 function recommendAudiences(p: Record<string, unknown>): string[] {
@@ -48,9 +48,11 @@ export async function scoreAndSelectCandidates(date: string, maxCandidates: numb
 
   // Pre-fetch Drive media counts per client for scoring bonus
   const driveCountCache = new Map<string, number>();
+  const driveVideoCountCache = new Map<string, number>();
   for (const e of entities) {
     if (e.client_id && !driveCountCache.has(e.client_id)) {
       driveCountCache.set(e.client_id, await store.getDriveMediaCount(e.client_id));
+      driveVideoCountCache.set(e.client_id, await store.getDriveVideoCount(e.client_id));
     }
   }
 
@@ -72,7 +74,7 @@ export async function scoreAndSelectCandidates(date: string, maxCandidates: numb
       score_total: Math.round(total * 100) / 100, score_freshness: sf, score_media: sm,
       score_business: sb, score_urgency: su, score_history: sh,
       recommended_angle: recommendAngle(p), recommended_audiences: recommendAudiences(p),
-      recommended_platforms: recommendPlatforms(p), selected: false, created_at: new Date().toISOString(),
+      recommended_platforms: recommendPlatforms(p, driveCount, entity.client_id ? driveVideoCountCache.get(entity.client_id) ?? 0 : 0), selected: false, created_at: new Date().toISOString(),
     });
   }
 

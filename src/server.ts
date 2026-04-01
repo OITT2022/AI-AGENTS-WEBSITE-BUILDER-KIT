@@ -40,8 +40,10 @@ app.get('/google8379582d5bf9d84d.html', (_req, res) => {
 // Public pages (no auth required)
 app.get('/terms', (_req, res) => { res.sendFile(path.join(publicDir, 'terms.html')); });
 app.get('/privacy', (_req, res) => { res.sendFile(path.join(publicDir, 'privacy.html')); });
-app.get('/favicon.svg', (_req, res) => { res.type('image/svg+xml').sendFile(path.join(publicDir, 'favicon.svg')); });
-app.get('/favicon.ico', (_req, res) => { res.type('image/svg+xml').sendFile(path.join(publicDir, 'favicon.svg')); });
+app.get('/favicon.ico', (_req, res) => { res.sendFile(path.join(publicDir, 'favicon.ico')); });
+app.get('/favicon-:size.png', (req, res) => { res.sendFile(path.join(publicDir, `favicon-${req.params.size}.png`)); });
+app.get('/apple-touch-icon.png', (_req, res) => { res.sendFile(path.join(publicDir, 'apple-touch-icon.png')); });
+app.get('/android-chrome-:size.png', (req, res) => { res.sendFile(path.join(publicDir, `android-chrome-${req.params.size}.png`)); });
 
 const uploadDir = path.join(process.env.VERCEL ? '/tmp' : process.cwd(), 'data', 'uploads');
 try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch {}

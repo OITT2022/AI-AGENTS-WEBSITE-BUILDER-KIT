@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - AdvPlanner</title>
+  <style>
+    :root{--bg:#0f1117;--surface:#1a1d27;--border:#2e3345;--text:#e4e6f0;--text2:#9da3b7;--primary:#6366f1;--radius:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.7}
+    .header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between}
+    .header h1{font-size:20px;font-weight:700}
+    .header a{color:var(--text2);text-decoration:none;font-size:13px}.header a:hover{color:var(--text)}
+    .container{max-width:800px;margin:0 auto;padding:40px 32px}
+    h2{font-size:18px;font-weight:600;margin:32px 0 12px;color:var(--primary)}
+    h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+    p,li{font-size:14px;color:var(--text2);margin-bottom:12px}
+    ul{padding-left:24px}
+    a{color:var(--primary)}
+    .updated{font-size:12px;color:var(--text2);margin-bottom:32px}
+    table{width:100%;border-collapse:collapse;margin:16px 0}
+    th,td{text-align:left;padding:10px 14px;border:1px solid var(--border);font-size:13px}
+    th{background:var(--surface);color:var(--text);font-weight:600}
+    td{color:var(--text2)}
+    @media(max-width:768px){.container{padding:24px 16px}}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>AdvPlanner</h1>
+  <a href="/">Home</a>
+</div>
+
+<div class="container">
+  <h1 style="font-size:28px;margin-bottom:8px">Privacy Policy</h1>
+  <p class="updated">Last updated: April 1, 2026</p>
+
+  <h2>1. Introduction</h2>
+  <p>AdvPlanner ("we", "us", "our") respects your privacy and is committed to protecting your personal data. This Privacy Policy explains how we collect, use, store, and share information when you use our real estate marketing automation platform ("Service") at advplanner.com.</p>
+
+  <h2>2. Information We Collect</h2>
+
+  <h3>2.1 Account Information</h3>
+  <p>When you create an account, we collect:</p>
+  <ul>
+    <li>Name and email address</li>
+    <li>Password (stored securely using one-way hashing)</li>
+    <li>Role and organizational information</li>
+  </ul>
+
+  <h3>2.2 Client and Property Data</h3>
+  <p>When you use the Service, you may provide:</p>
+  <ul>
+    <li>Client contact information (name, company, email, phone)</li>
+    <li>Property listing data (descriptions, pricing, locations, specifications)</li>
+    <li>Media files (images and videos) from connected Google Drive folders</li>
+    <li>Marketing campaign content and configurations</li>
+  </ul>
+
+  <h3>2.3 Third-Party Account Data</h3>
+  <p>When you connect third-party accounts, we receive:</p>
+  <table>
+    <tr><th>Platform</th><th>Data Received</th><th>Purpose</th></tr>
+    <tr><td>Google</td><td>Name, email, profile picture, Drive folder contents (read-only)</td><td>Browse and select media folders for marketing assets</td></tr>
+    <tr><td>Facebook / Instagram</td><td>Page names, page access tokens, Instagram business account info</td><td>Publish approved marketing content</td></tr>
+    <tr><td>TikTok</td><td>Display name, account info, access tokens</td><td>Publish approved marketing content</td></tr>
+  </table>
+
+  <h3>2.4 Automatically Collected Data</h3>
+  <p>We collect standard server logs including IP addresses, browser type, and access timestamps for security and operational purposes.</p>
+
+  <h2>3. Google API Services - Limited Use Disclosure</h2>
+  <p>AdvPlanner's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+  <p>Specifically:</p>
+  <ul>
+    <li>We only access Google Drive data (folder names and media file metadata) that you explicitly authorize through the OAuth consent flow</li>
+    <li>We use this data solely to display your Drive folders and allow you to select media assets for marketing campaigns</li>
+    <li>We do not use Google user data for advertising purposes</li>
+    <li>We do not sell Google user data to third parties</li>
+    <li>We do not use Google user data to build user profiles for purposes unrelated to the Service</li>
+    <li>Access tokens are stored server-side in memory and are not persisted to disk or shared</li>
+  </ul>
+
+  <h2>4. How We Use Your Information</h2>
+  <p>We use collected information to:</p>
+  <ul>
+    <li>Provide, maintain, and improve the Service</li>
+    <li>Authenticate your identity and manage your account</li>
+    <li>Generate marketing creatives based on your property data and media</li>
+    <li>Publish content to connected social media platforms on your behalf</li>
+    <li>Send service-related notifications and updates</li>
+    <li>Ensure security and prevent fraud</li>
+  </ul>
+
+  <h2>5. Data Storage and Security</h2>
+  <ul>
+    <li>Account and client data is stored in a secure PostgreSQL database hosted on Neon (cloud database provider)</li>
+    <li>All data is transmitted over encrypted HTTPS connections</li>
+    <li>Passwords are hashed using industry-standard algorithms</li>
+    <li>Third-party access tokens are stored securely and used only for their intended purpose</li>
+    <li>The Service is hosted on Vercel's infrastructure with enterprise-grade security</li>
+  </ul>
+
+  <h2>6. Data Sharing</h2>
+  <p>We do not sell your personal data. We share data only in these circumstances:</p>
+  <ul>
+    <li><strong>Third-party platforms:</strong> When you explicitly authorize publishing to Facebook, Instagram, or TikTok, we share the marketing content you approved</li>
+    <li><strong>Service providers:</strong> We use infrastructure providers (Vercel, Neon) to host and operate the Service</li>
+    <li><strong>Legal requirements:</strong> When required by law, regulation, or legal process</li>
+  </ul>
+
+  <h2>7. Data Retention</h2>
+  <p>We retain your data for as long as your account is active or as needed to provide the Service. You may request deletion of your account and associated data by contacting us. Third-party access tokens are stored in server memory and are cleared when the server restarts.</p>
+
+  <h2>8. Your Rights</h2>
+  <p>You have the right to:</p>
+  <ul>
+    <li>Access the personal data we hold about you</li>
+    <li>Request correction of inaccurate data</li>
+    <li>Request deletion of your data</li>
+    <li>Disconnect third-party accounts at any time through the Service</li>
+    <li>Revoke Google access at any time via <a href="https://myaccount.google.com/permissions" target="_blank">Google Account Permissions</a></li>
+  </ul>
+
+  <h2>9. Cookies</h2>
+  <p>We use essential cookies only:</p>
+  <ul>
+    <li><strong>auth_token:</strong> Session authentication cookie (HttpOnly, secure)</li>
+  </ul>
+  <p>We do not use tracking cookies, analytics cookies, or advertising cookies.</p>
+
+  <h2>10. Children's Privacy</h2>
+  <p>The Service is not intended for use by individuals under the age of 18. We do not knowingly collect personal data from children.</p>
+
+  <h2>11. International Data Transfers</h2>
+  <p>Your data may be processed in data centers located in the United States and other countries. By using the Service, you consent to the transfer of your data to these locations.</p>
+
+  <h2>12. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. We will notify users of material changes by posting the updated policy on this page with a revised "Last updated" date.</p>
+
+  <h2>13. Contact Us</h2>
+  <p>For privacy-related questions or requests, contact us at:</p>
+  <p>Email: <a href="mailto:privacy@advplanner.com">privacy@advplanner.com</a><br>
+  Website: <a href="https://advplanner.com">advplanner.com</a></p>
+</div>
+
+</body>
+</html>

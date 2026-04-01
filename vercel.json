@@ -5,6 +5,8 @@
   ],
   "routes": [
     { "src": "/google8379582d5bf9d84d.html", "dest": "/api/index.ts" },
+    { "src": "/terms", "dest": "/api/index.ts" },
+    { "src": "/privacy", "dest": "/api/index.ts" },
     { "src": "/dashboard$", "dest": "/api/index.ts" },
     { "src": "/dashboard/(.*)", "dest": "/api/index.ts" },
     { "src": "/api/(.*)", "dest": "/api/index.ts" },

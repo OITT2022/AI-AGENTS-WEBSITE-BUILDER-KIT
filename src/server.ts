@@ -37,6 +37,10 @@ app.get('/google8379582d5bf9d84d.html', (_req, res) => {
   res.type('html').send('google-site-verification: google8379582d5bf9d84d.html');
 });
 
+// Public pages (no auth required)
+app.get('/terms', (_req, res) => { res.sendFile(path.join(publicDir, 'terms.html')); });
+app.get('/privacy', (_req, res) => { res.sendFile(path.join(publicDir, 'privacy.html')); });
+
 const uploadDir = path.join(process.env.VERCEL ? '/tmp' : process.cwd(), 'data', 'uploads');
 try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
 const upload = multer({ dest: uploadDir, limits: { fileSize: 50 * 1024 * 1024 } });

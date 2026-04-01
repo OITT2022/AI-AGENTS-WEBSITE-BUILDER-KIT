@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <title>Client - Marketing Agent</title>
   <style>
     :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#242836;--border:#2e3345;--text:#e4e6f0;--text2:#9da3b7;--primary:#6366f1;--primary-hover:#818cf8;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--blue:#3b82f6;--radius:12px}
@@ -290,8 +291,17 @@ async function checkGoogleSession() {
 }
 
 function showGoogleAccount(name, email, picture, autoBrowse) {
-  document.getElementById('g-avatar').src = picture || '';
-  document.getElementById('g-name').textContent = name || '';
+  const avatarEl = document.getElementById('g-avatar');
+  const fallback = document.getElementById('g-avatar-fallback');
+  if (picture) {
+    avatarEl.src = picture;
+    avatarEl.style.display = '';
+    if (fallback) fallback.style.display = 'none';
+  } else {
+    avatarEl.style.display = 'none';
+    if (fallback) fallback.style.display = 'flex';
+  }
+  document.getElementById('g-name').textContent = name || 'Google Drive Connected';
   document.getElementById('g-email').textContent = email || '';
   document.getElementById('drive-account').style.display = 'flex';
   document.getElementById('drive-signin').style.display = 'none';
@@ -537,9 +547,20 @@ async function loadClient() {
 
   // Show persisted Google Drive connection (without requiring active session)
   if (c.google_email || c.google_refresh_token) {
-    // Show connected state without auto-browsing Drive
-    document.getElementById('g-avatar').src = '';
-    document.getElementById('g-name').textContent = c.google_email ? 'Google Drive Connected' : '';
+    // Show connected state — use Google initial as fallback avatar
+    const initial = (c.google_email || 'G')[0].toUpperCase();
+    const avatarEl = document.getElementById('g-avatar');
+    avatarEl.style.display = 'none';
+    // Insert a text avatar fallback next to where avatar was
+    let fallback = document.getElementById('g-avatar-fallback');
+    if (!fallback) {
+      fallback = document.createElement('div');
+      fallback.id = 'g-avatar-fallback';
+      fallback.style.cssText = 'width:28px;height:28px;border-radius:50%;background:#4285F4;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0';
+      avatarEl.parentElement.insertBefore(fallback, avatarEl);
+    }
+    fallback.textContent = initial;
+    document.getElementById('g-name').textContent = 'Google Drive Connected';
     document.getElementById('g-email').textContent = c.google_email || '';
     document.getElementById('drive-account').style.display = 'flex';
     document.getElementById('drive-signin').style.display = 'none';

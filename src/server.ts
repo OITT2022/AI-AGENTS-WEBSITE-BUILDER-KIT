@@ -40,6 +40,8 @@ app.get('/google8379582d5bf9d84d.html', (_req, res) => {
 // Public pages (no auth required)
 app.get('/terms', (_req, res) => { res.sendFile(path.join(publicDir, 'terms.html')); });
 app.get('/privacy', (_req, res) => { res.sendFile(path.join(publicDir, 'privacy.html')); });
+app.get('/favicon.svg', (_req, res) => { res.type('image/svg+xml').sendFile(path.join(publicDir, 'favicon.svg')); });
+app.get('/favicon.ico', (_req, res) => { res.type('image/svg+xml').sendFile(path.join(publicDir, 'favicon.svg')); });
 
 const uploadDir = path.join(process.env.VERCEL ? '/tmp' : process.cwd(), 'data', 'uploads');
 try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch {}

@@ -144,6 +144,16 @@
       font-size: 12px;
       color: var(--text2);
     }
+    .legal-links{text-align:center;margin-top:16px;font-size:12px}
+    .legal-links a{color:var(--text2);text-decoration:none;cursor:pointer;transition:color .15s}.legal-links a:hover{color:var(--primary);text-decoration:underline}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+    .modal-overlay.active{display:flex}
+    .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:720px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+    .modal-header h2{font-size:16px;font-weight:600}
+    .modal-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1}.modal-close:hover{color:var(--text)}
+    .modal-body{flex:1;overflow-y:auto}
+    .modal-body iframe{width:100%;height:100%;min-height:60vh;border:none}
   </style>
 </head>
 <body>
@@ -171,12 +181,27 @@
 
       <button type="submit" class="btn-login" id="btn-login">Sign In</button>
     </form>
+
+    <div class="legal-links">
+      <a onclick="openModal('Terms of Service', '/terms')">Terms of Service</a>
+      <span style="color:var(--border);margin:0 8px">|</span>
+      <a onclick="openModal('Privacy Policy', '/privacy')">Privacy Policy</a>
+    </div>
   </div>
 
-  <div class="footer-text">
-    Real Estate Marketing Automation System<br>
-    <a href="/terms" style="color:var(--text2);text-decoration:none;margin-right:12px">Terms of Service</a>
-    <a href="/privacy" style="color:var(--text2);text-decoration:none">Privacy Policy</a>
+  <div class="footer-text">Real Estate Marketing Automation System</div>
+</div>
+
+<!-- Modal for Terms / Privacy -->
+<div class="modal-overlay" id="legal-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modal-title"></h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <iframe id="modal-iframe" src=""></iframe>
+    </div>
   </div>
 </div>
 
@@ -229,6 +254,21 @@ async function handleLogin(e) {
   btn.disabled = false;
   btn.textContent = 'Sign In';
 }
+
+function openModal(title, url) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-iframe').src = url;
+  document.getElementById('legal-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('legal-modal').classList.remove('active');
+  document.getElementById('modal-iframe').src = '';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 </script>
 
 </body>

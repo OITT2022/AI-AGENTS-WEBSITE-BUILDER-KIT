@@ -704,6 +704,15 @@ app.delete('/api/batches/:id', async (req, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/clients/:id/creatives/delete-unapproved', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    const client = await store.getClient(paramId(req));
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    const deleted = await store.deleteUnapprovedCreatives(client.id);
+    res.json({ success: true, deleted });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 // ── Approvals ──
 
 app.get('/api/approvals', async (req, res) => {

@@ -171,6 +171,10 @@
       <button class="btn btn-sm" onclick="clearSelection()">Clear</button>
     </div>
   </div>
+  <div id="delete-all-bar" style="display:none;margin-bottom:16px">
+    <button class="btn btn-red" onclick="deleteAllUnapproved()">Delete All Unapproved Creatives</button>
+    <span style="color:var(--text2);font-size:12px;margin-left:10px">Approved creatives will be kept</span>
+  </div>
   <div id="tab-content"><div class="loading">Loading...</div></div>
 </div>
 
@@ -212,6 +216,7 @@ function switchTab(tab) {
   selectedVariants.clear(); updateBulkBar();
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+  document.getElementById('delete-all-bar').style.display = tab === 'creatives' ? 'block' : 'none';
   loadTab(tab);
 }
 
@@ -249,6 +254,12 @@ async function bulkDelete() {
   const ids = Array.from(selectedVariants);
   const res = await apiCall('/api/creatives/bulk-delete', { method: 'POST', body: JSON.stringify({ variant_ids: ids }) });
   if (res.success) { showToast(`Deleted ${res.deleted} creative(s)`); selectedVariants.clear(); updateBulkBar(); loadAll(); }
+  else showToast('Delete failed: ' + (res.error||''));
+}
+async function deleteAllUnapproved() {
+  if (!confirm('Delete ALL unapproved creatives for this client?\n\nApproved creatives will be kept.\nThis cannot be undone.')) return;
+  const res = await apiCall(`/api/clients/${clientId}/creatives/delete-unapproved`, { method: 'POST' });
+  if (res.success) { showToast(`Deleted ${res.deleted} unapproved creative(s)`); selectedVariants.clear(); updateBulkBar(); loadAll(); }
   else showToast('Delete failed: ' + (res.error||''));
 }
 async function deleteVariant(vid) {

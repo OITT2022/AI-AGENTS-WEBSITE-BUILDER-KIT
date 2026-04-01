@@ -230,6 +230,46 @@ export async function deleteBatch(id: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/** Delete all unapproved creatives for a client. Returns count of deleted variants. */
+export async function deleteUnapprovedCreatives(clientId: string): Promise<number> {
+  // Find variant IDs that have an approved approval_task — these are protected
+  const approvedRows = await query<{ creative_variant_id: string }>(
+    `SELECT DISTINCT at.creative_variant_id FROM approval_tasks at
+     JOIN creative_variants cv ON cv.id = at.creative_variant_id
+     JOIN creative_batches cb ON cb.id = cv.batch_id
+     WHERE cb.client_id = $1 AND at.status IN ('approved', 'approved_with_edits')`,
+    [clientId]
+  );
+  const approvedIds = new Set(approvedRows.map(r => r.creative_variant_id));
+
+  // Get all variants for this client
+  const allVariants = await query<{ id: string; batch_id: string }>(
+    `SELECT cv.id, cv.batch_id FROM creative_variants cv
+     JOIN creative_batches cb ON cb.id = cv.batch_id
+     WHERE cb.client_id = $1`,
+    [clientId]
+  );
+
+  // Filter out approved ones
+  const toDelete = allVariants.filter(v => !approvedIds.has(v.id));
+  if (toDelete.length === 0) return 0;
+
+  const deleteIds = toDelete.map(v => v.id);
+  // Delete related records first (qa_reviews, approval_tasks), then variants
+  await query('DELETE FROM qa_reviews WHERE creative_variant_id = ANY($1::uuid[])', [deleteIds]);
+  await query('DELETE FROM approval_tasks WHERE creative_variant_id = ANY($1::uuid[])', [deleteIds]);
+  await query('DELETE FROM creative_variants WHERE id = ANY($1::uuid[])', [deleteIds]);
+
+  // Clean up empty batches (batches with no remaining variants)
+  await query(
+    `DELETE FROM creative_batches WHERE client_id = $1
+     AND id NOT IN (SELECT DISTINCT batch_id FROM creative_variants)`,
+    [clientId]
+  );
+
+  return deleteIds.length;
+}
+
 // ── QA Reviews ──
 
 export async function getReviews(variantId?: string): Promise<QAReview[]> {
@@ -697,7 +737,7 @@ export const store = {
   getSnapshots, getSnapshot, addSnapshot,
   getChangeEvents, addChangeEvent,
   getCandidates, getCandidate, upsertCandidate, getCandidatesByClient,
-  getBatches, addBatch, getBatchesByClient, deleteBatch,
+  getBatches, addBatch, getBatchesByClient, deleteBatch, deleteUnapprovedCreatives,
   getVariants, getVariant, addVariant, updateVariant, deleteVariant, deleteVariants,
   getReviews, addReview,
   getApprovalTasks, getApprovalTask, getApprovalTaskForVariant, upsertApprovalTask,

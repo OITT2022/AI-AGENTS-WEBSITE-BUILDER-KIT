@@ -1,13 +1,12 @@
 /**
  * AWS Amplify SSR compute entry point.
- * Loads env.json then starts the Express server on port 3000.
+ * Minimal version to diagnose startup crashes.
  */
-
-/* eslint-disable @typescript-eslint/no-var-requires */
+const http = require('http');
 const path = require('path');
 const fs = require('fs');
 
-// Load env.json written during Amplify build
+// Load env.json
 const jsonPath = path.join(__dirname, 'env.json');
 if (fs.existsSync(jsonPath)) {
   try {
@@ -17,42 +16,47 @@ if (fs.existsSync(jsonPath)) {
         process.env[key] = val;
       }
     }
-    console.log('[amplify-entry] Loaded env.json, keys:', Object.keys(vars).join(', '));
-  } catch (e) {
-    console.error('[amplify-entry] Failed to parse env.json:', e);
+  } catch (e: any) {
+    console.error('env.json parse error:', e.message);
   }
-} else {
-  console.log('[amplify-entry] No env.json at', jsonPath);
 }
 
-console.log('[amplify-entry] DB_PROVIDER:', process.env.DB_PROVIDER ?? '(not set)');
-console.log('[amplify-entry] DATABASE_URL set:', !!process.env.DATABASE_URL);
+// Try to load the real app, fall back to a diagnostic server
+let app: any;
+let loadError: string | null = null;
 
-// Use require (not dynamic import) for CommonJS compatibility
-const app = require('./server').default;
-const { initDatabase } = require('./db/store');
-const { ensureDefaultAdmin } = require('./services/auth');
+try {
+  app = require('./server').default;
+} catch (e: any) {
+  loadError = e.stack || e.message;
+  console.error('FATAL: Failed to load server:', loadError);
+}
 
-const PORT = process.env.PORT ?? 3000;
+if (app) {
+  // Real app loaded successfully
+  const { initDatabase } = require('./db/store');
+  const { ensureDefaultAdmin } = require('./services/auth');
 
-(async () => {
-  try {
-    await initDatabase();
-    console.log('[amplify-entry] Database initialized.');
-  } catch (err) {
-    console.error('[amplify-entry] Database init failed:', err);
-  }
-
-  try {
-    await ensureDefaultAdmin();
-  } catch (err) {
-    console.error('[amplify-entry] ensureDefaultAdmin failed:', err);
-  }
-
-  app.listen(PORT, () => {
-    console.log(`[amplify-entry] Server running on port ${PORT}`);
-  });
-})().catch((err: any) => {
-  console.error('[amplify-entry] Fatal:', err);
-  process.exit(1);
-});
+  (async () => {
+    try { await initDatabase(); } catch (e) { console.error('DB init failed:', e); }
+    try { await ensureDefaultAdmin(); } catch (e) { console.error('Admin seed failed:', e); }
+    app.listen(3000, () => console.log('Server on port 3000'));
+  })();
+} else {
+  // Diagnostic fallback -- shows the error
+  http.createServer((_req: any, res: any) => {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: 'Server failed to load',
+      loadError,
+      env: {
+        DB_PROVIDER: process.env.DB_PROVIDER ?? '(not set)',
+        DATABASE_URL_SET: !!process.env.DATABASE_URL,
+        NODE_ENV: process.env.NODE_ENV ?? '(not set)',
+        CWD: process.cwd(),
+        DIRNAME: __dirname,
+      },
+      files: fs.readdirSync(__dirname).filter((f: string) => !f.includes('node_modules')).slice(0, 20),
+    }, null, 2));
+  }).listen(3000, () => console.log('Diagnostic server on port 3000'));
+}

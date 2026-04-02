@@ -1257,9 +1257,13 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       scenes.push({ overlay: `${city} | ${price}\n${cta}` });
     }
 
-    // ── Phase 1: Video via Runway (runs first — independent of OpenAI billing) ──
+    // ── External AI phases (disabled — using local VideoEngine only) ──
+    // Set ENABLE_EXTERNAL_AI=true in .env to re-enable Runway, OpenAI, Canva phases.
+    const useExternalAI = process.env.ENABLE_EXTERNAL_AI === 'true';
+
+    // ── Phase 1: Video via Runway ──
     let videoResult: { url: string; duration_sec: number; provider: string } | null = null;
-    if (videoAi.isConfigured()) {
+    if (useExternalAI && videoAi.isConfigured()) {
       try {
         if (timeline) {
           const vid = await videoAi.generateAdVideo(payload, timeline, req.body.template_id);
@@ -1285,7 +1289,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
 
     // ── Phase 2: Scene images via OpenAI ──
     const sceneImages: Array<{ scene: number; url: string; overlay: string; width: number; height: number }> = [];
-    if (imageAi.isConfigured()) {
+    if (useExternalAI && imageAi.isConfigured()) {
       const size = imageAi.PLATFORM_SIZES[platformSize];
       for (let i = 0; i < scenes.length; i++) {
         try {
@@ -1319,7 +1323,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
 
     // ── Phase 3: Canva (conditional) ──
     let canvaResult: { design_id: string; edit_url: string } | null = null;
-    if (canva.isConfigured() && client && canva.isClientConnected(client)) {
+    if (useExternalAI && canva.isConfigured() && client && canva.isClientConnected(client)) {
       try {
         const mediaUrls = (mediaPlan.selected_images as string[]) ?? [];
         const bindings = canva.mapPropertyToBindings(payload, copy, mediaUrls);
@@ -1338,7 +1342,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       } catch (err: any) {
         errors.push({ service: 'canva', error: err.message });
       }
-    } else if (canva.isConfigured() && client && !canva.isClientConnected(client)) {
+    } else if (useExternalAI && canva.isConfigured() && client && !canva.isClientConnected(client)) {
       errors.push({ service: 'canva', error: 'Canva not connected. Go to Client Settings and click "Connect Canva".' });
     }
 
@@ -1408,7 +1412,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       } catch (err: any) {
         errors.push({ service: 'video_engine_local', error: err.message });
       }
-    } else if (veReady.issues.length > 0) {
+    } else if (!veReady.skipped && veReady.issues.length > 0) {
       errors.push({ service: 'video_engine_local', error: veReady.issues.join('; ') });
     }
 

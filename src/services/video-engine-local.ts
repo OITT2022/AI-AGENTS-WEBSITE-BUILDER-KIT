@@ -210,13 +210,22 @@ export async function renderLocalVideoFromFile(
   return spawnRender(absoluteJobPath, finalOutput);
 }
 
+/** Returns true when running inside a serverless environment (Vercel, AWS Lambda, etc.) */
+function isServerless(): boolean {
+  return !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
+}
+
 /**
  * Check whether video-engine is ready to run.
+ *  - Not in a serverless environment (no FFmpeg, no persistent FS)
  *  - render script exists
  *  - node_modules installed
- *  - ffmpeg on PATH
  */
-export function isVideoEngineReady(): { ready: boolean; issues: string[] } {
+export function isVideoEngineReady(): { ready: boolean; issues: string[]; skipped: boolean } {
+  if (isServerless()) {
+    return { ready: false, issues: [], skipped: true };
+  }
+
   const issues: string[] = [];
 
   if (!fs.existsSync(RENDER_SCRIPT)) {
@@ -228,5 +237,5 @@ export function isVideoEngineReady(): { ready: boolean; issues: string[] } {
     issues.push('video-engine/node_modules not found — run: cd video-engine && npm install');
   }
 
-  return { ready: issues.length === 0, issues };
+  return { ready: issues.length === 0, issues, skipped: false };
 }

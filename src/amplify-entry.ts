@@ -1,33 +1,47 @@
 /**
  * AWS Amplify SSR compute entry point.
- *
- * Amplify compute requires a Node.js HTTP server listening on port 3000.
- * Env vars are written to .env during build (not injected at runtime).
+ * Loads .env before any other imports since Amplify doesn't inject env vars at runtime.
  */
 
-import dotenv from 'dotenv';
 import path from 'path';
-dotenv.config({ path: path.join(__dirname, '.env') });
+import fs from 'fs';
 
-import app from './server';
-import { initDatabase } from './db/store';
-import { ensureDefaultAdmin } from './services/auth';
+// Load .env from same directory (written during Amplify build)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx);
+    const val = trimmed.slice(eqIdx + 1);
+    if (!process.env[key]) {
+      process.env[key] = val;
+    }
+  }
+  console.log('[amplify-entry] Loaded .env from', envPath);
+} else {
+  console.log('[amplify-entry] No .env file found at', envPath);
+}
 
-const PORT = process.env.PORT ?? 3000;
-
-console.log('[amplify-entry] Starting...');
 console.log('[amplify-entry] DB_PROVIDER:', process.env.DB_PROVIDER ?? '(not set)');
 console.log('[amplify-entry] DATABASE_URL set:', !!process.env.DATABASE_URL);
-console.log('[amplify-entry] PORT:', PORT);
 
-(async () => {
+// Now import app (after env is loaded)
+async function start() {
+  const { default: app } = await import('./server');
+  const { initDatabase } = await import('./db/store');
+  const { ensureDefaultAdmin } = await import('./services/auth');
+
+  const PORT = process.env.PORT ?? 3000;
+
   try {
-    console.log('[amplify-entry] Initializing database...');
     await initDatabase();
     console.log('[amplify-entry] Database initialized.');
   } catch (err) {
     console.error('[amplify-entry] Database init failed:', err);
-    // Start server anyway so health checks work and we can see the error
   }
 
   try {
@@ -39,7 +53,9 @@ console.log('[amplify-entry] PORT:', PORT);
   app.listen(PORT, () => {
     console.log(`[amplify-entry] Server running on port ${PORT}`);
   });
-})().catch((err) => {
+}
+
+start().catch((err) => {
   console.error('[amplify-entry] Fatal:', err);
   process.exit(1);
 });

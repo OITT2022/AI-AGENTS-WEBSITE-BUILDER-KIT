@@ -21,7 +21,9 @@ frontend:
         - cp db/migration.sql .amplify-hosting/compute/default/db/
         # Entry point - HTTP server on port 3000
         - cp .amplify-hosting/compute/default/amplify-entry.js .amplify-hosting/compute/default/index.js
-        # Copy static assets
+        # Copy public files into compute so Express can serve them
+        - cp -r public .amplify-hosting/compute/default/public
+        # Also copy to static for CDN caching
         - cp -r public/* .amplify-hosting/static/ || true
         # Deploy manifest
         - cp deploy-manifest.json .amplify-hosting/deploy-manifest.json

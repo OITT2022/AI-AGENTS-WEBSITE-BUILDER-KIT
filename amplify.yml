@@ -1,29 +1,34 @@
 version: 1
-backend:
-  phases:
-    build:
-      commands: []
 frontend:
   phases:
     preBuild:
       commands:
-        - npm ci
+        - npm ci --production=false
     build:
       commands:
         - npm run build
+        # Assemble .amplify-hosting structure
+        - rm -rf .amplify-hosting
+        - mkdir -p .amplify-hosting/compute/default
+        - mkdir -p .amplify-hosting/static/dashboard
+        # Copy compute (server) files
+        - cp -r dist/* .amplify-hosting/compute/default/
+        - cp -r node_modules .amplify-hosting/compute/default/node_modules
+        - cp package.json .amplify-hosting/compute/default/package.json
+        # Copy the db folder (schema files used by initDatabase)
+        - mkdir -p .amplify-hosting/compute/default/db
+        - cp -r db/* .amplify-hosting/compute/default/db/
+        # Rename entry point to index.js (what deploy-manifest expects)
+        - cp .amplify-hosting/compute/default/amplify-entry.js .amplify-hosting/compute/default/index.js
+        # Copy static assets
+        - cp -r public/* .amplify-hosting/static/dashboard/
+        - cp public/favicon.ico .amplify-hosting/static/favicon.ico 2>/dev/null || true
+        - cp public/favicon-*.png .amplify-hosting/static/ 2>/dev/null || true
+        - cp public/apple-touch-icon.png .amplify-hosting/static/ 2>/dev/null || true
+        - cp public/android-chrome-*.png .amplify-hosting/static/ 2>/dev/null || true
+        # Copy deploy manifest
+        - cp deploy-manifest.json .amplify-hosting/deploy-manifest.json
   artifacts:
-    baseDirectory: .
+    baseDirectory: .amplify-hosting
     files:
-      - 'dist/**/*'
-      - 'public/**/*'
-      - 'db/**/*'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'node_modules/**/*'
-  customHeaders:
-    - pattern: '**/*'
-      headers:
-        - key: 'X-Frame-Options'
-          value: 'DENY'
-        - key: 'X-Content-Type-Options'
-          value: 'nosniff'
+      - '**/*'

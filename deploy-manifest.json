@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "framework": { "name": "express", "version": "4.21.0" },
+  "routes": [
+    {
+      "path": "/dashboard/*.*",
+      "target": { "kind": "Static", "cacheControl": "public, max-age=3600" },
+      "fallback": { "kind": "Compute", "src": "default" }
+    },
+    {
+      "path": "/favicon.*",
+      "target": { "kind": "Static", "cacheControl": "public, max-age=86400" },
+      "fallback": { "kind": "Compute", "src": "default" }
+    },
+    {
+      "path": "/apple-touch-icon.*",
+      "target": { "kind": "Static", "cacheControl": "public, max-age=86400" }
+    },
+    {
+      "path": "/android-chrome-*",
+      "target": { "kind": "Static", "cacheControl": "public, max-age=86400" }
+    },
+    {
+      "path": "/*.*",
+      "target": { "kind": "Static", "cacheControl": "public, max-age=2" },
+      "fallback": { "kind": "Compute", "src": "default" }
+    },
+    {
+      "path": "/*",
+      "target": { "kind": "Compute", "src": "default" }
+    }
+  ],
+  "computeResources": [
+    {
+      "name": "default",
+      "runtime": "nodejs18.x",
+      "entrypoint": "index.js"
+    }
+  ]
+}

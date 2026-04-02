@@ -23,9 +23,10 @@ frontend:
         - echo "DEBUG DATABASE_URL set = $(if [ -n \"$DATABASE_URL\" ]; then echo YES; else echo NO; fi)"
         - echo "DEBUG DB_PROVIDER = ${DB_PROVIDER:-not set}"
         - echo "DEBUG all env vars with DB:" && env | grep -i "DB_\|DATABASE" || echo "none found"
-        # Write runtime environment variables into .env for the compute function
-        - env | grep -E '^(DATABASE_URL|DB_PROVIDER|NODE_ENV|ADMIN_BASE_URL|APP_TIMEZONE|DEFAULT_MARKETING_LOCALE|DEFAULT_CURRENCY|SOURCE_API_|S3_|ANTHROPIC_|AI_MODEL_|IMAGE_AI_|OPENAI_|STABILITY_|REPLICATE_|VIDEO_AI_|RUNWAY_|PIKA_|CREATOMATE_|CANVA_|GOOGLE_|META_|TIKTOK_|SMTP_|NOTIFY_|SLACK_|STORAGE_PROVIDER|PLATFORM|ENABLE_EXTERNAL_AI|PORT)' > .amplify-hosting/compute/default/.env || true
-        - echo "DEBUG .env contents:" && cat .amplify-hosting/compute/default/.env || echo "empty"
+        # Write ALL environment variables to .env for the compute function
+        # (Amplify SSR compute does not inject env vars at runtime)
+        - env > .amplify-hosting/compute/default/.env
+        - echo "DEBUG .env line count:" && wc -l .amplify-hosting/compute/default/.env
         # Entry point - HTTP server on port 3000
         - cp .amplify-hosting/compute/default/amplify-entry.js .amplify-hosting/compute/default/index.js
         # Copy public files into compute so Express can serve them

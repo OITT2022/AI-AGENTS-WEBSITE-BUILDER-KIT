@@ -210,10 +210,7 @@ export async function renderLocalVideoFromFile(
   return spawnRender(absoluteJobPath, finalOutput);
 }
 
-/** Returns true when running inside a serverless environment (Vercel, AWS Lambda, etc.) */
-function isServerless(): boolean {
-  return !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
-}
+import { isServerless } from '../lib/platform';
 
 /**
  * Check whether video-engine is ready to run.

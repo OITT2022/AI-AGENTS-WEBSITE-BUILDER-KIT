@@ -71,7 +71,8 @@ app.get('/favicon-:size.png', (req, res) => { res.sendFile(path.join(publicDir, 
 app.get('/apple-touch-icon.png', (_req, res) => { res.sendFile(path.join(publicDir, 'apple-touch-icon.png')); });
 app.get('/android-chrome-:size.png', (req, res) => { res.sendFile(path.join(publicDir, `android-chrome-${req.params.size}.png`)); });
 
-const uploadDir = path.join(process.env.VERCEL ? '/tmp' : process.cwd(), 'data', 'uploads');
+import { getWritableBaseDir } from './lib/platform';
+const uploadDir = path.join(getWritableBaseDir(), 'data', 'uploads');
 try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
 const upload = multer({ dest: uploadDir, limits: { fileSize: 50 * 1024 * 1024 } });
 

@@ -1,4 +1,4 @@
-import { sql, sqlTagged } from './neon';
+import { sql } from './provider';
 import {
   SourceEntity,
   EntitySnapshot,

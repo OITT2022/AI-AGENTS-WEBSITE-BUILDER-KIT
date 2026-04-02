@@ -29,6 +29,30 @@ if (fs.existsSync(envPath)) {
 console.log('[amplify-entry] DB_PROVIDER:', process.env.DB_PROVIDER ?? '(not set)');
 console.log('[amplify-entry] DATABASE_URL set:', !!process.env.DATABASE_URL);
 
+// Also try loading from CWD
+const cwdEnvPath = path.join(process.cwd(), '.env');
+if (!process.env.DATABASE_URL && fs.existsSync(cwdEnvPath) && cwdEnvPath !== envPath) {
+  console.log('[amplify-entry] Trying .env from cwd:', cwdEnvPath);
+  const lines2 = fs.readFileSync(cwdEnvPath, 'utf-8').split('\n');
+  for (const line of lines2) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx);
+    const val = trimmed.slice(eqIdx + 1);
+    if (!process.env[key]) process.env[key] = val;
+  }
+}
+
+// List files in __dirname for debugging
+try {
+  const files = fs.readdirSync(__dirname).filter(f => f.startsWith('.env') || f === 'index.js');
+  console.log('[amplify-entry] Files in __dirname:', files.join(', '));
+} catch {}
+
+console.log('[amplify-entry] After all loading - DATABASE_URL set:', !!process.env.DATABASE_URL);
+
 // Now import app (after env is loaded)
 async function start() {
   const { default: app } = await import('./server');

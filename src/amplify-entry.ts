@@ -2,7 +2,12 @@
  * AWS Amplify SSR compute entry point.
  *
  * Amplify compute requires a Node.js HTTP server listening on port 3000.
+ * Env vars are written to .env during build (not injected at runtime).
  */
+
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 import app from './server';
 import { initDatabase } from './db/store';

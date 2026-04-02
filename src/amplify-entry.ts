@@ -1,12 +1,13 @@
 /**
  * AWS Amplify SSR compute entry point.
- * Loads env.json (written during build) before importing app modules.
+ * Loads env.json then starts the Express server on port 3000.
  */
 
-import path from 'path';
-import fs from 'fs';
+/* eslint-disable @typescript-eslint/no-var-requires */
+const path = require('path');
+const fs = require('fs');
 
-// Load env.json from same directory
+// Load env.json written during Amplify build
 const jsonPath = path.join(__dirname, 'env.json');
 if (fs.existsSync(jsonPath)) {
   try {
@@ -22,33 +23,19 @@ if (fs.existsSync(jsonPath)) {
   }
 } else {
   console.log('[amplify-entry] No env.json at', jsonPath);
-  // Fallback: try .env
-  const envPath = path.join(__dirname, '.env');
-  if (fs.existsSync(envPath)) {
-    const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const eqIdx = trimmed.indexOf('=');
-      if (eqIdx === -1) continue;
-      const key = trimmed.slice(0, eqIdx);
-      const val = trimmed.slice(eqIdx + 1);
-      if (!process.env[key]) process.env[key] = val;
-    }
-    console.log('[amplify-entry] Loaded .env fallback');
-  }
 }
 
 console.log('[amplify-entry] DB_PROVIDER:', process.env.DB_PROVIDER ?? '(not set)');
 console.log('[amplify-entry] DATABASE_URL set:', !!process.env.DATABASE_URL);
 
-async function start() {
-  const { default: app } = await import('./server');
-  const { initDatabase } = await import('./db/store');
-  const { ensureDefaultAdmin } = await import('./services/auth');
+// Use require (not dynamic import) for CommonJS compatibility
+const app = require('./server').default;
+const { initDatabase } = require('./db/store');
+const { ensureDefaultAdmin } = require('./services/auth');
 
-  const PORT = process.env.PORT ?? 3000;
+const PORT = process.env.PORT ?? 3000;
 
+(async () => {
   try {
     await initDatabase();
     console.log('[amplify-entry] Database initialized.');
@@ -65,9 +52,7 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`[amplify-entry] Server running on port ${PORT}`);
   });
-}
-
-start().catch((err) => {
+})().catch((err: any) => {
   console.error('[amplify-entry] Fatal:', err);
   process.exit(1);
 });

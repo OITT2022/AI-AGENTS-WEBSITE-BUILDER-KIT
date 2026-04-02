@@ -7,7 +7,7 @@
  * ENV variables:
  *   VIDEO_AI_PROVIDER       – 'runway' | 'pika' | 'replicate' | 'creatomate' (default: 'runway')
  *   RUNWAY_API_KEY          – for Runway Gen-3/Gen-4
- *   RUNWAY_MODEL            – model name (default: 'gen3a_turbo')
+ *   RUNWAY_MODEL            – model name (default: 'gen4_turbo')
  *   PIKA_API_KEY            – for Pika Labs API
  *   REPLICATE_API_TOKEN     – for Replicate hosted video models (shared with image-ai)
  *   REPLICATE_VIDEO_MODEL   – Replicate video model version string
@@ -93,67 +93,65 @@ const ASPECT_DIMENSIONS = {
   '1:1': { width: 1080, height: 1080 },
 } as const;
 
-// ── Runway Gen-3/Gen-4 ──
+// ── Runway Gen-3/Gen-4 (via official @runwayml/sdk) ──
 
 async function generateRunway(req: VideoGenerationRequest): Promise<GeneratedVideo> {
+  const RunwayML = (await import('@runwayml/sdk')).default;
   const apiKey = requireKey('RUNWAY_API_KEY', 'Runway');
+  const client = new RunwayML({ apiKey });
   const model = process.env.RUNWAY_MODEL?.trim() || 'gen4_turbo';
-  const duration = req.duration_sec ?? 5;
   const ratio = req.aspect_ratio ?? '9:16';
 
-  // Runway uses pixel ratio format (width:height)
+  // Map simple ratios to Runway pixel ratios
   const ratioMap: Record<string, string> = {
-    '16:9': '1280:720', '9:16': '720:1280', '1:1': '1080:1080',
+    '16:9': '1280:720', '9:16': '720:1280', '1:1': '960:960',
   };
   const runwayRatio = ratioMap[ratio] || '1280:720';
 
-  const body: Record<string, unknown> = {
-    model,
-    promptText: req.prompt,
-    duration,
-    ratio: runwayRatio,
-  };
+  // Duration: gen4_turbo supports any 2-10, gen3a_turbo only 5|10
+  const duration = Math.max(2, Math.min(req.duration_sec ?? 5, 10));
+
   if (req.source_image_url) {
-    body.promptImage = req.source_image_url;
+    // Image-to-video: create task and wait for output in one call
+    const result = await client.imageToVideo.create({
+      model: model as any,
+      promptImage: req.source_image_url,
+      promptText: req.prompt,
+      ratio: runwayRatio as any,
+      duration,
+    } as any).waitForTaskOutput({ timeout: 300_000 });
+
+    const dims = ASPECT_DIMENSIONS[ratio] ?? ASPECT_DIMENSIONS['9:16'];
+    return {
+      url: result.output?.[0] ?? '',
+      duration_sec: duration,
+      width: dims.width,
+      height: dims.height,
+      provider: 'runway',
+      model,
+      generation_id: result.id,
+    };
+  } else {
+    // Text-to-video (gen4_turbo requires image, use gen4.5 for text-only)
+    const textModel = model === 'gen4_turbo' ? 'gen4.5' : model;
+    const result = await client.textToVideo.create({
+      model: textModel as any,
+      promptText: req.prompt,
+      ratio: runwayRatio as any,
+      duration,
+    } as any).waitForTaskOutput({ timeout: 300_000 });
+
+    const dims = ASPECT_DIMENSIONS[ratio] ?? ASPECT_DIMENSIONS['9:16'];
+    return {
+      url: result.output?.[0] ?? '',
+      duration_sec: duration,
+      width: dims.width,
+      height: dims.height,
+      provider: 'runway',
+      model: textModel,
+      generation_id: result.id,
+    };
   }
-
-  // Start generation
-  const payload = JSON.stringify(body);
-  const res = await fetch('https://api.dev.runwayml.com/v1/image_to_video', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'X-Runway-Version': '2024-11-06' },
-    body: payload,
-  });
-  const rawText = await res.text();
-  let data: any;
-  try { data = JSON.parse(rawText); } catch { throw new Error(`Runway: HTTP ${res.status} — ${rawText.slice(0, 300)}`); }
-  if (!res.ok || data.error) throw new Error(`Runway ${res.status}: ${rawText.slice(0, 500)}`);
-
-  const taskId = data.id;
-
-  // Poll for completion (max 5 min for video)
-  const start = Date.now();
-  while (Date.now() - start < 300_000) {
-    const poll = await fetch(`https://api.dev.runwayml.com/v1/tasks/${taskId}`, {
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'X-Runway-Version': '2024-11-06' },
-    });
-    const status: any = await poll.json();
-    if (status.status === 'SUCCEEDED') {
-      const dims = ASPECT_DIMENSIONS[ratio] ?? ASPECT_DIMENSIONS['9:16'];
-      return {
-        url: status.output?.[0] ?? '',
-        duration_sec: duration,
-        width: dims.width,
-        height: dims.height,
-        provider: 'runway',
-        model,
-        generation_id: taskId,
-      };
-    }
-    if (status.status === 'FAILED') throw new Error(`Runway failed: ${status.failure ?? 'unknown error'}`);
-    await new Promise(r => setTimeout(r, 5000));
-  }
-  throw new Error(`Runway task ${taskId} timed out`);
 }
 
 // ── Pika Labs ──

@@ -1319,7 +1319,12 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
         const mediaUrls = (mediaPlan.selected_images as string[]) ?? [];
         const bindings = canva.mapPropertyToBindings(payload, copy, mediaUrls);
         const title = String(payload.title_he || payload.title_en || 'Ad');
-        const templateId = req.body.canva_template_id;
+        // Use template from request, or auto-pick first available template
+        let templateId = req.body.canva_template_id;
+        if (!templateId) {
+          const templates = await canva.listTemplates(client);
+          if (templates.length > 0) templateId = templates[0].id;
+        }
         if (templateId) {
           const design = await canva.createDesignFromTemplate(client, templateId, `${title} - ${variant.platform}`, bindings);
           canvaResult = { design_id: design.id, edit_url: design.edit_url };
@@ -1328,6 +1333,8 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       } catch (err: any) {
         errors.push({ service: 'canva', error: err.message });
       }
+    } else if (canva.isConfigured() && client && !canva.isClientConnected(client)) {
+      errors.push({ service: 'canva', error: 'Canva not connected. Go to Client Settings and click "Connect Canva".' });
     }
 
     // ── Persist results ──

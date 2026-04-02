@@ -7,26 +7,26 @@ frontend:
     build:
       commands:
         - npm run build
-        # Assemble .amplify-hosting structure
+        # Assemble .amplify-hosting structure for SSR compute
         - rm -rf .amplify-hosting
         - mkdir -p .amplify-hosting/compute/default
         - mkdir -p .amplify-hosting/static/dashboard
-        # Copy compute (server) files
+        # Copy server code
         - cp -r dist/* .amplify-hosting/compute/default/
         - cp -r node_modules .amplify-hosting/compute/default/node_modules
         - cp package.json .amplify-hosting/compute/default/package.json
-        # Copy the db folder (schema files used by initDatabase)
+        # Copy db schema files (used by initDatabase)
         - mkdir -p .amplify-hosting/compute/default/db
         - cp -r db/* .amplify-hosting/compute/default/db/
-        # Rename entry point to index.js (what deploy-manifest expects)
+        # Entry point must be index.js (HTTP server on port 3000)
         - cp .amplify-hosting/compute/default/amplify-entry.js .amplify-hosting/compute/default/index.js
         # Copy static assets
-        - cp -r public/* .amplify-hosting/static/dashboard/
+        - cp -r public/* .amplify-hosting/static/dashboard/ || true
         - cp public/favicon.ico .amplify-hosting/static/favicon.ico 2>/dev/null || true
         - cp public/favicon-*.png .amplify-hosting/static/ 2>/dev/null || true
         - cp public/apple-touch-icon.png .amplify-hosting/static/ 2>/dev/null || true
         - cp public/android-chrome-*.png .amplify-hosting/static/ 2>/dev/null || true
-        # Copy deploy manifest
+        # Deploy manifest tells Amplify this is a compute app
         - cp deploy-manifest.json .amplify-hosting/deploy-manifest.json
   artifacts:
     baseDirectory: .amplify-hosting

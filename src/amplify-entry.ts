@@ -1,32 +1,24 @@
 /**
  * AWS Amplify SSR compute entry point.
  *
+ * Amplify compute requires a Node.js HTTP server listening on port 3000.
  * This file is compiled to dist/amplify-entry.js, then copied to
  * .amplify-hosting/compute/default/index.js during the build.
- *
- * It wraps the Express app with @vendia/serverless-express so Amplify's
- * Lambda-backed compute can invoke it.
  */
 
-import serverlessExpress from '@vendia/serverless-express';
 import app from './server';
 import { initDatabase } from './db/store';
 import { ensureDefaultAdmin } from './services/auth';
 
-let serverlessApp: ReturnType<typeof serverlessExpress> | null = null;
-let initialized = false;
+const PORT = process.env.PORT ?? 3000;
 
-async function init() {
-  if (initialized) return;
+(async () => {
   await initDatabase();
   await ensureDefaultAdmin();
-  initialized = true;
-}
-
-export const handler = async (event: any, context: any, callback: any) => {
-  await init();
-  if (!serverlessApp) {
-    serverlessApp = serverlessExpress({ app });
-  }
-  return serverlessApp(event, context, callback);
-};
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+})().catch((err) => {
+  console.error('Failed to start:', err);
+  process.exit(1);
+});

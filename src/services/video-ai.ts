@@ -102,11 +102,19 @@ async function generateRunway(req: VideoGenerationRequest): Promise<GeneratedVid
   const model = process.env.RUNWAY_MODEL?.trim() || 'gen4_turbo';
   const ratio = req.aspect_ratio ?? '9:16';
 
-  // Map simple ratios to Runway pixel ratios
-  const ratioMap: Record<string, string> = {
-    '16:9': '1280:720', '9:16': '720:1280', '1:1': '960:960',
+  // Each model accepts different ratio formats
+  const ratioMaps: Record<string, Record<string, string>> = {
+    // gen3a_turbo: simple aspect or pixel (768:1280)
+    gen3a_turbo: { '16:9': '1280:768', '9:16': '768:1280', '1:1': '1280:768' },
+    // gen4_turbo / gen4.5: pixel format
+    gen4_turbo: { '16:9': '1280:720', '9:16': '720:1280', '1:1': '960:960' },
+    'gen4.5': { '16:9': '1280:720', '9:16': '720:1280', '1:1': '960:960' },
+    // veo models
+    veo3: { '16:9': '1280:720', '9:16': '720:1280', '1:1': '1280:720' },
+    'veo3.1': { '16:9': '1280:720', '9:16': '720:1280', '1:1': '1280:720' },
   };
-  const runwayRatio = ratioMap[ratio] || '1280:720';
+  const modelRatios = ratioMaps[model] || ratioMaps['gen4.5'];
+  const runwayRatio = modelRatios[ratio] || Object.values(modelRatios)[0];
 
   // Duration: gen4_turbo supports any 2-10, gen3a_turbo only 5|10
   const duration = Math.max(2, Math.min(req.duration_sec ?? 5, 10));

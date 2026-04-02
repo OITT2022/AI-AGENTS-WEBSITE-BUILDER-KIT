@@ -3,31 +3,31 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm ci --production=false
+        - npm ci --omit=dev
     build:
       commands:
-        - npm run build
+        - npx tsc
         # Assemble .amplify-hosting structure for SSR compute
         - rm -rf .amplify-hosting
         - mkdir -p .amplify-hosting/compute/default
-        - mkdir -p .amplify-hosting/static/dashboard
+        - mkdir -p .amplify-hosting/static
         # Copy server code
         - cp -r dist/* .amplify-hosting/compute/default/
-        - cp -r node_modules .amplify-hosting/compute/default/node_modules
         - cp package.json .amplify-hosting/compute/default/package.json
+        - cp -r node_modules .amplify-hosting/compute/default/node_modules
         # Copy db schema files (used by initDatabase)
         - mkdir -p .amplify-hosting/compute/default/db
-        - cp -r db/* .amplify-hosting/compute/default/db/
-        # Entry point must be index.js (HTTP server on port 3000)
+        - cp db/schema.sql .amplify-hosting/compute/default/db/
+        - cp db/migration.sql .amplify-hosting/compute/default/db/
+        # Entry point - HTTP server on port 3000
         - cp .amplify-hosting/compute/default/amplify-entry.js .amplify-hosting/compute/default/index.js
         # Copy static assets
-        - cp -r public/* .amplify-hosting/static/dashboard/ || true
-        - cp public/favicon.ico .amplify-hosting/static/favicon.ico 2>/dev/null || true
-        - cp public/favicon-*.png .amplify-hosting/static/ 2>/dev/null || true
-        - cp public/apple-touch-icon.png .amplify-hosting/static/ 2>/dev/null || true
-        - cp public/android-chrome-*.png .amplify-hosting/static/ 2>/dev/null || true
-        # Deploy manifest tells Amplify this is a compute app
+        - cp -r public/* .amplify-hosting/static/ || true
+        # Deploy manifest
         - cp deploy-manifest.json .amplify-hosting/deploy-manifest.json
+        - echo "Build complete. Contents:"
+        - ls -la .amplify-hosting/
+        - ls -la .amplify-hosting/compute/default/index.js
   artifacts:
     baseDirectory: .amplify-hosting
     files:

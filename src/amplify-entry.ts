@@ -1,46 +1,51 @@
 // AWS Amplify SSR compute entry point
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 
-// Step 1: Load env.json before anything else
+// Step 1: Load env.json
 const jsonPath = path.join(__dirname, 'env.json');
-if (fs.existsSync(jsonPath)) {
-  const vars = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-  for (const [key, val] of Object.entries(vars)) {
-    if (typeof val === 'string') process.env[key] = val;
+let envLoaded = false;
+try {
+  if (fs.existsSync(jsonPath)) {
+    const vars = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    for (const [key, val] of Object.entries(vars)) {
+      if (typeof val === 'string') process.env[key] = val;
+    }
+    envLoaded = true;
   }
-  console.log('[amplify] env.json loaded:', Object.keys(vars).join(', '));
-}
+} catch {}
 
-console.log('[amplify] DB_PROVIDER:', process.env.DB_PROVIDER ?? 'not set');
-console.log('[amplify] DATABASE_URL:', process.env.DATABASE_URL ? 'set' : 'NOT SET');
+// Step 2: Try loading the real app
+let app: any = null;
+let loadError: string = '';
 
-// Step 2: Load the Express app
-let app: any;
 try {
   app = require('./server').default;
-  console.log('[amplify] server.js loaded OK');
 } catch (e: any) {
-  console.error('[amplify] FAILED to load server.js:', e.message);
-  // Fallback: diagnostic server
-  const http = require('http');
-  http.createServer((_req: any, res: any) => {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: e.message, stack: e.stack?.split('\n').slice(0, 10) }));
-  }).listen(3000);
-  throw e;  // also log to CloudWatch
+  loadError = (e.stack || e.message || 'unknown error').toString();
 }
 
-// Step 3: Init DB and start
-const { initDatabase } = require('./db/store');
-const { ensureDefaultAdmin } = require('./services/auth');
+if (!app) {
+  // Fallback: show what went wrong
+  http.createServer((_req: any, res: any) => {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: 'server.js failed to load',
+      loadError: loadError.split('\n').slice(0, 15),
+      envLoaded,
+      DATABASE_URL_SET: !!process.env.DATABASE_URL,
+      DB_PROVIDER: process.env.DB_PROVIDER ?? 'not set',
+    }, null, 2));
+  }).listen(3000, () => console.log('Fallback diagnostic server on 3000'));
+} else {
+  // Real app
+  const { initDatabase } = require('./db/store');
+  const { ensureDefaultAdmin } = require('./services/auth');
 
-(async () => {
-  try { await initDatabase(); console.log('[amplify] DB initialized'); }
-  catch (e: any) { console.error('[amplify] DB init error:', e.message); }
-
-  try { await ensureDefaultAdmin(); }
-  catch (e: any) { console.error('[amplify] Admin seed error:', e.message); }
-
-  app.listen(3000, () => console.log('[amplify] Server on port 3000'));
-})();
+  (async () => {
+    try { await initDatabase(); } catch {}
+    try { await ensureDefaultAdmin(); } catch {}
+    app.listen(3000, () => console.log('Server on port 3000'));
+  })();
+}

@@ -50,8 +50,11 @@ function validateStateId(raw: unknown): string | null {
 }
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
-// Serve static dashboard files - handle both local dev and Vercel
-const publicDir = path.join(process.cwd(), 'public');
+// Serve static dashboard files — find public/ in multiple locations
+const publicDir = [
+  path.join(__dirname, 'public'),         // Amplify compute: same dir as compiled JS
+  path.join(process.cwd(), 'public'),     // Local dev: cwd/public
+].find(d => fs.existsSync(d)) ?? path.join(process.cwd(), 'public');
 app.use('/dashboard', express.static(publicDir));
 
 // Serve video-engine output files

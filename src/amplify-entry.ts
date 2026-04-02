@@ -2,8 +2,6 @@
  * AWS Amplify SSR compute entry point.
  *
  * Amplify compute requires a Node.js HTTP server listening on port 3000.
- * This file is compiled to dist/amplify-entry.js, then copied to
- * .amplify-hosting/compute/default/index.js during the build.
  */
 
 import app from './server';
@@ -12,13 +10,31 @@ import { ensureDefaultAdmin } from './services/auth';
 
 const PORT = process.env.PORT ?? 3000;
 
+console.log('[amplify-entry] Starting...');
+console.log('[amplify-entry] DB_PROVIDER:', process.env.DB_PROVIDER ?? '(not set)');
+console.log('[amplify-entry] DATABASE_URL set:', !!process.env.DATABASE_URL);
+console.log('[amplify-entry] PORT:', PORT);
+
 (async () => {
-  await initDatabase();
-  await ensureDefaultAdmin();
+  try {
+    console.log('[amplify-entry] Initializing database...');
+    await initDatabase();
+    console.log('[amplify-entry] Database initialized.');
+  } catch (err) {
+    console.error('[amplify-entry] Database init failed:', err);
+    // Start server anyway so health checks work and we can see the error
+  }
+
+  try {
+    await ensureDefaultAdmin();
+  } catch (err) {
+    console.error('[amplify-entry] ensureDefaultAdmin failed:', err);
+  }
+
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`[amplify-entry] Server running on port ${PORT}`);
   });
 })().catch((err) => {
-  console.error('Failed to start:', err);
+  console.error('[amplify-entry] Fatal:', err);
   process.exit(1);
 });

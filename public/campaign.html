@@ -813,7 +813,7 @@ async function generateAiAd(vid) {
   overlay.innerHTML = `<div class="ai-gen-modal">
     <div class="ai-gen-spinner"></div>
     <h3 style="margin-bottom:8px">Generating AI Ad Assets</h3>
-    <div class="ai-gen-status" id="ai-gen-status">Preparing scene images...</div>
+    <div class="ai-gen-status" id="ai-gen-status">Generating AI images, video &amp; local slideshow...</div>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -851,10 +851,19 @@ async function generateAiAd(vid) {
     }
 
     if (video) {
-      html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video</div>
+      html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (AI)</div>
         <a href="${esc(video.url)}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration:none">
           &#9654; Watch ${video.duration_sec}s video (${video.provider})
         </a>`;
+    }
+
+    const localVideo = gen.local_video;
+    if (localVideo) {
+      html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (Local Slideshow)</div>
+        <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
+          <source src="${esc(localVideo.url)}" type="video/mp4">
+        </video>
+        <div style="font-size:11px;color:var(--text2)">Generated locally via VideoEngine</div>`;
     }
 
     if (canvaDesign) {
@@ -876,7 +885,7 @@ async function generateAiAd(vid) {
 
     // Update variant data in memory
     if (v.media_plan_json) {
-      v.media_plan_json.ai_generated = { scene_images: scenes, video, canva_design: canvaDesign, generated_at: new Date().toISOString(), services_used: used };
+      v.media_plan_json.ai_generated = { scene_images: scenes, video, local_video: gen.local_video || null, canva_design: canvaDesign, generated_at: new Date().toISOString(), services_used: used };
     }
   } catch (err) {
     document.getElementById('ai-gen-overlay')?.remove();

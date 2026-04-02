@@ -1,0 +1,38 @@
+{
+  "projectId": "realestate-demo-002",
+  "platform": "instagram-reel",
+  "language": "en",
+  "style": "modern",
+  "fps": 30,
+  "title": "New Development in Larnaca",
+  "subtitle": "Stylish apartments in a prime location, minutes from the sea.",
+  "cta": "Send a message for details",
+  "outroTitle": "Schedule a call today",
+  "outroSubtitle": "Limited availability • Contact us now",
+  "images": [
+    {
+      "src": "../assets/samples/property-1.jpg",
+      "caption": "Elegant lobby and luxury living experience",
+      "holdSeconds": 2.8
+    },
+    {
+      "src": "../assets/samples/property-2.jpg",
+      "caption": "Open spaces, natural light, modern design",
+      "holdSeconds": 2.8
+    },
+    {
+      "src": "../assets/samples/property-3.jpg",
+      "caption": "Spacious balconies with open views",
+      "holdSeconds": 2.8
+    }
+  ],
+  "logo": {
+    "src": "../assets/logos/logo-example.png",
+    "width": 180,
+    "position": "top-right"
+  },
+  "music": {
+    "src": "../assets/music/background-track.wav",
+    "volume": 0.6
+  }
+}

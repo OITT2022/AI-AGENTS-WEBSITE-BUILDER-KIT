@@ -1,0 +1,107 @@
+SMART AGENT INTEGRATION - CLAUDE PROMPTS
+
+IMPORTANT:
+Work step by step. DO NOT jump to implementation.
+
+========================
+STEP 1 - PROJECT SCAN
+========================
+Paste to Claude:
+
+You are working inside an existing production codebase.
+Goal: Integrate a smart real-estate marketing agent.
+
+Tasks:
+1. Analyze architecture
+2. Identify APIs, DB, media flow
+3. Build integration plan
+
+DO NOT change code yet.
+
+========================
+STEP 2 - FIND INTEGRATION POINTS
+========================
+Find:
+- property APIs
+- media storage
+- design/ad system
+- triggers (cron, queue, admin)
+
+Output:
+- table of integration points
+- file paths
+- reusable services
+
+========================
+STEP 3 - COMPATIBILITY CHECK
+========================
+Compare agent modules with system:
+- what to reuse
+- what to wrap
+- what to change
+
+DO NOT implement.
+
+========================
+STEP 4 - BUILD ROADMAP
+========================
+Create phases:
+1. data integration
+2. AI text
+3. images
+4. video
+5. Canva
+6. trigger
+7. QA
+
+Save to docs/agent-integration-roadmap.md
+
+========================
+STEP 5 - IMPLEMENT PHASE 1 ONLY
+========================
+Connect real data:
+- replace mock data
+- create adapters
+- keep safe changes
+
+========================
+STEP 6 - REMOVE MOCK DATA
+========================
+Replace all fake/demo data with real APIs.
+
+========================
+STEP 7 - PROVIDER LAYER
+========================
+Create interfaces for:
+- Canva
+- image AI
+- video AI
+
+Use ENV variables only.
+
+========================
+STEP 8 - TRIGGER
+========================
+Add safe trigger:
+- admin button / API / job
+
+========================
+STEP 9 - REVIEW
+========================
+Check:
+- security
+- performance
+- architecture
+- errors
+
+Fix low risk issues.
+
+========================
+GLOBAL RULES
+========================
+- DO NOT break existing logic
+- Prefer adapters
+- Explain before coding
+- Work in small steps
+- Summarize every change
+

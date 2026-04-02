@@ -1,0 +1,24 @@
+{
+  "name": "local-social-video-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "render:sample": "tsx scripts/render.ts jobs/sample-he.json output/sample-he.mp4",
+    "render": "tsx scripts/render.ts",
+    "bundle": "remotion bundle src/index.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "remotion": "^4.0.267",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.267",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.2.14",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2"
+  }
+}

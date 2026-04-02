@@ -4,5 +4,4 @@ data/
 .env
 *.log
 .vercel
-
-.vercel
+video-engine/output/*.mp4

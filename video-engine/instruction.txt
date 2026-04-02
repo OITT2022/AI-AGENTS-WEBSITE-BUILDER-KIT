@@ -1,0 +1,101 @@
+VIDEO ENGINE - IMPLEMENTATION INSTRUCTIONS
+=========================================
+
+מטרה
+-----
+לבנות מנוע מקומי ליצירת מודעות וידאו מסוג slideshow עם מוסיקת רקע, ללא שום חיבור לצד שלישי.
+
+טכנולוגיה
+---------
+- Node.js
+- TypeScript
+- Remotion
+- FFmpeg (נדרש במערכת עבור Remotion render)
+
+מה יש בפרויקט
+---------------
+1. מנוע טעינת JSON של עבודה
+2. מנוע תכנון timeline
+3. תבנית וידאו אחת ראשית ל-social vertical
+4. רינדור MP4 מקומי
+5. תמיכה בטקסט עברי / RTL
+
+שלבי הפעלה
+------------
+1. התקן Node.js 20+
+2. התקן FFmpeg במחשב וודא שהפקודה ffmpeg זמינה ב-terminal
+3. פתח את התיקיה ב-VS Code
+4. הרץ ב-terminal:
+   npm install
+5. הכנס קבצים אמיתיים לתיקיות:
+   - assets/samples/
+   - assets/music/
+   - assets/logos/
+6. עדכן את jobs/sample-he.json
+7. הרץ:
+   npm run render:sample
+
+פקודת render כללית
+-------------------
+npm run render -- jobs/sample-he.json output/final.mp4
+
+מבנה input job
+---------------
+הקובץ jobs/*.json הוא החוזה בין מנוע התוכן שלך לבין מנוע הווידאו.
+כל עבודה צריכה לכלול:
+- projectId
+- platform
+- language
+- style
+- title
+- subtitle (אופציונלי)
+- cta (אופציונלי)
+- images[]
+- logo (אופציונלי)
+- music (אופציונלי)
+
+platform values
+---------------
+- tiktok
+- instagram-reel
+- facebook-reel
+- facebook-feed
+- square
+
+style values
+------------
+- luxury
+- modern
+- energetic
+- minimal
+
+איך לחבר למנוע הקיים שלך
+-------------------------
+המנוע הקיים שלך כבר מייבא נתונים ומציע תוכן.
+כל מה שאתה צריך הוא לייצר קובץ JSON בפורמט של jobs/sample-he.json
+ואז להריץ את פקודת הרינדור מתוך Node child_process או queue פנימית.
+
+מומלץ:
+- ליצור לכל מודעה job file זמני
+- לשמור output לפי projectId
+- להפריד בין text generation לבין video rendering
+
+שיפורים מומלצים לשלב הבא
+-------------------------
+1. להוסיף templates נוספים
+2. להוסיף פרופילי מעבר שונים
+3. להוסיף בחירת music profile לפי style
+4. להוסיף export מרובה פורמטים לכל מודעה
+5. להוסיף safe-zone presets לכל פלטפורמה
+6. להוסיף thumbnail export
+7. להוסיף queue של עבודות render
+
+הנחיה ל-Claude Code
+-------------------
+אם אתה נותן את הפרויקט הזה ל-Claude Code, הנח אותו:
+1. לא לשנות את חוזה ה-JSON בלי לעדכן את planner וה-template
+2. להוסיף templates חדשים מבלי לשבור את SlideshowAd הקיים
+3. לשמור על תמיכה מלאה ב-RTL
+4. לבדוק שכל render עובר עם npm run check
+5. להוסיף presets בצורה מודולרית תחת src/templates או src/components
+

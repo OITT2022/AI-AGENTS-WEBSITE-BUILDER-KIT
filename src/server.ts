@@ -22,6 +22,7 @@ import {
 import * as imageAi from './services/image-ai';
 import * as videoAi from './services/video-ai';
 import * as canva from './services/canva';
+import * as videoEngineLocal from './services/video-engine-local';
 
 const app = express();
 
@@ -52,6 +53,10 @@ app.use(express.json({ limit: '50mb' }));
 // Serve static dashboard files - handle both local dev and Vercel
 const publicDir = path.join(process.cwd(), 'public');
 app.use('/dashboard', express.static(publicDir));
+
+// Serve video-engine output files
+const videoOutputDir = path.join(process.cwd(), 'video-engine', 'output');
+app.use('/video-output', express.static(videoOutputDir));
 
 // Google domain verification
 app.get('/google8379582d5bf9d84d.html', (_req, res) => {
@@ -1337,10 +1342,81 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       errors.push({ service: 'canva', error: 'Canva not connected. Go to Client Settings and click "Connect Canva".' });
     }
 
+    // ── Phase 4: Local VideoEngine slideshow ──
+    let localVideoResult: { url: string; duration_sec: number; provider: string } | null = null;
+    const veReady = videoEngineLocal.isVideoEngineReady();
+    if (veReady.ready) {
+      try {
+        // Map variant platform to video-engine platform names
+        const vePlatformMap: Record<string, videoEngineLocal.LocalVideoJob['platform']> = {
+          facebook: 'facebook-feed', instagram: 'instagram-reel', tiktok: 'tiktok',
+        };
+        const vePlatform = vePlatformMap[variant.platform] || 'tiktok';
+
+        // Collect image URLs — prefer scene images just generated, fall back to media plan
+        const veImages: videoEngineLocal.LocalVideoJob['images'] = [];
+        if (sceneImages.length > 0) {
+          for (const si of sceneImages) {
+            veImages.push({ src: si.url, caption: si.overlay });
+          }
+        } else {
+          const heroImg = mediaPlan.hero_image as string | undefined;
+          const selectedImgs = (mediaPlan.selected_images as string[] | undefined) ?? [];
+          const allImgs = heroImg ? [heroImg, ...selectedImgs.filter(u => u !== heroImg)] : selectedImgs;
+          for (const imgUrl of allImgs.slice(0, 5)) {
+            veImages.push({ src: imgUrl });
+          }
+        }
+
+        if (veImages.length > 0) {
+          const title = String(payload.title_he || payload.title_en || '');
+          const subtitle = String(payload.subtitle_he || payload.subtitle_en || payload.city || '');
+          const cta = String(copy.cta || copy.closing_cta || 'Learn More');
+          const langRaw = String(payload.language || 'he');
+          const langMap: Record<string, videoEngineLocal.LocalVideoJob['language']> = {
+            he: 'he', en: 'en', ar: 'ar', fr: 'fr', de: 'de',
+          };
+          const lang = langMap[langRaw] || 'he';
+
+          const job: videoEngineLocal.LocalVideoJob = {
+            projectId: `variant-${variant.id}`,
+            platform: vePlatform,
+            language: lang,
+            rtl: lang === 'he' || lang === 'ar',
+            style: 'luxury',
+            title,
+            subtitle: subtitle !== title ? subtitle : undefined,
+            cta,
+            images: veImages,
+          };
+
+          const outputFilename = `${variant.id}-${vePlatform}-${Date.now()}.mp4`;
+          const outputPath = path.join(process.cwd(), 'video-engine', 'output', outputFilename);
+
+          const result = await videoEngineLocal.renderLocalVideo(job, outputPath);
+          if (result.success) {
+            localVideoResult = {
+              url: `/video-output/${outputFilename}`,
+              duration_sec: Math.round(result.durationMs / 1000),
+              provider: 'video-engine-local',
+            };
+            servicesUsed.push('video_engine_local');
+          } else {
+            errors.push({ service: 'video_engine_local', error: result.error || 'Render failed' });
+          }
+        }
+      } catch (err: any) {
+        errors.push({ service: 'video_engine_local', error: err.message });
+      }
+    } else if (veReady.issues.length > 0) {
+      errors.push({ service: 'video_engine_local', error: veReady.issues.join('; ') });
+    }
+
     // ── Persist results ──
     mediaPlan.ai_generated = {
       scene_images: sceneImages,
       video: videoResult,
+      local_video: localVideoResult,
       canva_design: canvaResult,
       generated_at: new Date().toISOString(),
       services_used: servicesUsed,
@@ -1352,6 +1428,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       generated: {
         scene_images: sceneImages,
         video: videoResult,
+        local_video: localVideoResult,
         canva_design: canvaResult,
       },
       services_used: servicesUsed,

@@ -1,0 +1,39 @@
+{
+  "projectId": "realestate-demo-001",
+  "platform": "tiktok",
+  "language": "he",
+  "rtl": true,
+  "style": "luxury",
+  "fps": 30,
+  "title": "פרויקט חדש בלרנקה",
+  "subtitle": "דירות מעוצבות במיקום מעולה, דקות מהים ומהמרכז.",
+  "cta": "שלחו הודעה לפרטים",
+  "outroTitle": "לתיאום שיחה וקבלת פרטים",
+  "outroSubtitle": "זמינות מוגבלת • לפרטים נוספים פנו עכשיו",
+  "images": [
+    {
+      "src": "../assets/samples/property-1.jpg",
+      "caption": "לובי אלגנטי וחוויית מגורים יוקרתית",
+      "holdSeconds": 2.8
+    },
+    {
+      "src": "../assets/samples/property-2.jpg",
+      "caption": "חללים פתוחים, אור טבעי ותכנון מודרני",
+      "holdSeconds": 2.8
+    },
+    {
+      "src": "../assets/samples/property-3.jpg",
+      "caption": "מרפסות רחבות ונוף פתוח",
+      "holdSeconds": 2.8
+    }
+  ],
+  "logo": {
+    "src": "../assets/logos/logo-example.png",
+    "width": 180,
+    "position": "top-right"
+  },
+  "music": {
+    "src": "../assets/music/background-track.wav",
+    "volume": 0.6
+  }
+}

@@ -1,0 +1,29 @@
+version: 1
+backend:
+  phases:
+    build:
+      commands: []
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: .
+    files:
+      - 'dist/**/*'
+      - 'public/**/*'
+      - 'db/**/*'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'node_modules/**/*'
+  customHeaders:
+    - pattern: '**/*'
+      headers:
+        - key: 'X-Frame-Options'
+          value: 'DENY'
+        - key: 'X-Content-Type-Options'
+          value: 'nosniff'

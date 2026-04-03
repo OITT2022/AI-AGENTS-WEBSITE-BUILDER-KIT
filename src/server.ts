@@ -249,28 +249,6 @@ function callbackPage(redirectUrl: string, error: string | null): string {
 </body></html>`;
 }
 
-// Diagnostic endpoints (temporary - before auth)
-app.get('/api/debug/env', (_req, res) => {
-  res.json({
-    DB_PROVIDER: process.env.DB_PROVIDER ?? '(not set)',
-    DATABASE_URL_SET: !!process.env.DATABASE_URL,
-    DATABASE_URL_HOST: process.env.DATABASE_URL?.match(/@([^:\/]+)/)?.[1] ?? '(unknown)',
-    NODE_ENV: process.env.NODE_ENV ?? '(not set)',
-    CWD: process.cwd(),
-    DIRNAME: __dirname,
-    PUBLIC_EXISTS: fs.existsSync(path.join(__dirname, 'public')),
-    PUBLIC_CWD_EXISTS: fs.existsSync(path.join(process.cwd(), 'public')),
-  });
-});
-app.get('/api/debug/db', async (_req, res) => {
-  try {
-    const { sql } = await import('./db/provider');
-    const result = await sql('SELECT current_database() as db, current_user as usr, version() as ver');
-    res.json({ ok: true, result: result[0] });
-  } catch (err: any) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
 
 // ── Protect all API routes below ──
 app.use('/api', requireAuth);

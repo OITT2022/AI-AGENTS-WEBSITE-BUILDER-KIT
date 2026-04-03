@@ -6,8 +6,11 @@ function getPool(): Pool {
   if (!_pool) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error('DATABASE_URL environment variable is required');
+    // Strip sslmode from URL (we handle SSL ourselves) to avoid pg driver
+    // enforcing verify-full which fails with Aurora's AWS-issued certs
+    const cleanUrl = url.replace(/[?&]sslmode=[^&]*/g, '').replace(/\?$/, '');
     _pool = new Pool({
-      connectionString: url,
+      connectionString: cleanUrl,
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,

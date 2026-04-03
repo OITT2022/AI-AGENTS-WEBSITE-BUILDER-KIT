@@ -13,13 +13,18 @@ try {
   }
 } catch {}
 
-// Load and start the Express app
+// Load the Express app
 const app = require('./server').default;
 const { initDatabase } = require('./db/store');
 const { ensureDefaultAdmin } = require('./services/auth');
 
-(async () => {
-  try { await initDatabase(); } catch (e: any) { console.error('DB init:', e.message); }
-  try { await ensureDefaultAdmin(); } catch (e: any) { console.error('Admin:', e.message); }
-  app.listen(3000, () => console.log('Server on port 3000'));
-})();
+// Start server IMMEDIATELY, init DB in background
+app.listen(3000, () => {
+  console.log('Server on port 3000');
+
+  // DB init in background - don't block startup
+  initDatabase()
+    .then(() => ensureDefaultAdmin())
+    .then(() => console.log('DB ready'))
+    .catch((e: any) => console.error('DB init failed:', e.message));
+});

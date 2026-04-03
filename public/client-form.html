@@ -473,7 +473,7 @@ async function saveDriveFolders() {
   try {
     const body = {
       google_drive_folder_id: selectedFolders.map(f => f.id).join(','),
-      google_drive_folder_url: selectedFolders.map(f => `https://drive.google.com/drive/folders/${f.id}`).join(','),
+      google_drive_folder_url: selectedFolders.map(f => `https://drive.google.com/drive/folders/${f.id}#${encodeURIComponent(f.name)}`).join(','),
     };
     console.log('[saveDriveFolders] Saving:', body);
     const putResult = await apiCall(`/api/clients/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -518,13 +518,14 @@ function updateSelectedFoldersUI() {
   }
 
   summaryEl.style.display = 'block';
-  listEl.innerHTML = selectedFolders.map(f =>
-    `<div class="selected-tag">
+  listEl.innerHTML = selectedFolders.map(f => {
+    const displayUrl = (f.path || '').split('#')[0];
+    return `<div class="selected-tag">
       <span>📁 <strong>${escapeHtml(f.name)}</strong>${f.mediaInfo || ''}</span>
-      <span style="color:var(--text2);font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(f.path)}</span>
+      <span style="color:var(--text2);font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(displayUrl)}</span>
       <span class="remove" onclick="removeFolderSelect('${f.id}')" title="Remove">&times;</span>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 
   // Store first folder URL for backward compat, store all IDs as comma-separated
   hiddenInput.value = selectedFolders.map(f => `https://drive.google.com/drive/folders/${f.id}`).join(',');
@@ -570,12 +571,16 @@ async function loadClient() {
   if (c.google_drive_folder_id || c.google_drive_folder_url) {
     const ids = (c.google_drive_folder_id || '').split(',').filter(Boolean);
     const urls = (c.google_drive_folder_url || '').split(',').filter(Boolean);
-    selectedFolders = ids.map((id, i) => ({
-      id,
-      name: id.length > 20 ? id.substring(0, 8) + '...' : id,
-      path: urls[i] || `https://drive.google.com/drive/folders/${id}`,
-      mediaInfo: c.drive_file_count ? ` (${c.drive_file_count} files)` : '',
-    }));
+    selectedFolders = ids.map((id, i) => {
+      const url = urls[i] || '';
+      const hashName = url.includes('#') ? decodeURIComponent(url.split('#')[1]) : '';
+      return {
+        id,
+        name: hashName || (id.length > 20 ? id.substring(0, 8) + '...' : id),
+        path: url.split('#')[0] || `https://drive.google.com/drive/folders/${id}`,
+        mediaInfo: c.drive_file_count ? ` (${c.drive_file_count} files)` : '',
+      };
+    });
     document.getElementById('f-drive-url').value = c.google_drive_folder_url || '';
     updateSelectedFoldersUI();
   }

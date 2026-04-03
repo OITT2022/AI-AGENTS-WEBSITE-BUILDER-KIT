@@ -24,7 +24,7 @@ frontend:
         - echo "DEBUG DB_PROVIDER = ${DB_PROVIDER:-not set}"
         - echo "DEBUG all env vars with DB:" && env | grep -i "DB_\|DATABASE" || echo "none found"
         # Write env vars to a JSON file (safer than .env for special chars)
-        - node -e "fs=require('fs');vars={};for(const k of['DATABASE_URL','DB_PROVIDER','NODE_ENV','ADMIN_BASE_URL','APP_TIMEZONE','DEFAULT_MARKETING_LOCALE','DEFAULT_CURRENCY','PORT']){if(process.env[k])vars[k]=process.env[k];}fs.writeFileSync('.amplify-hosting/compute/default/env.json',JSON.stringify(vars));console.log('env.json:',JSON.stringify(vars,null,2))"
+        - node -e "fs=require('fs');vars={};Object.keys(process.env).filter(k=>!/^(npm_|_|HOME|PATH|SHELL|USER|LOGNAME|LANG|TERM|SHLVL|PWD|OLDPWD|HOSTNAME|CODEBUILD|AWS_CONTAINER|ECS)/.test(k)).forEach(k=>vars[k]=process.env[k]);fs.writeFileSync('.amplify-hosting/compute/default/env.json',JSON.stringify(vars));console.log('env.json keys:',Object.keys(vars).length)"
         # Entry point - HTTP server on port 3000
         - cp .amplify-hosting/compute/default/amplify-entry.js .amplify-hosting/compute/default/index.js
         # Copy public files into compute so Express can serve them

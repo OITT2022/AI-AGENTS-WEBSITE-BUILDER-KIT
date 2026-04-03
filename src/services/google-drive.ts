@@ -78,10 +78,6 @@ async function driveGet(apiPath: string, client?: Client): Promise<any> {
   return res.json();
 }
 
-async function driveGetWithClient(apiPath: string, client: Client): Promise<any> {
-  return driveGet(apiPath, client);
-}
-
 // ── Extract folder ID ──
 
 export function extractFolderId(urlOrId: string): string {

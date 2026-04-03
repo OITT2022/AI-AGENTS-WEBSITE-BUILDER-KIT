@@ -94,6 +94,12 @@ export function extractFolderId(urlOrId: string): string {
 
 // ── List files ──
 
+// Get a file/folder name by ID
+export async function getDriveFileName(fileId: string): Promise<string | null> {
+  const data = await driveGet(`/files/${fileId}?fields=name&supportsAllDrives=true`);
+  return data?.name ?? null;
+}
+
 // Browse a folder — returns folders and media items (non-recursive, for the picker UI)
 export async function browseDriveFolder(folderId: string): Promise<Array<{ id: string; name: string; type: string; mimeType: string; size?: number; childCount?: string }>> {
   const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);

@@ -579,13 +579,27 @@ async function loadClient() {
       const hashName = url.includes('#') ? decodeURIComponent(url.split('#')[1]) : '';
       return {
         id,
-        name: hashName || (id.length > 20 ? id.substring(0, 8) + '...' : id),
+        name: hashName || id,
         path: url.split('#')[0] || `https://drive.google.com/drive/folders/${id}`,
         mediaInfo: c.drive_file_count ? ` (${c.drive_file_count} files)` : '',
+        needsName: !hashName,
       };
     });
     document.getElementById('f-drive-url').value = c.google_drive_folder_url || '';
     updateSelectedFoldersUI();
+    // Fetch real folder names for any that don't have them stored
+    for (const f of selectedFolders) {
+      if (f.needsName) {
+        try {
+          const info = await apiCall(`/api/drive/browse/${f.id}`);
+          if (info && info.folderName) {
+            f.name = info.folderName;
+            delete f.needsName;
+            updateSelectedFoldersUI();
+          }
+        } catch {}
+      }
+    }
   }
 }
 

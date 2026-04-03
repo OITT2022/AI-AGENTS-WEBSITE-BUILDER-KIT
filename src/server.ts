@@ -551,10 +551,13 @@ app.post('/api/drive/test', async (req, res) => {
 
 app.get('/api/drive/browse/:folderId', async (req, res) => {
   try {
-    const { browseDriveFolder } = await import('./services/google-drive');
+    const { browseDriveFolder, getDriveFileName } = await import('./services/google-drive');
     const folderId = req.params.folderId;
-    const items = await browseDriveFolder(folderId);
-    res.json({ items });
+    const [items, folderName] = await Promise.all([
+      browseDriveFolder(folderId),
+      getDriveFileName(folderId).catch(() => null),
+    ]);
+    res.json({ items, folderName });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 

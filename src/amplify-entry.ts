@@ -1,51 +1,90 @@
-// Catch ALL errors including uncaught exceptions
+// Step 0: Global error catcher
 process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT:', err.stack || err.message);
-  // Start emergency diagnostic server
-  const http = require('http');
-  http.createServer((_req: any, res: any) => {
-    res.writeHead(500, { 'Content-Type': 'text/plain' });
-    res.end('UNCAUGHT: ' + (err.stack || err.message));
-  }).listen(3000);
+  console.error('UNCAUGHT:', err);
 });
 
+const http = require('http');
 const path = require('path');
 const fs = require('fs');
-const http = require('http');
 
-// Load env.json
+// Step 1: Load env
 try {
-  const jsonPath = path.join(__dirname, 'env.json');
-  if (fs.existsSync(jsonPath)) {
-    const vars = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-    for (const [key, val] of Object.entries(vars)) {
-      if (typeof val === 'string') process.env[key] = val;
+  const jp = path.join(__dirname, 'env.json');
+  if (fs.existsSync(jp)) {
+    const v = JSON.parse(fs.readFileSync(jp, 'utf-8'));
+    for (const [k, val] of Object.entries(v)) {
+      if (typeof val === 'string') process.env[k] = val;
     }
   }
 } catch {}
 
-// Try loading server
-let app: any = null;
-let error: string = '';
+// Step 2: Test loading each dependency one by one
+const errors: string[] = [];
+const loaded: string[] = [];
 
+function tryLoad(name: string) {
+  try {
+    require(name);
+    loaded.push(name);
+  } catch (e: any) {
+    errors.push(`${name}: ${e.message}`);
+  }
+}
+
+tryLoad('express');
+tryLoad('cors');
+tryLoad('multer');
+tryLoad('pg');
+tryLoad('zod');
+tryLoad('uuid');
+tryLoad('dotenv');
+tryLoad('google-auth-library');
+tryLoad('@neondatabase/serverless');
+tryLoad('@vendia/serverless-express');
+tryLoad('@runwayml/sdk');
+
+// Step 3: Try loading our modules
+function tryLoadLocal(name: string) {
+  try {
+    require(name);
+    loaded.push(name);
+  } catch (e: any) {
+    errors.push(`${name}: ${e.message}`);
+  }
+}
+
+tryLoadLocal('./lib/platform');
+tryLoadLocal('./lib/logger');
+tryLoadLocal('./models/schemas');
+tryLoadLocal('./db/neon');
+tryLoadLocal('./db/postgres');
+tryLoadLocal('./db/provider');
+tryLoadLocal('./db/store');
+tryLoadLocal('./services/auth');
+tryLoadLocal('./services/findus-client');
+tryLoadLocal('./services/google-drive');
+tryLoadLocal('./services/image-ai');
+tryLoadLocal('./services/video-ai');
+tryLoadLocal('./services/video-engine-local');
+tryLoadLocal('./services/canva');
+tryLoadLocal('./services/social-publish');
+tryLoadLocal('./services/ingest');
+tryLoadLocal('./services/scoring');
+tryLoadLocal('./services/creative');
+tryLoadLocal('./services/qa');
+tryLoadLocal('./services/pipeline');
+tryLoadLocal('./services/media-merge');
+
+// Step 4: Try loading server
+let serverError = '';
 try {
-  app = require('./server').default;
+  tryLoadLocal('./server');
 } catch (e: any) {
-  error = (e.stack || e.message || String(e));
-  console.error('SERVER LOAD FAILED:', error);
+  serverError = e.message;
 }
 
-if (!app) {
-  http.createServer((_req: any, res: any) => {
-    res.writeHead(500, { 'Content-Type': 'text/plain' });
-    res.end('LOAD ERROR:\n' + error);
-  }).listen(3000, () => console.log('Error server on 3000'));
-} else {
-  const { initDatabase } = require('./db/store');
-  const { ensureDefaultAdmin } = require('./services/auth');
-  (async () => {
-    try { await initDatabase(); } catch {}
-    try { await ensureDefaultAdmin(); } catch {}
-    app.listen(3000, () => console.log('OK on 3000'));
-  })();
-}
+// Report
+http.createServer((_req: any, res: any) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ loaded, errors, serverError }, null, 2));
+}).listen(3000, () => console.log('Diagnostic on 3000'));

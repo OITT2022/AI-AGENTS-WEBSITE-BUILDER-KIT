@@ -294,7 +294,7 @@ app.put('/api/clients/:id', requireRole('admin', 'manager'), async (req: AuthReq
 app.delete('/api/clients/:id', requireRole('admin'), async (req: AuthRequest, res) => {
   const clientId = paramId(req);
   try {
-    const { sql } = await import('./db/neon');
+    const { sql } = await import('./db/provider');
     // Delete all related data in correct order (respecting foreign keys)
     await sql('DELETE FROM approval_tasks WHERE creative_variant_id IN (SELECT cv.id FROM creative_variants cv JOIN creative_batches cb ON cv.batch_id = cb.id WHERE cb.client_id = $1)', [clientId]);
     await sql('DELETE FROM qa_reviews WHERE creative_variant_id IN (SELECT cv.id FROM creative_variants cv JOIN creative_batches cb ON cv.batch_id = cb.id WHERE cb.client_id = $1)', [clientId]);
@@ -319,7 +319,7 @@ app.get('/api/clients/:id/dashboard', async (req, res) => {
   if (!client) return res.status(404).json({ error: 'Client not found' });
 
   // Use direct SQL counts instead of fetching all records
-  const { sql } = await import('./db/neon');
+  const { sql } = await import('./db/provider');
   const [entities] = await sql('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE campaign_ready = true) as ready FROM source_entities WHERE client_id = $1', [clientId]);
   const [candidates] = await sql('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE selected = true) as selected FROM campaign_candidates WHERE client_id = $1', [clientId]);
   const [batches] = await sql('SELECT COUNT(*) as total FROM creative_batches WHERE client_id = $1', [clientId]);
@@ -1581,7 +1581,7 @@ app.get('/api/clients/:id/canva-status', async (req, res) => {
 
 app.post('/api/reset-campaigns', requireRole('admin'), async (_req: AuthRequest, res) => {
   try {
-    const { sql } = await import('./db/neon');
+    const { sql } = await import('./db/provider');
     await sql('DELETE FROM approval_tasks');
     await sql('DELETE FROM qa_reviews');
     await sql('DELETE FROM creative_variants');

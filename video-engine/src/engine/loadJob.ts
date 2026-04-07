@@ -41,6 +41,10 @@ const jobSchema = z.object({
 });
 
 const absolutize = (baseDir: string, inputPath: string) => {
+  // Skip URLs — they should be passed through as-is for remote asset download
+  if (inputPath.startsWith('http://') || inputPath.startsWith('https://') || inputPath.startsWith('data:')) {
+    return inputPath;
+  }
   if (path.isAbsolute(inputPath)) {
     return inputPath;
   }

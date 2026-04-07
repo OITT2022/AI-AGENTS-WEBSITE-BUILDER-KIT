@@ -19,6 +19,13 @@ frontend:
         - mkdir -p .amplify-hosting/compute/default/db
         - cp db/schema.sql .amplify-hosting/compute/default/db/
         - cp db/migration.sql .amplify-hosting/compute/default/db/
+        # Copy video-engine for local FFmpeg-based rendering
+        - mkdir -p .amplify-hosting/compute/default/video-engine
+        - cp -r video-engine/src .amplify-hosting/compute/default/video-engine/src
+        - cp -r video-engine/scripts .amplify-hosting/compute/default/video-engine/scripts
+        - cp video-engine/package.json .amplify-hosting/compute/default/video-engine/package.json
+        - cp video-engine/tsconfig.json .amplify-hosting/compute/default/video-engine/tsconfig.json
+        - cd .amplify-hosting/compute/default/video-engine && npm ci --omit=dev && cd ../../../..
         # Debug - check if env vars exist during build
         - echo "DEBUG DATABASE_URL set = $(if [ -n \"$DATABASE_URL\" ]; then echo YES; else echo NO; fi)"
         - echo "DEBUG DB_PROVIDER = ${DB_PROVIDER:-not set}"

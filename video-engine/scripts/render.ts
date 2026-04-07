@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import https from 'node:https';
+import http from 'node:http';
 import {bundle} from '@remotion/bundler';
 import {getCompositions, renderMedia} from '@remotion/renderer';
 import {loadJobFile} from '../src/engine/loadJob';
@@ -10,7 +12,7 @@ import type {JobInput} from '../src/types';
 /**
  * Remotion v4 cannot load file:// URLs for assets (Audio, Img).
  * We work around this by:
- * 1. Creating a temp "public" dir with symlinks/copies of all local assets
+ * 1. Creating a temp "public" dir with copies of all local/remote assets
  * 2. Passing that as publicDir to bundle()
  * 3. Rewriting asset paths to use staticFile() format: /asset-name
  */
@@ -19,35 +21,87 @@ function isLocalPath(p: string): boolean {
   return !p.startsWith('http://') && !p.startsWith('https://') && !p.startsWith('data:');
 }
 
-function prepareAssets(input: JobInput): { publicDir: string; rewritten: JobInput } {
+/** Download a remote URL to a local file. Follows redirects (up to 5). */
+function downloadFile(url: string, dest: string, maxRedirects = 5): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects <= 0) return reject(new Error(`Too many redirects for ${url}`));
+    const client = url.startsWith('https') ? https : http;
+    const req = client.get(url, { timeout: 60_000 }, (res) => {
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        const redirectUrl = new URL(res.headers.location, url).toString();
+        downloadFile(redirectUrl, dest, maxRedirects - 1).then(resolve, reject);
+        return;
+      }
+      if (res.statusCode && res.statusCode >= 400) {
+        reject(new Error(`Download failed: HTTP ${res.statusCode} for ${url}`));
+        return;
+      }
+      const stream = fs.createWriteStream(dest);
+      res.pipe(stream);
+      stream.on('finish', () => { stream.close(); resolve(); });
+      stream.on('error', reject);
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error(`Download timeout for ${url}`)); });
+  });
+}
+
+/** Guess file extension from a URL or default to .jpg */
+function extFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = path.extname(pathname);
+    if (ext && ext.length <= 5) return ext;
+  } catch { /* ignore */ }
+  return '.jpg';
+}
+
+async function prepareAssets(input: JobInput): Promise<{ publicDir: string; rewritten: JobInput }> {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 've-assets-'));
   let counter = 0;
 
-  const mapPath = (filePath: string): string => {
-    if (!isLocalPath(filePath)) return filePath;
-    const absPath = path.resolve(filePath);
-    if (!fs.existsSync(absPath)) {
-      console.warn(`Asset not found: ${absPath}`);
-      return filePath;
+  const mapPath = async (filePath: string): Promise<string> => {
+    const ext = isLocalPath(filePath) ? path.extname(filePath) : extFromUrl(filePath);
+    const key = `asset-${counter++}${ext || '.bin'}`;
+    const destPath = path.join(tmpDir, key);
+
+    if (isLocalPath(filePath)) {
+      const absPath = path.resolve(filePath);
+      if (!fs.existsSync(absPath)) {
+        console.warn(`Asset not found: ${absPath}`);
+        return filePath;
+      }
+      fs.copyFileSync(absPath, destPath);
+    } else {
+      // Download remote asset to temp dir
+      console.log(`Downloading asset: ${filePath}`);
+      try {
+        await downloadFile(filePath, destPath);
+        const stat = fs.statSync(destPath);
+        if (stat.size === 0) {
+          console.warn(`Downloaded empty file from ${filePath}`);
+          return filePath;
+        }
+        console.log(`Downloaded ${(stat.size / 1024).toFixed(1)} KB → ${key}`);
+      } catch (err) {
+        console.warn(`Failed to download ${filePath}: ${(err as Error).message}`);
+        return filePath; // fall back to original URL
+      }
     }
-    const ext = path.extname(absPath);
-    const key = `asset-${counter++}${ext}`;
-    fs.copyFileSync(absPath, path.join(tmpDir, key));
-    // Remotion staticFile() resolves to /public/<key> from the bundle
     return key;
   };
 
   const rewritten: JobInput = {
     ...input,
-    images: input.images.map((img) => ({
+    images: await Promise.all(input.images.map(async (img) => ({
       ...img,
-      src: mapPath(img.src),
-    })),
+      src: await mapPath(img.src),
+    }))),
     logo: input.logo
-      ? {...input.logo, src: mapPath(input.logo.src)}
+      ? {...input.logo, src: await mapPath(input.logo.src)}
       : undefined,
     music: input.music
-      ? {...input.music, src: mapPath(input.music.src)}
+      ? {...input.music, src: await mapPath(input.music.src)}
       : undefined,
   };
 
@@ -65,15 +119,43 @@ const main = async () => {
   const jobPath = path.resolve(jobArg);
   const outputPath = path.resolve(outArg);
 
+  console.log(`[render] Loading job: ${jobPath}`);
+  console.log(`[render] Output: ${outputPath}`);
+
   // Load and validate the job
   const rawInput = loadJobFile(jobPath);
 
-  // Prepare local assets for Remotion (copy to temp public dir)
-  const {publicDir, rewritten} = prepareAssets(rawInput);
+  // Prepare local + remote assets for Remotion (download/copy to temp public dir)
+  console.log(`[render] Preparing ${rawInput.images.length} images...`);
+  const {publicDir, rewritten} = await prepareAssets(rawInput);
+  console.log(`[render] Assets staged in: ${publicDir}`);
 
   try {
     const video = planVideo(rewritten);
 
+    // Configure FFmpeg path for Remotion if specified via env
+    const renderOptions: Record<string, unknown> = {};
+    if (process.env.FFMPEG_PATH) {
+      renderOptions.ffmpegExecutable = process.env.FFMPEG_PATH;
+    }
+    if (process.env.FFPROBE_PATH) {
+      renderOptions.ffprobeExecutable = process.env.FFPROBE_PATH;
+    }
+
+    // ── Encoding quality / compression settings ──
+    // CRF 28 = great quality for social media ads, ~70-85% smaller than default
+    // Env override: VIDEO_CRF (0-51, lower = higher quality + larger file)
+    const crf = parseInt(process.env.VIDEO_CRF || '28', 10);
+    // Cap bitrate to prevent spikes (env override: VIDEO_MAX_BITRATE e.g. "5M")
+    const videoBitrate = (process.env.VIDEO_MAX_BITRATE || '5M') as `${number}M`;
+    // x264 preset: fast = good balance of speed and compression
+    const x264Preset = (process.env.VIDEO_PRESET || 'fast') as 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow';
+    // Audio: AAC at 128k is sufficient for background music in ads
+    const audioBitrate = (process.env.VIDEO_AUDIO_BITRATE || '128k') as `${number}k`;
+
+    console.log(`[render] Encoding: crf=${crf} bitrate=${videoBitrate} preset=${x264Preset} audio=${audioBitrate}`);
+
+    console.log(`[render] Bundling Remotion composition...`);
     const bundled = await bundle({
       entryPoint: path.resolve('src/index.ts'),
       publicDir,
@@ -89,6 +171,7 @@ const main = async () => {
       throw new Error('Composition SlideshowAd not found.');
     }
 
+    console.log(`[render] Rendering ${video.totalFrames} frames at ${video.fps}fps (${video.width}x${video.height})...`);
     await renderMedia({
       composition: {
         ...composition,
@@ -99,15 +182,25 @@ const main = async () => {
       },
       serveUrl: bundled,
       codec: 'h264',
+      crf,
+      videoBitrate,
+      x264Preset,
+      pixelFormat: 'yuv420p',
+      audioCodec: 'aac',
+      audioBitrate,
       outputLocation: outputPath,
       inputProps: {video},
+      ...renderOptions,
     });
 
-    console.log(`Rendered video to ${outputPath}`);
+    // Validate output
+    const outputStat = fs.statSync(outputPath);
+    console.log(`[render] Success: ${outputPath} (${(outputStat.size / 1024 / 1024).toFixed(2)} MB)`);
   } finally {
     // Clean up temp public dir
     try {
       fs.rmSync(publicDir, {recursive: true, force: true});
+      console.log(`[render] Cleaned up temp assets`);
     } catch {
       // ignore cleanup errors
     }
@@ -115,6 +208,6 @@ const main = async () => {
 };
 
 main().catch((error) => {
-  console.error(error);
+  console.error('[render] FATAL:', error);
   process.exit(1);
 });

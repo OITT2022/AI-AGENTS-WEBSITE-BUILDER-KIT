@@ -79,6 +79,33 @@ const uploadDir = path.join(getWritableBaseDir(), 'data', 'uploads');
 try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
 const upload = multer({ dest: uploadDir, limits: { fileSize: 50 * 1024 * 1024 } });
 
+// ── Health check (public, no auth) ──
+
+app.get('/api/health', async (_req, res) => {
+  const dbUrl = process.env.DATABASE_URL || '';
+  const host = dbUrl.match(/@([^:/]+)/)?.[1] || 'unknown';
+  const dbName = dbUrl.match(/\/([^?]+)(\?|$)/)?.[1] || 'unknown';
+  try {
+    const rows = await store.getConfig('health_check').catch(() => null);
+    const testQuery = await (await import('./db/provider')).sql('SELECT current_database() as db, now() as ts');
+    res.json({
+      status: 'ok',
+      db_host: host,
+      db_name: testQuery[0]?.db || dbName,
+      db_provider: process.env.DB_PROVIDER || 'neon',
+      timestamp: testQuery[0]?.ts || new Date().toISOString(),
+    });
+  } catch (e: any) {
+    res.status(500).json({
+      status: 'error',
+      db_host: host,
+      db_name: dbName,
+      db_provider: process.env.DB_PROVIDER || 'neon',
+      error: e.message,
+    });
+  }
+});
+
 // ── Auth routes (public) ──
 
 app.post('/api/auth/login', async (req, res) => {
@@ -611,6 +638,10 @@ app.post('/api/ingest/batch', async (req, res) => {
 });
 
 app.use('/api/media/uploads', express.static(uploadDir));
+
+// Serve files from the storage provider (local filesystem)
+const storageDir = path.join(getWritableBaseDir(), 'data', 'storage');
+app.use('/api/media/storage', express.static(storageDir));
 
 // ── Pipeline ──
 
@@ -1355,7 +1386,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
     }
 
     // ── Phase 4: Local VideoEngine slideshow ──
-    let localVideoResult: { url: string; duration_sec: number; provider: string } | null = null;
+    let localVideoResult: { url: string; duration_sec: number; provider: string; status: string; size_bytes: number } | null = null;
     const veReady = videoEngineLocal.isVideoEngineReady();
     if (veReady.ready) {
       try {
@@ -1402,15 +1433,15 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
             images: veImages,
           };
 
-          const outputFilename = `${variant.id}-${vePlatform}-${Date.now()}.mp4`;
-          const outputPath = path.join(process.cwd(), 'video-engine', 'output', outputFilename);
-
-          const result = await videoEngineLocal.renderLocalVideo(job, outputPath);
+          // renderLocalVideo now handles temp workspace, S3 upload, and cleanup internally
+          const result = await videoEngineLocal.renderLocalVideo(job, variant.id);
           if (result.success) {
             localVideoResult = {
-              url: `/video-output/${outputFilename}`,
+              url: result.url,
               duration_sec: Math.round(result.durationMs / 1000),
               provider: 'video-engine-local',
+              status: result.status,
+              size_bytes: result.fileSizeBytes,
             };
             servicesUsed.push('video_engine_local');
           } else {

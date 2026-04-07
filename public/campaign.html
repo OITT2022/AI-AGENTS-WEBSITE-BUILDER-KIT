@@ -348,6 +348,7 @@ async function renderCreatives(el) {
         ${media.reel_timeline ? renderStoryboard(media.reel_timeline) : ''}
         ${approval?`<div style="margin-top:12px"><span class="badge ${approval.status==='approved'?'badge-green':approval.status==='rejected'?'badge-red':'badge-yellow'}">${approval.status}</span></div>`:''}
       </div>
+      ${renderSavedVideo(media, vid)}
       <div class="card-footer">
         <button class="btn btn-sm btn-green" onclick="saveCopy('${vid}','${v.platform}')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
@@ -427,6 +428,24 @@ function renderMediaGrid(mp, vid) {
   }
   h += `</div><button class="btn btn-sm" style="margin-top:6px" onclick="saveMediaSelection('${vid}')">Update Media</button></details>`;
   return h;
+}
+
+function renderSavedVideo(mp, vid) {
+  const sv = mp?.saved_video;
+  if (!sv?.url) return '';
+  return `<div class="saved-video-section" style="padding:10px 20px;border-top:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:600;color:var(--text)">Saved Video</span>
+      <span class="badge badge-green" style="font-size:10px">Ready</span>
+    </div>
+    <video controls preload="metadata" style="width:100%;max-width:320px;border-radius:8px;border:1px solid var(--border)">
+      <source src="${esc(sv.url)}" type="video/mp4">
+    </video>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">
+      ${sv.duration_sec ? sv.duration_sec + 's' : ''} ${sv.size_bytes ? '· ' + (sv.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
+      ${sv.saved_at ? '· Saved ' + new Date(sv.saved_at).toLocaleDateString() : ''}
+    </div>
+  </div>`;
 }
 
 function toggleMediaItem(el, vid, type, url) {
@@ -866,7 +885,11 @@ async function generateAiAd(vid) {
         <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
           <source src="${esc(localVideo.url)}" type="video/mp4">
         </video>
-        <div style="font-size:11px;color:var(--text2)">Generated locally via VideoEngine</div>`;
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Generated locally via VideoEngine</div>
+        <button class="btn btn-sm btn-green" id="save-video-btn" onclick="saveGeneratedVideo('${variantId}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+          Save Video to Creative
+        </button>`;
     }
 
     if (canvaDesign) {
@@ -894,6 +917,69 @@ async function generateAiAd(vid) {
     document.getElementById('ai-gen-overlay')?.remove();
     showToast('AI generation failed: ' + (err.message || err));
   }
+}
+
+async function saveGeneratedVideo(variantId) {
+  const btn = document.getElementById('save-video-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  try {
+    const v = window._variants?.[variantId];
+    if (!v) throw new Error('Variant not found');
+    const mp = { ...v.media_plan_json };
+    const localVideo = mp.ai_generated?.local_video;
+    if (!localVideo?.url) throw new Error('No video to save');
+
+    // Save the generated video URL into the variant's media plan
+    mp.saved_video = {
+      url: localVideo.url,
+      provider: localVideo.provider || 'video-engine-local',
+      status: localVideo.status || 'completed',
+      size_bytes: localVideo.size_bytes || 0,
+      duration_sec: localVideo.duration_sec || 0,
+      saved_at: new Date().toISOString()
+    };
+
+    const res = await apiCall(`/api/creatives/${variantId}`, { method: 'PUT', body: JSON.stringify({ media_plan_json: mp }) });
+    if (res.success) {
+      v.media_plan_json = mp;
+      showToast('Video saved to creative');
+      if (btn) { btn.textContent = 'Saved'; btn.classList.remove('btn-green'); btn.style.opacity = '0.7'; }
+      // Update the card to show the saved video
+      updateCardWithSavedVideo(variantId, mp.saved_video);
+    } else {
+      throw new Error(res.error || 'Save failed');
+    }
+  } catch (err) {
+    showToast('Failed to save video: ' + (err.message || err));
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Video to Creative'; }
+  }
+}
+
+function updateCardWithSavedVideo(variantId, savedVideo) {
+  const card = document.getElementById('card-' + variantId);
+  if (!card || !savedVideo) return;
+  // Remove existing saved-video section if present
+  const existing = card.querySelector('.saved-video-section');
+  if (existing) existing.remove();
+  // Insert saved video section before the card footer
+  const footer = card.querySelector('.card-footer');
+  if (!footer) return;
+  const section = document.createElement('div');
+  section.className = 'saved-video-section';
+  section.style.cssText = 'padding:10px 20px;border-top:1px solid var(--border)';
+  section.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:600;color:var(--text)">Saved Video</span>
+      <span class="badge badge-green" style="font-size:10px">Ready</span>
+    </div>
+    <video controls preload="metadata" style="width:100%;max-width:320px;border-radius:8px;border:1px solid var(--border)">
+      <source src="${esc(savedVideo.url)}" type="video/mp4">
+    </video>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">
+      ${savedVideo.duration_sec ? savedVideo.duration_sec + 's' : ''} ${savedVideo.size_bytes ? '· ' + (savedVideo.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
+      · Saved ${new Date(savedVideo.saved_at).toLocaleDateString()}
+    </div>`;
+  footer.parentNode.insertBefore(section, footer);
 }
 
 function openLightbox(src) {

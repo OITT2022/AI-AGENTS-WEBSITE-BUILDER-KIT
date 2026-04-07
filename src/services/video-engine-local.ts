@@ -1,21 +1,21 @@
 /**
- * Local video-engine wrapper.
+ * Local video-engine wrapper — AWS-compatible edition.
  *
  * Runs the VideoEngine (Remotion-based slideshow renderer) as an isolated
- * child process.  This wrapper does NOT touch the existing pipeline —
- * it only provides a programmatic way to trigger a local video render
- * from a job JSON file or an in-memory job object.
+ * child process.  This wrapper:
+ * - Downloads remote assets to a temp workspace before rendering
+ * - Uses a configurable temp directory (VIDEO_TEMP_DIR or os.tmpdir())
+ * - Uploads the rendered MP4 to persistent storage (S3 or local)
+ * - Tracks render lifecycle: pending → processing → completed → failed
+ * - Cleans up temp files in all code paths
  *
- * No external APIs. No cloud services. Requires FFmpeg on the system PATH.
+ * No external video APIs. Requires FFmpeg on the system PATH (or FFMPEG_PATH).
  *
  * Usage:
  *   import { renderLocalVideo, renderLocalVideoFromFile } from './video-engine-local';
  *
- *   // From an in-memory job object:
- *   const result = await renderLocalVideo(job, 'output/my-video.mp4');
- *
- *   // From an existing job JSON file:
- *   const result = await renderLocalVideoFromFile('video-engine/jobs/sample-he.json', 'output/ad.mp4');
+ *   const result = await renderLocalVideo(job);
+ *   // result.url is the persistent URL (S3 or local serve path)
  */
 
 import { execFile } from 'node:child_process';
@@ -23,6 +23,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import * as log from '../lib/logger';
+import { isVideoCapable, getVideoTempDir } from '../lib/platform';
+import { getStorage } from '../lib/storage';
 
 // ── Types (mirrors video-engine/src/types.ts without importing) ──
 
@@ -61,18 +63,42 @@ export interface LocalVideoJob {
   };
 }
 
+export type RenderStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 export interface LocalVideoResult {
   success: boolean;
-  outputPath: string;
+  /** Persistent URL (S3 or local serve path) — use this in the API response. */
+  url: string;
+  /** Duration of the render process in milliseconds. */
   durationMs: number;
+  /** Render lifecycle status. */
+  status: RenderStatus;
+  /** File size in bytes (0 on failure). */
+  fileSizeBytes: number;
+  /** Error message on failure. */
   error?: string;
+  /** Storage provider used ('s3' | 'local'). */
+  storageProvider: string;
 }
 
 // ── Paths ──
 
-const VIDEO_ENGINE_DIR = path.resolve(__dirname, '../../video-engine');
-const RENDER_SCRIPT = path.join(VIDEO_ENGINE_DIR, 'scripts/render.ts');
-const DEFAULT_OUTPUT_DIR = path.join(VIDEO_ENGINE_DIR, 'output');
+/** Resolve the video-engine directory relative to this file's compiled location. */
+function getVideoEngineDir(): string {
+  // In dev: src/services/ → ../../video-engine
+  // In dist: dist/services/ → ../../video-engine
+  const candidates = [
+    path.resolve(__dirname, '../../video-engine'),
+    path.resolve(process.cwd(), 'video-engine'),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(c, 'scripts', 'render.ts')) ||
+        fs.existsSync(path.join(c, 'scripts', 'render.js'))) {
+      return c;
+    }
+  }
+  return candidates[0]; // fallback
+}
 
 // ── Helpers ──
 
@@ -82,50 +108,143 @@ function ensureDir(dir: string): void {
   }
 }
 
+/** Create a unique temp workspace inside VIDEO_TEMP_DIR. */
+function createTempWorkspace(): string {
+  const baseDir = getVideoTempDir();
+  ensureDir(baseDir);
+  const workspace = fs.mkdtempSync(path.join(baseDir, 'video-render-'));
+  log.info('video-engine-local', `Created temp workspace: ${workspace}`);
+  return workspace;
+}
+
+/** Remove a temp workspace directory. Swallows errors. */
+function cleanupWorkspace(workspace: string): void {
+  try {
+    if (fs.existsSync(workspace)) {
+      fs.rmSync(workspace, { recursive: true, force: true });
+      log.info('video-engine-local', `Cleaned up workspace: ${workspace}`);
+    }
+  } catch (err) {
+    log.warn('video-engine-local', `Workspace cleanup failed: ${(err as Error).message}`, { workspace });
+  }
+}
+
+/**
+ * Upload the rendered video to persistent storage and return the URL.
+ * Falls back to local serve path if storage write fails.
+ */
+async function uploadToStorage(localPath: string, storageKey: string): Promise<{ url: string; provider: string }> {
+  const storage = getStorage();
+  const providerName = process.env.STORAGE_PROVIDER?.trim().toLowerCase() === 's3' ? 's3' : 'local';
+
+  try {
+    const data = fs.readFileSync(localPath);
+    const url = await storage.write(storageKey, data, 'video/mp4');
+    log.info('video-engine-local', `Uploaded to ${providerName}: ${storageKey}`, {
+      size_bytes: data.length,
+      url,
+    });
+    return { url: providerName === 's3' ? url : storage.getUrl(storageKey), provider: providerName };
+  } catch (err) {
+    log.error('video-engine-local', `Storage upload failed: ${(err as Error).message}`, { storageKey });
+    throw err;
+  }
+}
+
 /**
  * Spawn the video-engine render script as a child process.
  * Runs inside video-engine/ so that Remotion resolves its own node_modules.
  */
-function spawnRender(jobFilePath: string, outputFilePath: string, timeoutMs = 300_000): Promise<LocalVideoResult> {
+function spawnRender(
+  videoEngineDir: string,
+  jobFilePath: string,
+  outputFilePath: string,
+  timeoutMs = 600_000,
+): Promise<{ success: boolean; durationMs: number; error?: string }> {
   const start = Date.now();
 
   return new Promise((resolve) => {
-    // Ensure FFmpeg is on PATH for Remotion renderer
+    // Build environment with FFmpeg path support
     const env = { ...process.env };
-    const ffmpegDir = path.join(path.parse(process.cwd()).root, 'ffmpeg');
-    if (fs.existsSync(path.join(ffmpegDir, 'ffmpeg.exe')) || fs.existsSync(path.join(ffmpegDir, 'ffmpeg'))) {
+
+    // Check for FFmpeg in env-configured path
+    if (env.FFMPEG_PATH && fs.existsSync(env.FFMPEG_PATH)) {
+      const ffmpegDir = path.dirname(env.FFMPEG_PATH);
       env.PATH = `${ffmpegDir}${path.delimiter}${env.PATH || ''}`;
+    } else {
+      // Fallback: check for ffmpeg in common locations
+      const commonPaths = [
+        path.join(path.parse(process.cwd()).root, 'ffmpeg'),
+        '/usr/local/bin',
+        '/usr/bin',
+      ];
+      for (const dir of commonPaths) {
+        const ffmpegBin = path.join(dir, process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+        if (fs.existsSync(ffmpegBin)) {
+          env.PATH = `${dir}${path.delimiter}${env.PATH || ''}`;
+          break;
+        }
+      }
     }
 
+    // Find the render script (support both .ts and .js)
+    const renderScriptTs = path.join(videoEngineDir, 'scripts', 'render.ts');
+    const renderScriptJs = path.join(videoEngineDir, 'scripts', 'render.js');
+    const renderScript = fs.existsSync(renderScriptTs) ? renderScriptTs : renderScriptJs;
+    const runner = fs.existsSync(renderScriptTs) ? 'tsx' : 'node';
+
+    log.info('video-engine-local', `Spawning render: npx ${runner} <script>`, {
+      job: jobFilePath,
+      output: outputFilePath,
+      timeout_ms: timeoutMs,
+    });
+
+    // Quote paths that may contain spaces (critical on Windows with shell: true)
+    const q = (p: string) => `"${p}"`;
+
+    // Use shell: true so that npx resolves correctly on all platforms
+    // (on Windows, npx is npx.cmd and execFile without shell won't find it)
     const child = execFile(
       'npx',
-      ['tsx', RENDER_SCRIPT, jobFilePath, outputFilePath],
+      [runner, q(renderScript), q(jobFilePath), q(outputFilePath)],
       {
-        cwd: VIDEO_ENGINE_DIR,
+        cwd: videoEngineDir,
         timeout: timeoutMs,
-        maxBuffer: 10 * 1024 * 1024, // 10 MB stdout/stderr buffer
+        maxBuffer: 10 * 1024 * 1024,
         windowsHide: true,
+        shell: true,
         env,
       },
-      (error, stdout, stderr) => {
+      (error, _stdout, stderr) => {
         const durationMs = Date.now() - start;
 
         if (error) {
           const msg = stderr?.trim() || error.message;
-          log.error('video-engine-local', `Render failed: ${msg}`, { durationMs });
-          resolve({ success: false, outputPath: outputFilePath, durationMs, error: msg });
+          log.error('video-engine-local', `Render failed after ${durationMs}ms: ${msg}`, { durationMs });
+          resolve({ success: false, durationMs, error: msg });
           return;
         }
 
         if (!fs.existsSync(outputFilePath)) {
           const msg = 'Render completed but output file not found';
           log.error('video-engine-local', msg, { outputPath: outputFilePath });
-          resolve({ success: false, outputPath: outputFilePath, durationMs, error: msg });
+          resolve({ success: false, durationMs, error: msg });
           return;
         }
 
-        log.info('video-engine-local', `Render complete: ${outputFilePath}`, { durationMs });
-        resolve({ success: true, outputPath: outputFilePath, durationMs });
+        const stat = fs.statSync(outputFilePath);
+        if (stat.size === 0) {
+          const msg = 'Render produced empty output file';
+          log.error('video-engine-local', msg, { outputPath: outputFilePath });
+          resolve({ success: false, durationMs, error: msg });
+          return;
+        }
+
+        log.info('video-engine-local', `Render complete: ${(stat.size / 1024 / 1024).toFixed(2)} MB in ${durationMs}ms`, {
+          durationMs,
+          size_bytes: stat.size,
+        });
+        resolve({ success: true, durationMs });
       },
     );
 
@@ -146,43 +265,102 @@ function spawnRender(jobFilePath: string, outputFilePath: string, timeoutMs = 30
 /**
  * Render a video from an in-memory job object.
  *
- * Writes a temporary job JSON, invokes video-engine, then cleans up.
- * Output is saved to the specified path (or auto-generated inside video-engine/output/).
+ * Full pipeline:
+ * 1. Create temp workspace
+ * 2. Write job JSON to workspace
+ * 3. Spawn Remotion render (assets are downloaded inside render.ts)
+ * 4. Validate output
+ * 5. Upload to persistent storage (S3 or local)
+ * 6. Cleanup temp workspace
+ *
+ * Returns a persistent URL for the rendered video.
  */
 export async function renderLocalVideo(
   job: LocalVideoJob,
-  outputPath?: string,
+  variantId?: string,
 ): Promise<LocalVideoResult> {
-  ensureDir(DEFAULT_OUTPUT_DIR);
-
+  const videoEngineDir = getVideoEngineDir();
+  const workspace = createTempWorkspace();
   const jobId = `job-${randomUUID()}`;
-  const tmpJobPath = path.join(VIDEO_ENGINE_DIR, 'jobs', `${jobId}.json`);
-  const finalOutput = outputPath
-    ? path.resolve(outputPath)
-    : path.join(DEFAULT_OUTPUT_DIR, `${job.projectId}-${job.platform}.mp4`);
+  const outputFilename = `${variantId || job.projectId}-${job.platform}-${Date.now()}.mp4`;
+  const tmpJobPath = path.join(workspace, `${jobId}.json`);
+  const tmpOutputPath = path.join(workspace, outputFilename);
 
-  ensureDir(path.dirname(finalOutput));
+  log.info('video-engine-local', `Starting render for ${job.projectId}`, {
+    platform: job.platform,
+    language: job.language,
+    image_count: job.images.length,
+    variant_id: variantId,
+    status: 'processing' as RenderStatus,
+  });
 
   try {
-    // Write temporary job file
+    // Step 1: Write job file
     fs.writeFileSync(tmpJobPath, JSON.stringify(job, null, 2), 'utf8');
-    log.info('video-engine-local', `Created temp job: ${tmpJobPath}`);
+    log.info('video-engine-local', `Job file written: ${tmpJobPath}`);
 
-    const result = await spawnRender(tmpJobPath, finalOutput);
-    return result;
-  } finally {
-    // Clean up temp job file
-    try {
-      if (fs.existsSync(tmpJobPath)) fs.unlinkSync(tmpJobPath);
-    } catch {
-      // ignore cleanup errors
+    // Step 2: Render
+    const renderResult = await spawnRender(videoEngineDir, tmpJobPath, tmpOutputPath);
+
+    if (!renderResult.success) {
+      return {
+        success: false,
+        url: '',
+        durationMs: renderResult.durationMs,
+        status: 'failed',
+        fileSizeBytes: 0,
+        error: renderResult.error,
+        storageProvider: 'none',
+      };
     }
+
+    // Step 3: Get file size
+    const stat = fs.statSync(tmpOutputPath);
+
+    // Step 4: Upload to persistent storage
+    const storageKey = `videos/${new Date().toISOString().split('T')[0]}/${outputFilename}`;
+    const { url, provider } = await uploadToStorage(tmpOutputPath, storageKey);
+
+    log.info('video-engine-local', `Render pipeline complete`, {
+      variant_id: variantId,
+      url,
+      storage_provider: provider,
+      size_bytes: stat.size,
+      duration_ms: renderResult.durationMs,
+      status: 'completed' as RenderStatus,
+    });
+
+    return {
+      success: true,
+      url,
+      durationMs: renderResult.durationMs,
+      status: 'completed',
+      fileSizeBytes: stat.size,
+      storageProvider: provider,
+    };
+  } catch (err) {
+    const msg = (err as Error).message;
+    log.error('video-engine-local', `Render pipeline failed: ${msg}`, {
+      variant_id: variantId,
+      status: 'failed' as RenderStatus,
+    });
+    return {
+      success: false,
+      url: '',
+      durationMs: 0,
+      status: 'failed',
+      fileSizeBytes: 0,
+      error: msg,
+      storageProvider: 'none',
+    };
+  } finally {
+    // Step 5: Cleanup temp workspace
+    cleanupWorkspace(workspace);
   }
 }
 
 /**
  * Render a video from an existing job JSON file.
- *
  * Does not modify or delete the job file — useful for manual/test runs.
  */
 export async function renderLocalVideoFromFile(
@@ -194,44 +372,86 @@ export async function renderLocalVideoFromFile(
   if (!fs.existsSync(absoluteJobPath)) {
     return {
       success: false,
-      outputPath: outputPath ?? '',
+      url: '',
       durationMs: 0,
+      status: 'failed',
+      fileSizeBytes: 0,
       error: `Job file not found: ${absoluteJobPath}`,
+      storageProvider: 'none',
     };
   }
 
-  ensureDir(DEFAULT_OUTPUT_DIR);
+  const videoEngineDir = getVideoEngineDir();
+  const workspace = createTempWorkspace();
   const finalOutput = outputPath
     ? path.resolve(outputPath)
-    : path.join(DEFAULT_OUTPUT_DIR, `render-${Date.now()}.mp4`);
+    : path.join(workspace, `render-${Date.now()}.mp4`);
 
   ensureDir(path.dirname(finalOutput));
 
-  return spawnRender(absoluteJobPath, finalOutput);
-}
+  try {
+    const renderResult = await spawnRender(videoEngineDir, absoluteJobPath, finalOutput);
 
-import { isServerless } from '../lib/platform';
+    if (!renderResult.success) {
+      return {
+        success: false,
+        url: '',
+        durationMs: renderResult.durationMs,
+        status: 'failed',
+        fileSizeBytes: 0,
+        error: renderResult.error,
+        storageProvider: 'none',
+      };
+    }
+
+    const stat = fs.statSync(finalOutput);
+    const filename = path.basename(finalOutput);
+    const storageKey = `videos/${new Date().toISOString().split('T')[0]}/${filename}`;
+    const { url, provider } = await uploadToStorage(finalOutput, storageKey);
+
+    return {
+      success: true,
+      url,
+      durationMs: renderResult.durationMs,
+      status: 'completed',
+      fileSizeBytes: stat.size,
+      storageProvider: provider,
+    };
+  } finally {
+    // Only cleanup workspace if output was inside it
+    if (!outputPath) {
+      cleanupWorkspace(workspace);
+    }
+  }
+}
 
 /**
  * Check whether video-engine is ready to run.
- *  - Not in a serverless environment (no FFmpeg, no persistent FS)
- *  - render script exists
- *  - node_modules installed
+ * Uses isVideoCapable() which respects VIDEO_ENGINE_ENABLED env var,
+ * so it can be explicitly enabled on AWS EC2/ECS while staying off on Lambda.
  */
 export function isVideoEngineReady(): { ready: boolean; issues: string[]; skipped: boolean } {
-  if (isServerless()) {
+  if (!isVideoCapable()) {
     return { ready: false, issues: [], skipped: true };
   }
 
   const issues: string[] = [];
+  const videoEngineDir = getVideoEngineDir();
 
-  if (!fs.existsSync(RENDER_SCRIPT)) {
-    issues.push(`Render script not found: ${RENDER_SCRIPT}`);
+  const renderScriptTs = path.join(videoEngineDir, 'scripts', 'render.ts');
+  const renderScriptJs = path.join(videoEngineDir, 'scripts', 'render.js');
+  if (!fs.existsSync(renderScriptTs) && !fs.existsSync(renderScriptJs)) {
+    issues.push(`Render script not found in: ${videoEngineDir}/scripts/`);
   }
 
-  const nodeModules = path.join(VIDEO_ENGINE_DIR, 'node_modules');
+  const nodeModules = path.join(videoEngineDir, 'node_modules');
   if (!fs.existsSync(nodeModules)) {
     issues.push('video-engine/node_modules not found — run: cd video-engine && npm install');
+  }
+
+  // Check FFmpeg availability
+  if (process.env.FFMPEG_PATH && !fs.existsSync(process.env.FFMPEG_PATH)) {
+    issues.push(`FFMPEG_PATH points to missing file: ${process.env.FFMPEG_PATH}`);
   }
 
   return { ready: issues.length === 0, issues, skipped: false };

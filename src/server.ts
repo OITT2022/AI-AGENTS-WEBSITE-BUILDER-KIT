@@ -1596,23 +1596,12 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
           const lang = langMap[langRaw] || 'he';
 
           // Resolve video ad preset — use request override, client default, or system default
-          const resolvedPreset = await videoPresetService.resolvePreset(req.body.preset_id);
-          const renderConfig = buildRenderConfig(resolvedPreset);
-
-          const job: videoEngineLocal.LocalVideoJob = {
-            projectId: `variant-${variant.id}`,
-            platform: vePlatform,
-            language: lang,
-            rtl: lang === 'he' || lang === 'ar',
-            style: (renderConfig.style.preset as any) || 'luxury',
-            fps: renderConfig.canvas.fps,
-            title,
-            subtitle: subtitle !== title ? subtitle : undefined,
-            cta,
-            backgroundColor: renderConfig.style.backgroundColor,
-            fitMode: renderConfig.style.fitMode as 'cover' | 'contain',
-            images: veImages,
-            preset: {
+          // Gracefully fall back if presets table doesn't exist yet
+          let presetConfig: Record<string, unknown> | undefined;
+          try {
+            const resolvedPreset = await videoPresetService.resolvePreset(req.body.preset_id);
+            const renderConfig = buildRenderConfig(resolvedPreset);
+            presetConfig = {
               introDurationSeconds: renderConfig.scenes.introDurationSeconds,
               outroDurationSeconds: renderConfig.scenes.outroDurationSeconds,
               imageDurationSeconds: renderConfig.scenes.imageDurationSeconds,
@@ -1649,7 +1638,22 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
                 x264Preset: renderConfig.output.x264Preset,
                 audioBitrate: renderConfig.output.audioBitrate,
               },
-            },
+            };
+          } catch (presetErr) {
+            console.warn('[ai-ad] Preset resolution failed, using defaults:', (presetErr as Error).message);
+          }
+
+          const job: videoEngineLocal.LocalVideoJob = {
+            projectId: `variant-${variant.id}`,
+            platform: vePlatform,
+            language: lang,
+            rtl: lang === 'he' || lang === 'ar',
+            style: 'luxury',
+            title,
+            subtitle: subtitle !== title ? subtitle : undefined,
+            cta,
+            images: veImages,
+            ...(presetConfig ? { preset: presetConfig } : {}),
           };
 
           // renderLocalVideo now handles temp workspace, S3 upload, and cleanup internally

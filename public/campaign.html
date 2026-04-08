@@ -486,6 +486,8 @@ function openBoard(variantId) {
   const headline = document.getElementById('hl-' + variantId)?.value || copy.headline || '';
   const description = document.getElementById('desc-' + variantId)?.value || copy.description || '';
   const cta = document.getElementById('cta-' + variantId)?.value || copy.cta || '';
+  const textEl = document.getElementById('text-' + variantId);
+  const infoText = textEl?.innerText?.trim() || '';
 
   const overlay = document.createElement('div');
   overlay.className = 'ai-gen-overlay';
@@ -497,11 +499,13 @@ function openBoard(variantId) {
       <div id="board-canvas" style="position:relative;width:${cw}px;height:${ch}px;margin:0 auto;border-radius:8px;overflow:hidden;border:2px solid var(--primary);background:#000">
         ${poster ? `<img src="${esc(poster)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:0.6">` : ''}
         <div style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
-        ${headline ? `<div class="board-item" id="board-headline" data-key="headline" style="left:${savedPos.headline?.x ?? 50}%;top:${savedPos.headline?.y ?? 20}%">
+        ${headline ? `<div class="board-item" id="board-headline" data-key="headline" style="left:${savedPos.headline?.x ?? 50}%;top:${savedPos.headline?.y ?? 15}%">
           <div class="board-label">Headline</div>${esc(headline)}</div>` : ''}
-        ${description ? `<div class="board-item" id="board-subtitle" data-key="subtitle" style="left:${savedPos.subtitle?.x ?? 50}%;top:${savedPos.subtitle?.y ?? 40}%">
+        ${description ? `<div class="board-item" id="board-subtitle" data-key="subtitle" style="left:${savedPos.subtitle?.x ?? 50}%;top:${savedPos.subtitle?.y ?? 32}%">
           <div class="board-label">Description</div>${esc(description)}</div>` : ''}
-        ${cta ? `<div class="board-item board-cta" id="board-cta" data-key="cta" style="left:${savedPos.cta?.x ?? 50}%;top:${savedPos.cta?.y ?? 75}%">
+        ${infoText ? `<div class="board-item" id="board-info" data-key="info" style="left:${savedPos.info?.x ?? 50}%;top:${savedPos.info?.y ?? 55}%;font-size:11px;max-width:70%">
+          <div class="board-label">Info</div>${esc(infoText).replace(/\n/g, '<br>')}</div>` : ''}
+        ${cta ? `<div class="board-item board-cta" id="board-cta" data-key="cta" style="left:${savedPos.cta?.x ?? 50}%;top:${savedPos.cta?.y ?? 80}%">
           <div class="board-label">CTA</div>${esc(cta)}</div>` : ''}
       </div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
@@ -574,7 +578,7 @@ function openBoard(variantId) {
 
 function resetBoard() {
   const items = document.querySelectorAll('.board-item');
-  const defaults = { headline: { x: 50, y: 20 }, subtitle: { x: 50, y: 40 }, cta: { x: 50, y: 75 } };
+  const defaults = { headline: { x: 50, y: 15 }, subtitle: { x: 50, y: 32 }, info: { x: 50, y: 55 }, cta: { x: 50, y: 80 } };
   items.forEach(el => {
     const key = el.dataset.key;
     if (defaults[key]) { el.style.left = defaults[key].x + '%'; el.style.top = defaults[key].y + '%'; }

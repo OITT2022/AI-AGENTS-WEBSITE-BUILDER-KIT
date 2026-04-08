@@ -101,8 +101,9 @@ export async function scoreAndSelectCandidates(date: string, maxCandidates: numb
     if (!latest) continue;
     const p = latest.normalized_payload;
     const driveCount = entity.client_id ? driveCountCache.get(entity.client_id) ?? 0 : 0;
-    // Relax media requirement: accept entities with Drive media even if no API media
-    if (!(p.title_he || p.title_en) || p.price_amount == null || !p.city || !(p.hero_image || (p.gallery_count as number) > 0 || driveCount > 0) || !p.listing_url) continue;
+    // Minimum requirements: title + city + (some media OR Drive media) + listing URL
+    // Price is optional (projects use price_range, not price_amount)
+    if (!(p.title_he || p.title_en) || !p.city || !(p.hero_image || (p.gallery_count as number) > 0 || driveCount > 0) || !p.listing_url) continue;
 
     // Overuse suppression: skip entities published too recently
     const recentPublishes = await store.getRecentPublishCount(entity.id, OVERUSE_WINDOW_DAYS);

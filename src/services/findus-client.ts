@@ -224,6 +224,24 @@ function collectProjectVideos(proj: FindUsProject): string[] {
   return videos;
 }
 
+function deriveProjectPriceRange(proj: FindUsProject): { min?: number; max?: number; currency?: string } | undefined {
+  // Try to get price range from child properties
+  const prices = (proj.properties || [])
+    .map(p => { const pr = p.price as any; return typeof pr === 'object' ? pr?.amount : pr; })
+    .filter((a): a is number => typeof a === 'number' && a > 0);
+  if (prices.length === 0) {
+    // Check if project itself has price fields
+    const p = proj as any;
+    if (p.priceFrom || p.priceTo || p.price) {
+      return { min: p.priceFrom || p.price, max: p.priceTo || p.price, currency: p.currency || 'EUR' };
+    }
+    return undefined;
+  }
+  const firstPrice = (proj.properties || [])[0]?.price as any;
+  const currency = (typeof firstPrice === 'object' ? firstPrice?.currency : null) || 'EUR';
+  return { min: Math.min(...prices), max: Math.max(...prices), currency };
+}
+
 function mapFindUsProject(proj: FindUsProject, baseUrl?: string): Record<string, unknown> {
   const images = proj.images ?? [];
   const primaryImage = images.find(i => i.isPrimary)?.url ?? images[0]?.url;
@@ -266,6 +284,8 @@ function mapFindUsProject(proj: FindUsProject, baseUrl?: string): Record<string,
     country: proj.country ?? '',
     city: proj.city ?? '',
     total_units: proj.totalUnits,
+    // Derive price range from project properties if available
+    price_range: deriveProjectPriceRange(proj),
     features: proj.features ?? deriveProjectFeatures(proj),
     delivery: proj.completionDate ? {
       status: 'under_construction',

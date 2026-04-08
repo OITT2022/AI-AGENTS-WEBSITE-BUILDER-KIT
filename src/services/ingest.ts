@@ -51,17 +51,26 @@ function normalizeProperty(raw: PropertyPayload): Record<string, unknown> {
 }
 
 function normalizeProject(raw: ProjectPayload): Record<string, unknown> {
+  // Derive price from price_range if available
+  const priceRange = raw.price_range as { min?: number; max?: number; currency?: string } | undefined;
+  const priceAmount = priceRange?.min ?? priceRange?.max ?? null;
+  const priceCurrency = priceRange?.currency ?? null;
+  const priceText = priceAmount && priceCurrency
+    ? `${priceCurrency} ${Number(priceAmount).toLocaleString()}${priceRange?.max && priceRange.max !== priceAmount ? ' - ' + Number(priceRange.max).toLocaleString() : ''}`
+    : null;
+
   return {
     id: raw.id, type: 'project', status: raw.status,
     title_he: raw.title?.he ?? null, title_en: raw.title?.en ?? null,
     country: raw.country ?? null, city: raw.city ?? null, area: raw.area ?? null,
     total_units: raw.total_units ?? null, available_units: raw.available_units ?? null,
+    price_amount: priceAmount, price_currency: priceCurrency, price_text: priceText,
     features: raw.features,
     hero_image: raw.media?.hero_image ?? null,
     gallery: raw.media?.gallery ?? [], gallery_count: raw.media?.gallery?.length ?? 0,
     videos: raw.media?.videos ?? [], video_count: raw.media?.videos?.length ?? 0,
-    description_he: raw.descriptions?.short?.he ?? null,
-    description_en: raw.descriptions?.short?.en ?? null,
+    description_he: raw.descriptions?.short?.he ?? raw.descriptions?.long?.he ?? null,
+    description_en: raw.descriptions?.short?.en ?? raw.descriptions?.long?.en ?? null,
     campaign_ready: raw.marketing?.campaign_ready ?? false,
     priority_score: raw.marketing?.priority_score ?? 0,
     target_audiences: raw.marketing?.target_audiences ?? [],

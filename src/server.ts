@@ -298,6 +298,9 @@ app.post('/api/video/render', async (req, res) => {
       return res.status(503).json({ success: false, error: 'Video engine not available', issues: veReady.issues });
     }
 
+    // Log job text for debugging
+    console.log('[video-worker] Job received:', JSON.stringify({ variantId, title: job.title, subtitle: job.subtitle, cta: job.cta, images: job.images?.length, platform: job.platform }));
+
     // Return immediately — render happens in background
     res.json({ success: true, status: 'processing', message: 'Video render started' });
 

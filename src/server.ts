@@ -277,6 +277,30 @@ function callbackPage(redirectUrl: string, error: string | null): string {
 }
 
 
+// ── Video render worker endpoint (before auth — internal EC2 traffic) ──
+// Secured by VIDEO_WORKER_SECRET shared between Amplify and EC2.
+app.post('/api/video/render', async (req, res) => {
+  try {
+    const secret = process.env.VIDEO_WORKER_SECRET;
+    if (secret) {
+      const provided = req.headers['x-worker-secret'] || req.body?.secret;
+      if (provided !== secret) return res.status(403).json({ error: 'Invalid worker secret' });
+    }
+    const { job, variantId } = req.body;
+    if (!job || !job.images?.length) {
+      return res.status(400).json({ success: false, error: 'Missing job or images' });
+    }
+    const veReady = videoEngineLocal.isVideoEngineReady();
+    if (!veReady.ready) {
+      return res.status(503).json({ success: false, error: 'Video engine not available on this host', issues: veReady.issues });
+    }
+    const result = await videoEngineLocal.renderLocalVideo(job, variantId);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, url: '', durationMs: 0, status: 'failed', fileSizeBytes: 0, error: err.message, storageProvider: 'none' });
+  }
+});
+
 // ── Protect all API routes below ──
 app.use('/api', requireAuth);
 
@@ -1478,27 +1502,6 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-// ── Video render worker endpoint (EC2) ──
-// Called by Amplify via VIDEO_WORKER_URL when video rendering is delegated.
-// On EC2 this renders locally; on Amplify this endpoint is unused.
-app.post('/api/video/render', async (req, res) => {
-  try {
-    const { job, variantId } = req.body;
-    if (!job || !job.images?.length) {
-      return res.status(400).json({ success: false, error: 'Missing job or images' });
-    }
-    const veReady = videoEngineLocal.isVideoEngineReady();
-    if (!veReady.ready) {
-      return res.status(503).json({ success: false, error: 'Video engine not available on this host', issues: veReady.issues });
-    }
-    // Render locally on this EC2 worker — do NOT delegate again (no infinite loop)
-    const result = await videoEngineLocal.renderLocalVideo(job, variantId);
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ success: false, url: '', durationMs: 0, status: 'failed', fileSizeBytes: 0, error: err.message, storageProvider: 'none' });
-  }
 });
 
 // ── Canva triggers ──

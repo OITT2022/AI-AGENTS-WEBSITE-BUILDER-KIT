@@ -1128,7 +1128,6 @@ async function renderApprovals(el) {
         ${t.decision_notes?`<span style="font-size:11px;color:var(--text2);margin-left:8px">Notes: ${esc(t.decision_notes)}</span>`:''}
       </div>
       <div style="padding:12px 20px">
-        ${videoPrev ? `<div style="margin-bottom:16px">${videoPrev}</div>` : ''}
         <div style="display:flex;gap:0;margin-bottom:12px;background:var(--surface2);border-radius:8px;padding:3px;max-width:400px">
           <button class="prev-tab active" data-uid="${uid}" data-p="facebook" onclick="switchApprovalTab('${uid}','facebook')" style="flex:1">${platformIcon('facebook')} Facebook</button>
           <button class="prev-tab" data-uid="${uid}" data-p="instagram" onclick="switchApprovalTab('${uid}','instagram')" style="flex:1">${platformIcon('instagram')} Instagram</button>
@@ -1137,6 +1136,10 @@ async function renderApprovals(el) {
         <div class="appr-panel" data-uid="${uid}" data-p="facebook" style="display:block">${fbPrev}</div>
         <div class="appr-panel" data-uid="${uid}" data-p="instagram" style="display:none">${igPrev}</div>
         <div class="appr-panel" data-uid="${uid}" data-p="tiktok" style="display:none">${tkPrev}</div>
+        ${videoPrev ? `<details style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+          <summary style="font-size:12px;font-weight:600;cursor:pointer;user-select:none;color:var(--text2)">Generated Video Ad</summary>
+          <div style="margin-top:8px">${videoPrev}</div>
+        </details>` : ''}
       </div>
       <div class="card-footer" id="appr-footer-${uid}">
         <button class="btn btn-sm" style="background:#1877f2;border-color:#1877f2;color:#fff" onclick="publishTo('facebook','${v.id}')">${platformIcon('facebook')} Publish to Facebook</button>

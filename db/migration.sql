@@ -86,3 +86,23 @@ CREATE TABLE IF NOT EXISTS client_drive_media (
 
 CREATE INDEX IF NOT EXISTS idx_client_drive_media_client ON client_drive_media(client_id);
 CREATE INDEX IF NOT EXISTS idx_client_drive_media_type ON client_drive_media(client_id, media_type);
+
+-- Video ad presets: configurable rendering profiles for social media ads
+CREATE TABLE IF NOT EXISTS video_ad_presets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  general_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  text_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  animation_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  audio_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  overlay_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_video_ad_presets_slug ON video_ad_presets(slug);
+CREATE INDEX IF NOT EXISTS idx_video_ad_presets_active ON video_ad_presets(is_active, is_default);

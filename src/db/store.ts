@@ -490,6 +490,55 @@ export async function setConfig(key: string, value: any): Promise<void> {
   );
 }
 
+// ── Video Ad Presets ──
+
+export async function getVideoPresets(activeOnly = false): Promise<any[]> {
+  const where = activeOnly ? 'WHERE is_active = true' : '';
+  return query(`SELECT * FROM video_ad_presets ${where} ORDER BY is_default DESC, name ASC`);
+}
+
+export async function getVideoPreset(id: string): Promise<any | undefined> {
+  return queryOne('SELECT * FROM video_ad_presets WHERE id = $1', [id]);
+}
+
+export async function getVideoPresetBySlug(slug: string): Promise<any | undefined> {
+  return queryOne('SELECT * FROM video_ad_presets WHERE slug = $1', [slug]);
+}
+
+export async function getDefaultVideoPreset(): Promise<any | undefined> {
+  return queryOne('SELECT * FROM video_ad_presets WHERE is_default = true AND is_active = true');
+}
+
+export async function upsertVideoPreset(preset: any): Promise<any> {
+  const row = await queryOne(
+    `INSERT INTO video_ad_presets (id, name, slug, description, is_active, is_default, general_settings, text_settings, animation_settings, audio_settings, overlay_settings, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+     ON CONFLICT (id) DO UPDATE SET
+       name=EXCLUDED.name, slug=EXCLUDED.slug, description=EXCLUDED.description,
+       is_active=EXCLUDED.is_active, is_default=EXCLUDED.is_default,
+       general_settings=EXCLUDED.general_settings, text_settings=EXCLUDED.text_settings,
+       animation_settings=EXCLUDED.animation_settings, audio_settings=EXCLUDED.audio_settings,
+       overlay_settings=EXCLUDED.overlay_settings, updated_at=EXCLUDED.updated_at
+     RETURNING *`,
+    [preset.id, preset.name, preset.slug, preset.description ?? null,
+     preset.is_active ?? true, preset.is_default ?? false,
+     safeJson(preset.general_settings), safeJson(preset.text_settings),
+     safeJson(preset.animation_settings), safeJson(preset.audio_settings),
+     safeJson(preset.overlay_settings),
+     preset.created_at ?? new Date().toISOString(), new Date().toISOString()]
+  );
+  return row!;
+}
+
+export async function deleteVideoPreset(id: string): Promise<boolean> {
+  const rows = await query('DELETE FROM video_ad_presets WHERE id = $1 RETURNING id', [id]);
+  return rows.length > 0;
+}
+
+export async function clearDefaultVideoPreset(): Promise<void> {
+  await query('UPDATE video_ad_presets SET is_default = false WHERE is_default = true');
+}
+
 // ── Safe JSON stringify (handles already-parsed JSONB) ──
 
 function safeJson(val: any): string {
@@ -768,5 +817,6 @@ export const store = {
   getRecentPublishCount, getEntityPerformance, getAudiencePerformance, getExistingPublish, getDashboardSummary,
   createSyncRun, finishSyncRun, getLastSyncCheckpoint,
   getConfig, setConfig,
+  getVideoPresets, getVideoPreset, getVideoPresetBySlug, getDefaultVideoPreset, upsertVideoPreset, deleteVideoPreset, clearDefaultVideoPreset,
   initDatabase,
 };

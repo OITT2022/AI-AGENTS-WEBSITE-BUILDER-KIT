@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/dashboard/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/dashboard/favicon-32x32.png">
+  <title>Video Ad Presets - Marketing Agent</title>
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --surface2: #242836; --border: #2e3345;
+      --text: #e4e6f0; --text2: #9da3b7; --primary: #6366f1; --primary-hover: #818cf8;
+      --green: #22c55e; --yellow: #eab308; --red: #ef4444; --blue: #3b82f6; --radius: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .header h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .back-link { color: var(--text2); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .back-link:hover { color: var(--text); }
+    .container { padding: 32px; max-width: 1200px; margin: 0 auto; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 13px; cursor: pointer; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 8px; }
+    .btn:hover { background: var(--border); }
+    .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-green { background: var(--green); border-color: var(--green); color: #fff; }
+    .btn-red { background: var(--red); border-color: var(--red); color: #fff; }
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(34,197,94,.15); color: #22c55e; }
+    .badge-blue { background: rgba(59,130,246,.15); color: #3b82f6; }
+    .badge-yellow { background: rgba(234,179,8,.15); color: #eab308; }
+
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .card.default-card { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    .card-header { padding: 16px 20px; display: flex; justify-content: space-between; align-items: start; }
+    .card-body { padding: 0 20px 16px; }
+    .card-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
+    .detail-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+    .detail-row .label { color: var(--text2); }
+    .detail-row .value { font-weight: 500; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+    .loading { text-align: center; padding: 40px; color: var(--text2); }
+
+    .tabs { display: flex; gap: 0; margin-bottom: 24px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+    .tab { padding: 12px 24px; background: transparent; border: none; color: var(--text2); cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+    .tab.active { background: var(--primary); color: #fff; }
+
+    .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+    .form-section h3 { font-size: 15px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group label { font-size: 12px; color: var(--text2); font-weight: 500; }
+    .form-group input, .form-group select { padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
+    .form-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+    .form-check input { accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Video Ad Presets</h1>
+    <div class="header-actions">
+      <a href="/dashboard/index.html" class="back-link">&larr; Dashboard</a>
+      <button class="btn btn-primary" onclick="showCreate()">+ New Preset</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="content"><div class="loading">Loading presets...</div></div>
+  </div>
+
+  <script src="/dashboard/shared.js"></script>
+  <script>
+    let presets = [];
+
+    async function loadPresets() {
+      const el = document.getElementById('content');
+      try {
+        presets = await apiCall('/api/video-ad-presets');
+        if (!presets.length) {
+          el.innerHTML = `<div class="empty-state">
+            <h3>No presets yet</h3>
+            <p style="margin:12px 0">Create your first video ad preset or seed defaults.</p>
+            <button class="btn btn-primary" onclick="seedDefaults()">Seed Default Presets</button>
+          </div>`;
+          return;
+        }
+        renderPresetList(el);
+      } catch (err) {
+        el.innerHTML = `<div class="empty-state"><h3>Error</h3><p>${err.message}</p></div>`;
+      }
+    }
+
+    function renderPresetList(el) {
+      el.innerHTML = `<div class="card-grid">${presets.map(p => {
+        const g = p.general_settings || {};
+        return `<div class="card ${p.is_default ? 'default-card' : ''}">
+          <div class="card-header">
+            <div>
+              <h3 style="font-size:16px">${esc(p.name)}</h3>
+              <div style="color:var(--text2);font-size:12px;margin-top:4px">${esc(p.slug)}</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              ${p.is_default ? '<span class="badge badge-blue">Default</span>' : ''}
+              ${p.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-yellow">Inactive</span>'}
+            </div>
+          </div>
+          <div class="card-body">
+            ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(p.description)}</div>` : ''}
+            <div class="detail-row"><span class="label">Resolution</span><span class="value">${g.width || '?'}x${g.height || '?'}</span></div>
+            <div class="detail-row"><span class="label">Aspect Ratio</span><span class="value">${g.aspectRatio || '?'}</span></div>
+            <div class="detail-row"><span class="label">FPS</span><span class="value">${g.fps || 30}</span></div>
+            <div class="detail-row"><span class="label">Duration</span><span class="value">${g.durationSeconds || 15}s</span></div>
+            <div class="detail-row"><span class="label">Style</span><span class="value">${g.stylePreset || 'luxury'}</span></div>
+            <div class="detail-row"><span class="label">Fit Mode</span><span class="value">${g.fitMode || 'cover'}</span></div>
+            <div class="detail-row"><span class="label">CRF</span><span class="value">${g.crf ?? 28}</span></div>
+          </div>
+          <div class="card-footer">
+            <button class="btn btn-sm" onclick="editPreset('${p.id}')">Edit</button>
+            ${!p.is_default ? `<button class="btn btn-sm btn-primary" onclick="setDefault('${p.id}')">Set Default</button>` : ''}
+            <button class="btn btn-sm" onclick="testRender('${p.id}')">Test Render</button>
+            <div style="flex:1"></div>
+            <button class="btn btn-sm btn-red" onclick="deletePreset('${p.id}','${esc(p.name)}')">Delete</button>
+          </div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    async function seedDefaults() {
+      await apiCall('/api/video-ad-presets/seed');
+      showToast('Default presets created');
+      loadPresets();
+    }
+
+    async function setDefault(id) {
+      await apiCall(`/api/video-ad-presets/${id}/set-default`, { method: 'POST' });
+      showToast('Default preset updated');
+      loadPresets();
+    }
+
+    async function deletePreset(id, name) {
+      if (!confirm(`Delete preset "${name}"?`)) return;
+      await apiCall(`/api/video-ad-presets/${id}`, { method: 'DELETE' });
+      showToast('Preset deleted');
+      loadPresets();
+    }
+
+    async function testRender(id) {
+      showToast('Starting test render...');
+      const res = await apiCall(`/api/video-ad-presets/${id}/test-render`, { method: 'POST', body: '{}' });
+      if (res.mode === 'preview') {
+        showToast('Preview mode (no video engine on this host)');
+        console.log('Render config:', res.config);
+      } else if (res.success) {
+        showToast('Test render complete!');
+      } else {
+        showToast('Render failed: ' + (res.result?.error || res.error || 'unknown'));
+      }
+    }
+
+    function showCreate() {
+      showToast('Preset editor coming in Phase 2');
+    }
+
+    function editPreset(id) {
+      showToast('Preset editor coming in Phase 2');
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function showToast(msg) {
+      const t = document.createElement('div');
+      t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--surface2);color:var(--text);padding:12px 20px;border-radius:8px;border:1px solid var(--border);font-size:13px;z-index:9999;animation:fadeIn 0.2s';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3000);
+    }
+
+    requireLogin().then(loadPresets);
+  </script>
+</body>
+</html>

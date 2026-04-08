@@ -23,6 +23,8 @@ import * as imageAi from './services/image-ai';
 import * as videoAi from './services/video-ai';
 import * as canva from './services/canva';
 import * as videoEngineLocal from './services/video-engine-local';
+import * as videoPresetService from './services/video-preset';
+import { buildRenderConfig } from './services/ffmpeg-config-builder';
 
 const app = express();
 
@@ -1650,6 +1652,85 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ── Video Ad Presets ──
+
+app.get('/api/video-ad-presets', async (_req, res) => {
+  try { res.json(await videoPresetService.listPresets()); }
+  catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/video-ad-presets/:id', async (req, res) => {
+  try {
+    const preset = await videoPresetService.getPreset(paramId(req));
+    if (!preset) return res.status(404).json({ error: 'Preset not found' });
+    res.json(preset);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/video-ad-presets', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try { res.json(await videoPresetService.createPreset(req.body)); }
+  catch (err: any) { res.status(400).json({ error: err.message }); }
+});
+
+app.put('/api/video-ad-presets/:id', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try { res.json(await videoPresetService.updatePreset(paramId(req), req.body)); }
+  catch (err: any) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/video-ad-presets/:id', requireRole('admin'), async (req: AuthRequest, res) => {
+  try {
+    const ok = await videoPresetService.deletePreset(paramId(req));
+    res.json({ success: ok });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/video-ad-presets/:id/set-default', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try { res.json(await videoPresetService.setDefault(paramId(req))); }
+  catch (err: any) { res.status(400).json({ error: err.message }); }
+});
+
+app.post('/api/video-ad-presets/:id/test-render', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    const preset = await videoPresetService.getPreset(paramId(req));
+    if (!preset) return res.status(404).json({ error: 'Preset not found' });
+    const config = buildRenderConfig(preset);
+    // Build a test job using preset config + sample data
+    const g = config.canvas;
+    const job: videoEngineLocal.LocalVideoJob = {
+      projectId: `preset-test-${preset.slug}`,
+      platform: g.width > g.height ? 'facebook-feed' : g.width === g.height ? 'square' : 'tiktok',
+      language: 'en',
+      style: (config.style.preset as any) || 'luxury',
+      fps: g.fps,
+      title: req.body.title || 'Sample Property',
+      subtitle: req.body.subtitle || 'Beautiful Location',
+      cta: req.body.cta || 'Learn More',
+      backgroundColor: config.style.backgroundColor,
+      fitMode: config.style.fitMode as 'cover' | 'contain',
+      images: req.body.images?.length ? req.body.images : [
+        { src: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80' },
+        { src: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80' },
+      ],
+    };
+    const veReady = videoEngineLocal.isVideoEngineReady();
+    if (!veReady.ready && !veReady.skipped) {
+      return res.status(503).json({ error: 'Video engine not available', issues: veReady.issues });
+    }
+    if (veReady.skipped) {
+      // Return config preview only (no render on serverless)
+      return res.json({ success: true, mode: 'preview', config, job });
+    }
+    const result = await videoEngineLocal.renderLocalVideo(job, `test-${preset.slug}`);
+    res.json({ success: result.success, result, config });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// Seed presets on first request if empty
+app.get('/api/video-ad-presets/seed', requireRole('admin'), async (_req: AuthRequest, res) => {
+  try { await videoPresetService.seedDefaultPresets(); res.json({ success: true }); }
+  catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Canva triggers ──

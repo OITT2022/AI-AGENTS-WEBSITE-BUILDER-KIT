@@ -435,18 +435,8 @@
   <!-- Stats -->
   <div class="stats-grid" id="stats-grid"></div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('candidates')">Candidates</button>
-    <button class="tab" onclick="switchTab('creatives')">Creatives</button>
-    <button class="tab" onclick="switchTab('approvals')">Approvals</button>
-    <button class="tab" onclick="switchTab('entities')">Properties</button>
-  </div>
-
-  <!-- Content -->
-  <div id="tab-content">
-    <div class="loading">Loading...</div>
-  </div>
+  <!-- Dashboard Content -->
+  <div id="dashboard-content"></div>
 </div>
 
 <script src="/dashboard/shared.js"></script>
@@ -505,7 +495,7 @@ async function handleLogout() {
 }
 
 async function loadData() {
-  await Promise.all([loadStats(), loadTab(currentTab)]);
+  await Promise.all([loadStats(), loadDashboardContent()]);
 }
 
 async function loadStats() {
@@ -546,18 +536,104 @@ function switchTab(tab) {
   loadTab(tab);
 }
 
-async function loadTab(tab) {
-  const content = document.getElementById('tab-content');
-  content.innerHTML = '<div class="loading">Loading...</div>';
+async function loadDashboardContent() {
+  const el = document.getElementById('dashboard-content');
+  const data = await api('/api/dashboard/summary');
+  const clients = await api('/api/clients');
 
-  switch (tab) {
-    case 'candidates': return renderCandidates(content);
-    case 'creatives': return renderCreatives(content);
-    case 'approvals': return renderApprovals(content);
-    case 'entities': return renderEntities(content);
-  }
+  // Calculate chart data
+  const qaTotal = (data.qa_pass||0) + (data.qa_warn||0) + (data.qa_fail||0);
+  const qaPassPct = qaTotal ? Math.round((data.qa_pass||0) / qaTotal * 100) : 0;
+  const qaWarnPct = qaTotal ? Math.round((data.qa_warn||0) / qaTotal * 100) : 0;
+  const qaFailPct = qaTotal ? Math.round((data.qa_fail||0) / qaTotal * 100) : 0;
+
+  const apprTotal = (data.approvals_approved||0) + (data.approvals_pending||0) + (data.approvals_rejected||0);
+  const apprApprovedPct = apprTotal ? Math.round((data.approvals_approved||0) / apprTotal * 100) : 0;
+  const apprPendingPct = apprTotal ? Math.round((data.approvals_pending||0) / apprTotal * 100) : 0;
+  const apprRejectedPct = apprTotal ? Math.round((data.approvals_rejected||0) / apprTotal * 100) : 0;
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">
+
+      <!-- QA Results Chart -->
+      <div class="stat-card" style="padding:20px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:16px">QA Results</div>
+        <div style="display:flex;gap:20px;align-items:center">
+          <div style="width:100px;height:100px;border-radius:50%;background:conic-gradient(var(--green) 0% ${qaPassPct}%, var(--yellow) ${qaPassPct}% ${qaPassPct+qaWarnPct}%, var(--red) ${qaPassPct+qaWarnPct}% 100%);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="width:70px;height:70px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700">${qaTotal}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;flex:1">
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div><span style="font-size:13px">Pass: ${data.qa_pass||0} (${qaPassPct}%)</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:var(--yellow)"></div><span style="font-size:13px">Warn: ${data.qa_warn||0} (${qaWarnPct}%)</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:var(--red)"></div><span style="font-size:13px">Fail: ${data.qa_fail||0} (${qaFailPct}%)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Approval Pipeline Chart -->
+      <div class="stat-card" style="padding:20px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:16px">Approval Pipeline</div>
+        <div style="display:flex;gap:20px;align-items:center">
+          <div style="width:100px;height:100px;border-radius:50%;background:conic-gradient(var(--green) 0% ${apprApprovedPct}%, var(--yellow) ${apprApprovedPct}% ${apprApprovedPct+apprPendingPct}%, var(--red) ${apprApprovedPct+apprPendingPct}% 100%);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="width:70px;height:70px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700">${apprTotal}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;flex:1">
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div><span style="font-size:13px">Approved: ${data.approvals_approved||0} (${apprApprovedPct}%)</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:var(--yellow)"></div><span style="font-size:13px">Pending: ${data.approvals_pending||0} (${apprPendingPct}%)</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:var(--red)"></div><span style="font-size:13px">Rejected: ${data.approvals_rejected||0} (${apprRejectedPct}%)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Campaign Funnel -->
+      <div class="stat-card" style="padding:20px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:16px">Campaign Funnel</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${funnelBar('Properties', data.total_entities, data.total_entities, 'var(--blue)')}
+          ${funnelBar('Campaign Ready', data.campaign_ready, data.total_entities, 'var(--primary)')}
+          ${funnelBar('Candidates', data.selected_candidates, data.total_entities, 'var(--yellow)')}
+          ${funnelBar('Creatives', data.total_variants, data.total_entities, 'var(--orange)')}
+          ${funnelBar('Approved', data.approvals_approved, data.total_entities, 'var(--green)')}
+        </div>
+      </div>
+
+      <!-- Clients Overview -->
+      <div class="stat-card" style="padding:20px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:16px">Clients (${clients.length})</div>
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto">
+          ${clients.length ? clients.map(c => `
+            <a href="/dashboard/campaign.html?client=${c.id}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);text-decoration:none;color:var(--text);transition:border-color .15s">
+              <div>
+                <div style="font-size:13px;font-weight:600">${escapeHtml(c.name || c.company || 'Unnamed')}</div>
+                ${c.email ? `<div style="font-size:11px;color:var(--text2)">${escapeHtml(c.email)}</div>` : ''}
+              </div>
+              <span style="font-size:11px;color:var(--text2)">&#8594;</span>
+            </a>
+          `).join('') : '<div style="color:var(--text2);font-size:13px">No clients yet</div>'}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Quick Actions -->
+    <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+      <a href="/dashboard/clients.html" class="btn btn-primary" style="text-decoration:none">Manage Clients</a>
+      <a href="/dashboard/video-presets.html" class="btn" style="text-decoration:none">Video Presets</a>
+      <a href="/dashboard/sound-library.html" class="btn" style="text-decoration:none">Sound Library</a>
+      <a href="/dashboard/connector.html" class="btn" style="text-decoration:none">API Connector</a>
+    </div>
+  `;
 }
 
+function funnelBar(label, value, max, color) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return `<div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>${label}</span><span style="font-weight:600">${value||0}</span></div>
+    <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.max(pct,2)}%;background:${color};border-radius:4px;transition:width .3s"></div></div>
+  </div>`;
+}
+
+// Keep old functions for compatibility
 async function renderCandidates(container) {
   const candidates = await api('/api/candidates');
 

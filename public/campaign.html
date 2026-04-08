@@ -99,6 +99,10 @@
     .board-item:hover{border-color:var(--primary);box-shadow:0 0 12px rgba(99,102,241,0.5)}
     .board-item:active{border-color:#22c55e;cursor:grabbing}
     .board-item .board-label{font-size:9px;text-transform:uppercase;color:var(--primary);letter-spacing:1px;margin-bottom:2px}
+    .board-tools{position:absolute;top:-24px;left:50%;transform:translateX(-50%);display:flex;gap:2px;opacity:0;transition:opacity .15s;background:rgba(0,0,0,0.8);border-radius:4px;padding:1px 2px}
+    .board-item:hover .board-tools{opacity:1}
+    .board-tool{width:20px;height:20px;border:none;background:none;color:#fff;cursor:pointer;font-size:11px;border-radius:3px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+    .board-tool:hover{background:rgba(255,255,255,0.2)}
     .board-cta{background:var(--primary);border-color:var(--primary);color:#fff}
     .ai-gen-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:16px;text-align:left}
     .ai-gen-scene{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2)}
@@ -466,6 +470,26 @@ function previewSound(sel) {
 
 // ── Board: Visual Text Position Editor ──
 
+function boardTools(key) {
+  return `<button class="board-tool" onclick="event.stopPropagation();toggleDir('${key}')" title="Toggle RTL/LTR">&#8646;</button>`
+    + `<button class="board-tool" onclick="event.stopPropagation();resizeBox('${key}',-10)" title="Narrow">&#8592;</button>`
+    + `<button class="board-tool" onclick="event.stopPropagation();resizeBox('${key}',10)" title="Wider">&#8594;</button>`;
+}
+
+function toggleDir(key) {
+  const el = document.querySelector(`.board-item[data-key="${key}"]`);
+  if (!el) return;
+  const cur = el.getAttribute('dir') || 'ltr';
+  el.setAttribute('dir', cur === 'rtl' ? 'ltr' : 'rtl');
+}
+
+function resizeBox(key, delta) {
+  const el = document.querySelector(`.board-item[data-key="${key}"]`);
+  if (!el) return;
+  const cur = parseInt(el.style.maxWidth) || 80;
+  el.style.maxWidth = Math.max(30, Math.min(95, cur + delta)) + '%';
+}
+
 function openBoard(variantId) {
   const v = window._variants?.[variantId];
   if (!v) return showToast('Variant not found');
@@ -499,14 +523,18 @@ function openBoard(variantId) {
       <div id="board-canvas" style="position:relative;width:${cw}px;height:${ch}px;margin:0 auto;border-radius:8px;overflow:hidden;border:2px solid var(--primary);background:#000">
         ${poster ? `<img src="${esc(poster)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:0.6">` : ''}
         <div style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
-        ${headline ? `<div class="board-item" id="board-headline" data-key="headline" style="left:${savedPos.headline?.x ?? 50}%;top:${savedPos.headline?.y ?? 15}%">
-          <div class="board-label">Headline</div>${esc(headline)}</div>` : ''}
-        ${description ? `<div class="board-item" id="board-subtitle" data-key="subtitle" style="left:${savedPos.subtitle?.x ?? 50}%;top:${savedPos.subtitle?.y ?? 32}%">
-          <div class="board-label">Description</div>${esc(description)}</div>` : ''}
-        ${infoText ? `<div class="board-item" id="board-info" data-key="info" style="left:${savedPos.info?.x ?? 50}%;top:${savedPos.info?.y ?? 55}%;font-size:11px;max-width:70%">
-          <div class="board-label">Info</div>${esc(infoText).replace(/\n/g, '<br>')}</div>` : ''}
-        ${cta ? `<div class="board-item board-cta" id="board-cta" data-key="cta" style="left:${savedPos.cta?.x ?? 50}%;top:${savedPos.cta?.y ?? 80}%">
-          <div class="board-label">CTA</div>${esc(cta)}</div>` : ''}
+        ${headline ? `<div class="board-item" id="board-headline" data-key="headline" dir="${savedPos.headline?.dir||'ltr'}" style="left:${savedPos.headline?.x ?? 50}%;top:${savedPos.headline?.y ?? 15}%;max-width:${savedPos.headline?.w ?? 80}%">
+          <div class="board-tools">${boardTools('headline')}</div>
+          <div class="board-label">Headline</div><div class="board-text">${esc(headline)}</div></div>` : ''}
+        ${description ? `<div class="board-item" id="board-subtitle" data-key="subtitle" dir="${savedPos.subtitle?.dir||'ltr'}" style="left:${savedPos.subtitle?.x ?? 50}%;top:${savedPos.subtitle?.y ?? 32}%;max-width:${savedPos.subtitle?.w ?? 80}%">
+          <div class="board-tools">${boardTools('subtitle')}</div>
+          <div class="board-label">Description</div><div class="board-text">${esc(description)}</div></div>` : ''}
+        ${infoText ? `<div class="board-item" id="board-info" data-key="info" dir="${savedPos.info?.dir||'ltr'}" style="left:${savedPos.info?.x ?? 50}%;top:${savedPos.info?.y ?? 55}%;font-size:11px;max-width:${savedPos.info?.w ?? 70}%">
+          <div class="board-tools">${boardTools('info')}</div>
+          <div class="board-label">Info</div><div class="board-text">${esc(infoText).replace(/\n/g, '<br>')}</div></div>` : ''}
+        ${cta ? `<div class="board-item board-cta" id="board-cta" data-key="cta" dir="${savedPos.cta?.dir||'ltr'}" style="left:${savedPos.cta?.x ?? 50}%;top:${savedPos.cta?.y ?? 80}%;max-width:${savedPos.cta?.w ?? 80}%">
+          <div class="board-tools">${boardTools('cta')}</div>
+          <div class="board-label">CTA</div><div class="board-text">${esc(cta)}</div></div>` : ''}
       </div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
         <button class="btn btn-sm" onclick="resetBoard()">Reset</button>
@@ -591,7 +619,12 @@ async function saveBoard(variantId) {
   const positions = {};
   document.querySelectorAll('.board-item').forEach(el => {
     const key = el.dataset.key;
-    positions[key] = { x: Math.round(parseFloat(el.style.left) * 10) / 10, y: Math.round(parseFloat(el.style.top) * 10) / 10 };
+    positions[key] = {
+      x: Math.round(parseFloat(el.style.left) * 10) / 10,
+      y: Math.round(parseFloat(el.style.top) * 10) / 10,
+      dir: el.getAttribute('dir') || 'ltr',
+      w: parseInt(el.style.maxWidth) || 80,
+    };
   });
   const mp = { ...v.media_plan_json, text_positions: positions };
   const res = await apiCall(`/api/creatives/${variantId}`, { method: 'PUT', body: JSON.stringify({ media_plan_json: mp }) });

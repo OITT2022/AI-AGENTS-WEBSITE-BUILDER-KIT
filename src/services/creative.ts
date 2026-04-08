@@ -206,8 +206,13 @@ export async function generateCreativesForCandidate(candidate: CampaignCandidate
   const variants: CreativeVariant[] = [];
   let variantNo = 0;
 
-  for (const platform of candidate.recommended_platforms) {
-    for (const lang of ['he', 'en'] as const) {
+  // Generate 1 variant per property: primary language, first recommended platform
+  const bestPlatform = candidate.recommended_platforms[0] ?? 'facebook';
+  const bestLang = (primaryLang === 'he' || primaryLang === 'en') ? primaryLang as 'he' | 'en' : 'he';
+  {
+    const platform = bestPlatform;
+    const lang = bestLang;
+    {
       variantNo++;
       const copy = genCopy(platform, p, angle, lang, hasVideo);
       const isVideoAd = hasVideo && (platform === 'tiktok' || platform === 'instagram');

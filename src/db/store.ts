@@ -66,6 +66,24 @@ export async function getEntitiesByClient(clientId: string): Promise<SourceEntit
   return query<SourceEntity>('SELECT * FROM source_entities WHERE client_id = $1 ORDER BY updated_at DESC', [clientId]);
 }
 
+/** Delete entities not in the given source IDs set. Cascades to snapshots, changes, media, candidates, batches. */
+export async function deleteStaleEntities(clientId: string, currentSourceIds: string[]): Promise<number> {
+  if (currentSourceIds.length === 0) return 0;
+  const rows = await query<{ id: string }>(
+    `DELETE FROM source_entities
+     WHERE client_id = $1 AND source_entity_id != ALL($2::text[])
+     RETURNING id`,
+    [clientId, currentSourceIds]
+  );
+  return rows.length;
+}
+
+/** Delete all candidates for a client. */
+export async function deleteCandidatesByClient(clientId: string): Promise<number> {
+  const rows = await query('DELETE FROM campaign_candidates WHERE client_id = $1 RETURNING id', [clientId]);
+  return rows.length;
+}
+
 // ── Snapshots ──
 
 export async function getSnapshots(entityId: string): Promise<EntitySnapshot[]> {
@@ -733,7 +751,7 @@ export async function getLastSyncCheckpoint(): Promise<string | null> {
 
 // Some files import { store } - provide a compatible wrapper
 export const store = {
-  getEntities, getEntity, getEntityBySourceId, upsertEntity, getEntitiesByClient,
+  getEntities, getEntity, getEntityBySourceId, upsertEntity, getEntitiesByClient, deleteStaleEntities, deleteCandidatesByClient,
   getSnapshots, getSnapshot, addSnapshot,
   getChangeEvents, addChangeEvent,
   getCandidates, getCandidate, upsertCandidate, getCandidatesByClient,

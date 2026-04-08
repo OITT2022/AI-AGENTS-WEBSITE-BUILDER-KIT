@@ -252,6 +252,11 @@ function openEditor(id){
       <div class="tab-panel" id="tab-audio">
         <div class="section-title">Background Music</div>
         <label class="check-row"><input type="checkbox" id="e-music-on" ${au.musicEnabled?'checked':''}> Enable music</label>
+        <div class="fg"><label>Sound Track</label>
+          <select id="e-music-sound"><option value="">-- Select from Sound Library --</option></select>
+          <div id="music-preview" style="margin-top:6px"></div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px"><a href="/dashboard/sound-library.html" style="color:var(--primary)">Manage Sound Library</a></div>
+        </div>
         <div class="row3">
           <div class="fg"><label>Volume (0-1)</label><input type="number" id="e-music-vol" value="${au.musicVolume??0.3}" step="0.05" min="0" max="1"></div>
           <div class="fg"><label>Fade In (ms)</label><input type="number" id="e-music-fadein" value="${au.musicFadeInMs||500}" min="0" max="5000" step="100"></div>
@@ -312,6 +317,28 @@ function openEditor(id){
     else if(v==='square_feed'){E('e-width').value='1080';E('e-height').value='1080'}
     else if(v==='landscape'){E('e-width').value='1920';E('e-height').value='1080'}
   });
+
+  // Load sounds into the selector
+  loadSoundsForEditor(au.musicSoundId || au.musicSoundUrl || '');
+}
+
+async function loadSoundsForEditor(selectedId){
+  try{
+    const sounds=await apiCall('/api/sound-assets');
+    const sel=E('e-music-sound');if(!sel)return;
+    sel.innerHTML='<option value="">-- None --</option>'+sounds.map(s=>
+      `<option value="${s.id}" data-url="${esc(s.storage_url)}"${s.id===selectedId||s.storage_url===selectedId?' selected':''}>${esc(s.name)}${s.is_default?' (default)':''} — ${s.duration_seconds?Math.round(s.duration_seconds)+'s':''}</option>`
+    ).join('');
+    sel.addEventListener('change',()=>{
+      const opt=sel.selectedOptions[0];const url=opt?.dataset?.url;
+      const prev=E('music-preview');
+      if(url&&prev)prev.innerHTML=`<audio controls preload="metadata" src="${esc(url)}" style="width:100%;height:32px"></audio>`;
+      else if(prev)prev.innerHTML='';
+    });
+    // Show preview for initially selected
+    const initOpt=sel.selectedOptions[0];
+    if(initOpt?.dataset?.url){const prev=E('music-preview');if(prev)prev.innerHTML=`<audio controls preload="metadata" src="${esc(initOpt.dataset.url)}" style="width:100%;height:32px"></audio>`}
+  }catch{}
 }
 
 function closeEditor(){E('editor-overlay')?.remove();editId=null}
@@ -345,7 +372,9 @@ function collectForm(){
     animation_settings:{headlineAnimation:s('e-hl-anim'),headlineInDurationMs:n('e-hl-in'),headlineStartMs:n('e-hl-start'),
       subheadlineAnimation:s('e-sub-anim'),subheadlineInDurationMs:n('e-sub-in'),subheadlineStartMs:n('e-sub-start'),
       ctaAnimation:s('e-cta-anim'),ctaInDurationMs:n('e-cta-in'),ctaStartMs:n('e-cta-start')},
-    audio_settings:{musicEnabled:c('e-music-on'),musicVolume:n('e-music-vol'),musicFadeInMs:n('e-music-fadein'),musicFadeOutMs:n('e-music-fadeout'),
+    audio_settings:{musicEnabled:c('e-music-on'),musicSoundId:s('e-music-sound')||undefined,
+      musicSoundUrl:E('e-music-sound')?.selectedOptions?.[0]?.dataset?.url||undefined,
+      musicVolume:n('e-music-vol'),musicFadeInMs:n('e-music-fadein'),musicFadeOutMs:n('e-music-fadeout'),
       musicLoop:c('e-music-loop'),voiceoverEnabled:c('e-vo-on'),voiceoverVolume:n('e-vo-vol'),
       duckingEnabled:c('e-duck-on'),duckingLevel:n('e-duck'),normalizeAudio:c('e-normalize')},
     overlay_settings:{logoEnabled:c('e-logo-on'),logoPosition:s('e-logo-pos'),logoWidth:n('e-logo-w'),logoOpacity:n('e-logo-opacity'),

@@ -106,3 +106,23 @@ CREATE TABLE IF NOT EXISTS video_ad_presets (
 
 CREATE INDEX IF NOT EXISTS idx_video_ad_presets_slug ON video_ad_presets(slug);
 CREATE INDEX IF NOT EXISTS idx_video_ad_presets_active ON video_ad_presets(is_active, is_default);
+
+-- Sound asset library for video ad background music
+CREATE TABLE IF NOT EXISTS sound_assets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  storage_key TEXT NOT NULL,
+  storage_url TEXT NOT NULL,
+  mime_type TEXT NOT NULL DEFAULT 'audio/mpeg',
+  file_size INTEGER NOT NULL DEFAULT 0,
+  duration_seconds NUMERIC(10,2),
+  checksum TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'music',
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sound_assets_checksum ON sound_assets(checksum);
+CREATE INDEX IF NOT EXISTS idx_sound_assets_category ON sound_assets(category);

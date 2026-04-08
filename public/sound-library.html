@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/dashboard/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/dashboard/favicon-32x32.png">
+  <title>Sound Library - Marketing Agent</title>
+  <style>
+    :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#242836;--border:#2e3345;--text:#e4e6f0;--text2:#9da3b7;--primary:#6366f1;--primary-hover:#818cf8;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--blue:#3b82f6;--radius:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+    .header h1{font-size:20px;font-weight:700}
+    .header-actions{display:flex;gap:10px;align-items:center}
+    .container{padding:32px;max-width:1000px;margin:0 auto}
+    .btn{padding:10px 20px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+    .btn:hover{background:var(--border)}.btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
+    .btn-green{background:var(--green);border-color:var(--green);color:#fff}
+    .btn-red{background:var(--red);border-color:var(--red);color:#fff}
+    .btn-sm{padding:6px 14px;font-size:12px}
+    .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+    .badge-green{background:rgba(34,197,94,.15);color:#22c55e}.badge-blue{background:rgba(59,130,246,.15);color:#3b82f6}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--text2)}.loading{text-align:center;padding:40px;color:var(--text2)}
+
+    .upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:40px;text-align:center;margin-bottom:24px;transition:all .2s;cursor:pointer}
+    .upload-zone:hover,.upload-zone.dragover{border-color:var(--primary);background:rgba(99,102,241,.05)}
+    .upload-zone input{display:none}
+
+    .sound-list{display:flex;flex-direction:column;gap:12px}
+    .sound-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:16px}
+    .sound-card.default-card{border-color:var(--primary)}
+    .sound-info{flex:1;min-width:0}
+    .sound-name{font-weight:600;font-size:14px;margin-bottom:4px}
+    .sound-meta{font-size:11px;color:var(--text2);display:flex;gap:12px;flex-wrap:wrap}
+    .sound-player{width:100%;max-width:280px}
+    .sound-player audio{width:100%;height:36px;border-radius:6px}
+    .sound-actions{display:flex;gap:6px;flex-shrink:0}
+    .sound-icon{width:44px;height:44px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+    .toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);color:var(--text);padding:12px 20px;border-radius:8px;border:1px solid var(--border);font-size:13px;z-index:9999}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Sound Library</h1>
+    <div class="header-actions">
+      <a href="/dashboard/video-presets.html" class="btn btn-sm" style="text-decoration:none">Video Presets</a>
+    </div>
+  </div>
+  <div class="container">
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+      <input type="file" id="file-input" accept="audio/*,.mp3,.wav,.ogg,.aac,.m4a" multiple>
+      <div style="font-size:32px;margin-bottom:12px">&#127925;</div>
+      <div style="font-weight:600;margin-bottom:4px">Upload Sound Files</div>
+      <div style="font-size:12px;color:var(--text2)">Drop MP3, WAV, OGG, AAC files here or click to browse</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">Max 50MB per file. Duplicates detected by checksum.</div>
+    </div>
+    <div id="content"><div class="loading">Loading sounds...</div></div>
+  </div>
+
+<script src="/dashboard/shared.js"></script>
+<script>
+let sounds = [];
+const E = id => document.getElementById(id);
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+function formatSize(b){if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(0)+' KB';return b+' B'}
+
+async function loadSounds(){
+  const el=E('content');
+  try{
+    sounds=await apiCall('/api/sound-assets');
+    if(!sounds.length){el.innerHTML='<div class="empty-state"><h3>No sounds yet</h3><p>Upload MP3 or WAV files to use as background music in video ads.</p></div>';return}
+    renderList(el);
+  }catch(err){el.innerHTML=`<div class="empty-state"><h3>Error</h3><p>${err.message}</p></div>`}
+}
+
+function renderList(el){
+  el.innerHTML=`<div style="margin-bottom:16px;color:var(--text2);font-size:13px">${sounds.length} sound${sounds.length>1?'s':''}</div>
+    <div class="sound-list">${sounds.map(s=>`
+      <div class="sound-card ${s.is_default?'default-card':''}">
+        <div class="sound-icon">&#127925;</div>
+        <div class="sound-info">
+          <div class="sound-name">${esc(s.name)} ${s.is_default?'<span class="badge badge-blue" style="font-size:9px;margin-left:6px">Default</span>':''}</div>
+          <div class="sound-meta">
+            <span>${esc(s.filename)}</span>
+            <span>${formatSize(s.file_size)}</span>
+            ${s.duration_seconds?`<span>${Math.round(s.duration_seconds)}s</span>`:''}
+            <span>${esc(s.category)}</span>
+            ${s.tags?.length?`<span>${s.tags.map(t=>esc(t)).join(', ')}</span>`:''}
+          </div>
+          <div class="sound-player" style="margin-top:8px">
+            <audio controls preload="metadata" src="${esc(s.storage_url)}"></audio>
+          </div>
+        </div>
+        <div class="sound-actions">
+          ${!s.is_default?`<button class="btn btn-sm btn-primary" onclick="setDefault('${s.id}')">Default</button>`:''}
+          <button class="btn btn-sm btn-red" onclick="deleteSound('${s.id}','${esc(s.name)}')">Delete</button>
+        </div>
+      </div>
+    `).join('')}</div>`;
+}
+
+// Upload handling
+E('file-input').addEventListener('change', async (e) => {
+  const files = e.target.files;
+  if (!files?.length) return;
+  for (const file of files) {
+    await uploadFile(file);
+  }
+  e.target.value = '';
+  loadSounds();
+});
+
+// Drag & drop
+const zone = E('upload-zone');
+zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  const files = e.dataTransfer?.files;
+  if (!files?.length) return;
+  for (const file of files) {
+    if (file.type.startsWith('audio/') || /\.(mp3|wav|ogg|aac|m4a)$/i.test(file.name)) {
+      await uploadFile(file);
+    }
+  }
+  loadSounds();
+});
+
+async function uploadFile(file) {
+  showToast(`Uploading ${file.name}...`);
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('name', file.name.replace(/\.[^.]+$/, ''));
+  formData.append('category', 'music');
+
+  // Get duration from audio element
+  try {
+    const url = URL.createObjectURL(file);
+    const audio = new Audio(url);
+    await new Promise((resolve) => {
+      audio.addEventListener('loadedmetadata', () => {
+        formData.append('duration_seconds', String(audio.duration));
+        URL.revokeObjectURL(url);
+        resolve();
+      });
+      audio.addEventListener('error', () => { URL.revokeObjectURL(url); resolve(); });
+    });
+  } catch {}
+
+  try {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch('/api/sound-assets/upload', {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      credentials: 'include',
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.duplicate) {
+      showToast(`"${data.asset.name}" already exists (same file)`);
+    } else if (data.success) {
+      showToast(`Uploaded: ${data.asset.name}`);
+    } else {
+      showToast(`Error: ${data.error || 'Upload failed'}`);
+    }
+  } catch (err) {
+    showToast(`Upload failed: ${err.message}`);
+  }
+}
+
+async function setDefault(id) {
+  await apiCall(`/api/sound-assets/${id}/set-default`, { method: 'POST' });
+  showToast('Default sound updated');
+  loadSounds();
+}
+
+async function deleteSound(id, name) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  await apiCall(`/api/sound-assets/${id}`, { method: 'DELETE' });
+  showToast('Sound deleted');
+  loadSounds();
+}
+
+requireLogin().then(() => { injectNav('sound-library'); loadSounds(); });
+</script>
+</body>
+</html>

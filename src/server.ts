@@ -1661,7 +1661,28 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
           const outroTitle = cta || title;
           const outroSubtitle = req.body.ad_url || String(copy.ad_url || entity.listing_url || '');
 
-          console.log('[ai-ad] Video job text:', JSON.stringify({ title, subtitle, cta, outroTitle, outroSubtitle, imageCount: veImages.length }));
+          // Resolve background music from preset audio settings
+          let musicConfig: videoEngineLocal.LocalVideoJob['music'] | undefined;
+          try {
+            const resolvedPreset2 = await videoPresetService.resolvePreset(req.body.preset_id);
+            const audioSettings = resolvedPreset2?.audio_settings as Record<string, unknown> | undefined;
+            if (audioSettings?.musicEnabled) {
+              const soundId = audioSettings.musicSoundId as string | undefined;
+              const soundUrl = audioSettings.musicSoundUrl as string | undefined;
+              if (soundId) {
+                const sound = await store.getSoundAsset(soundId);
+                if (sound) musicConfig = { src: sound.storage_url, volume: (audioSettings.musicVolume as number) ?? 0.3 };
+              } else if (soundUrl) {
+                musicConfig = { src: soundUrl, volume: (audioSettings.musicVolume as number) ?? 0.3 };
+              } else {
+                // Try default sound
+                const defaultSound = await store.getDefaultSoundAsset();
+                if (defaultSound) musicConfig = { src: defaultSound.storage_url, volume: (audioSettings.musicVolume as number) ?? 0.3 };
+              }
+            }
+          } catch {}
+
+          console.log('[ai-ad] Video job text:', JSON.stringify({ title, subtitle, cta, outroTitle, outroSubtitle, imageCount: veImages.length, hasMusic: !!musicConfig }));
 
           const job: videoEngineLocal.LocalVideoJob = {
             projectId: `variant-${variant.id}`,
@@ -1675,6 +1696,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
             outroTitle,
             outroSubtitle: outroSubtitle || undefined,
             images: veImages,
+            music: musicConfig,
             ...(presetConfig ? { preset: presetConfig } : {}),
           };
 
@@ -1802,6 +1824,87 @@ app.post('/api/video-ad-presets/:id/test-render', requireRole('admin', 'manager'
 app.get('/api/video-ad-presets/seed', requireRole('admin'), async (_req: AuthRequest, res) => {
   try { await videoPresetService.seedDefaultPresets(); res.json({ success: true }); }
   catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Sound Library ──
+
+app.get('/api/sound-assets', async (_req, res) => {
+  try { res.json(await store.getSoundAssets(typeof _req.query.category === 'string' ? _req.query.category : undefined)); }
+  catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/sound-assets/:id', async (req, res) => {
+  try {
+    const asset = await store.getSoundAsset(paramId(req));
+    if (!asset) return res.status(404).json({ error: 'Sound not found' });
+    res.json(asset);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/sound-assets/upload', requireRole('admin', 'manager'), upload.single('file'), async (req: AuthRequest, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const file = req.file;
+    const name = (req.body.name || file.originalname || 'Untitled').replace(/\.[^.]+$/, '');
+    const category = req.body.category || 'music';
+    const tags = req.body.tags ? (typeof req.body.tags === 'string' ? req.body.tags.split(',').map((t: string) => t.trim()) : req.body.tags) : [];
+
+    // Checksum for dedup
+    const crypto = require('crypto');
+    const fileBuffer = fs.readFileSync(file.path);
+    const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex').slice(0, 16);
+
+    // Check for duplicate
+    const existing = await store.getSoundAssetByChecksum(checksum);
+    if (existing) {
+      fs.unlinkSync(file.path); // cleanup temp file
+      return res.json({ success: true, asset: existing, duplicate: true });
+    }
+
+    // Upload to storage
+    const storage = (await import('./lib/storage')).getStorage();
+    const ext = path.extname(file.originalname || '.mp3');
+    const storageKey = `sounds/${checksum}${ext}`;
+    const storageUrl = await storage.write(storageKey, fileBuffer, file.mimetype || 'audio/mpeg');
+    fs.unlinkSync(file.path); // cleanup temp file
+
+    const asset = await store.addSoundAsset({
+      id: require('uuid').v4(),
+      name,
+      filename: file.originalname || `${name}${ext}`,
+      storage_key: storageKey,
+      storage_url: storage.getUrl(storageKey),
+      mime_type: file.mimetype || 'audio/mpeg',
+      file_size: file.size,
+      duration_seconds: req.body.duration_seconds ? parseFloat(req.body.duration_seconds) : null,
+      checksum,
+      category,
+      tags,
+    });
+    res.json({ success: true, asset });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/sound-assets/:id', requireRole('admin'), async (req: AuthRequest, res) => {
+  try {
+    const asset = await store.getSoundAsset(paramId(req));
+    if (!asset) return res.status(404).json({ error: 'Sound not found' });
+    // Delete from storage
+    try {
+      const storage = (await import('./lib/storage')).getStorage();
+      await storage.delete(asset.storage_key);
+    } catch { /* storage delete is best-effort */ }
+    const ok = await store.deleteSoundAsset(paramId(req));
+    res.json({ success: ok });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/sound-assets/:id/set-default', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    await store.setDefaultSoundAsset(paramId(req));
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Canva triggers ──

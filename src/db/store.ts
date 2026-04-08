@@ -539,6 +539,47 @@ export async function clearDefaultVideoPreset(): Promise<void> {
   await query('UPDATE video_ad_presets SET is_default = false WHERE is_default = true');
 }
 
+// ── Sound Assets ──
+
+export async function getSoundAssets(category?: string): Promise<any[]> {
+  if (category) return query('SELECT * FROM sound_assets WHERE category = $1 ORDER BY is_default DESC, name ASC', [category]);
+  return query('SELECT * FROM sound_assets ORDER BY is_default DESC, name ASC');
+}
+
+export async function getSoundAsset(id: string): Promise<any | undefined> {
+  return queryOne('SELECT * FROM sound_assets WHERE id = $1', [id]);
+}
+
+export async function getSoundAssetByChecksum(checksum: string): Promise<any | undefined> {
+  return queryOne('SELECT * FROM sound_assets WHERE checksum = $1', [checksum]);
+}
+
+export async function getDefaultSoundAsset(): Promise<any | undefined> {
+  return queryOne('SELECT * FROM sound_assets WHERE is_default = true LIMIT 1');
+}
+
+export async function addSoundAsset(asset: any): Promise<any> {
+  return queryOne(
+    `INSERT INTO sound_assets (id, name, filename, storage_key, storage_url, mime_type, file_size, duration_seconds, checksum, category, tags, is_default, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+     RETURNING *`,
+    [asset.id, asset.name, asset.filename, asset.storage_key, asset.storage_url,
+     asset.mime_type, asset.file_size, asset.duration_seconds ?? null,
+     asset.checksum, asset.category ?? 'music', asset.tags ?? [],
+     asset.is_default ?? false, asset.created_at ?? new Date().toISOString()]
+  );
+}
+
+export async function deleteSoundAsset(id: string): Promise<boolean> {
+  const rows = await query('DELETE FROM sound_assets WHERE id = $1 RETURNING id', [id]);
+  return rows.length > 0;
+}
+
+export async function setDefaultSoundAsset(id: string): Promise<void> {
+  await query('UPDATE sound_assets SET is_default = false WHERE is_default = true');
+  await query('UPDATE sound_assets SET is_default = true WHERE id = $1', [id]);
+}
+
 // ── Safe JSON stringify (handles already-parsed JSONB) ──
 
 function safeJson(val: any): string {
@@ -818,5 +859,6 @@ export const store = {
   createSyncRun, finishSyncRun, getLastSyncCheckpoint,
   getConfig, setConfig,
   getVideoPresets, getVideoPreset, getVideoPresetBySlug, getDefaultVideoPreset, upsertVideoPreset, deleteVideoPreset, clearDefaultVideoPreset,
+  getSoundAssets, getSoundAsset, getSoundAssetByChecksum, getDefaultSoundAsset, addSoundAsset, deleteSoundAsset, setDefaultSoundAsset,
   initDatabase,
 };

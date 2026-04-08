@@ -268,6 +268,11 @@ function spawnRender(
  * Delegate rendering to a remote EC2/ECS worker via HTTP.
  * Used when VIDEO_WORKER_URL is set (hybrid Amplify + EC2 architecture).
  */
+/**
+ * Delegate rendering to a remote EC2/ECS worker via HTTP.
+ * The worker renders asynchronously and updates the DB directly.
+ * This function returns a "processing" result immediately.
+ */
 async function renderViaWorker(
   workerUrl: string,
   job: LocalVideoJob,
@@ -280,33 +285,40 @@ async function renderViaWorker(
   });
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 600_000); // 10 min timeout
+    const secret = process.env.VIDEO_WORKER_SECRET;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (secret) headers['x-worker-secret'] = secret;
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ job, variantId }),
-      signal: controller.signal,
+      signal: AbortSignal.timeout(15_000), // Worker returns immediately, so 15s is plenty
     });
-    clearTimeout(timeout);
 
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`Worker responded ${res.status}: ${body}`);
     }
 
-    const result = await res.json() as LocalVideoResult;
-    log.info('video-engine-local', `Worker render complete`, {
+    const result = await res.json() as { success: boolean; status: string; message?: string };
+    log.info('video-engine-local', `Worker accepted render job`, {
       variant_id: variantId,
-      url: result.url,
       status: result.status,
-      size_bytes: result.fileSizeBytes,
     });
-    return result;
+
+    // Return "processing" — the worker will update the DB when done
+    return {
+      success: true,
+      url: '',
+      durationMs: 0,
+      status: 'processing',
+      fileSizeBytes: 0,
+      storageProvider: 'worker',
+    };
   } catch (err) {
     const msg = (err as Error).message;
-    log.error('video-engine-local', `Worker render failed: ${msg}`, { variant_id: variantId });
+    log.error('video-engine-local', `Worker delegation failed: ${msg}`, { variant_id: variantId });
     return {
       success: false,
       url: '',

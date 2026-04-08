@@ -880,7 +880,17 @@ async function generateAiAd(vid) {
     }
 
     const localVideo = gen.local_video;
-    if (localVideo) {
+    if (localVideo && localVideo.status === 'processing') {
+      // Async render — show spinner and poll for completion
+      html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (Rendering...)</div>
+        <div id="video-poll-status" style="padding:16px;text-align:center;color:var(--text2)">
+          <div style="font-size:24px;margin-bottom:8px">&#9203;</div>
+          <div>Video is being rendered on the server...</div>
+          <div style="font-size:11px;margin-top:4px">This may take 30-60 seconds. Please wait.</div>
+        </div>`;
+      // Start polling
+      setTimeout(() => pollVideoStatus(variantId), 5000);
+    } else if (localVideo && localVideo.url) {
       html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (Local Slideshow)</div>
         <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
           <source src="${esc(localVideo.url)}" type="video/mp4">
@@ -980,6 +990,39 @@ function updateCardWithSavedVideo(variantId, savedVideo) {
       · Saved ${new Date(savedVideo.saved_at).toLocaleDateString()}
     </div>`;
   footer.parentNode.insertBefore(section, footer);
+}
+
+async function pollVideoStatus(variantId, attempt = 0) {
+  if (attempt > 30) { // 30 * 5s = 2.5 min max
+    const el = document.getElementById('video-poll-status');
+    if (el) el.innerHTML = '<div style="color:var(--red)">Video render timed out. Please try again.</div>';
+    return;
+  }
+  try {
+    const res = await apiCall(`/api/video/status/${variantId}`);
+    if (res.status === 'completed' && res.local_video?.url) {
+      const el = document.getElementById('video-poll-status');
+      if (el) {
+        el.innerHTML = `
+          <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
+            <source src="${esc(res.local_video.url)}" type="video/mp4">
+          </video>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Generated via VideoEngine</div>
+          <button class="btn btn-sm btn-green" id="save-video-btn" onclick="saveGeneratedVideo('${variantId}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+            Save Video to Creative
+          </button>`;
+      }
+      // Update in-memory variant data
+      const v = window._variants?.[variantId];
+      if (v?.media_plan_json) {
+        v.media_plan_json.ai_generated = { ...v.media_plan_json.ai_generated, local_video: res.local_video };
+      }
+      showToast('Video ready!');
+      return;
+    }
+  } catch (e) { /* keep polling */ }
+  setTimeout(() => pollVideoStatus(variantId, attempt + 1), 5000);
 }
 
 function openLightbox(src) {

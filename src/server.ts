@@ -278,7 +278,8 @@ function callbackPage(redirectUrl: string, error: string | null): string {
 
 
 // ── Video render worker endpoint (before auth — internal EC2 traffic) ──
-// Secured by VIDEO_WORKER_SECRET shared between Amplify and EC2.
+// Async: accepts job, returns immediately with "processing", renders in background,
+// updates the variant DB record when done. Amplify frontend polls for completion.
 app.post('/api/video/render', async (req, res) => {
   try {
     const secret = process.env.VIDEO_WORKER_SECRET;
@@ -292,12 +293,63 @@ app.post('/api/video/render', async (req, res) => {
     }
     const veReady = videoEngineLocal.isVideoEngineReady();
     if (!veReady.ready) {
-      return res.status(503).json({ success: false, error: 'Video engine not available on this host', issues: veReady.issues });
+      return res.status(503).json({ success: false, error: 'Video engine not available', issues: veReady.issues });
     }
-    const result = await videoEngineLocal.renderLocalVideo(job, variantId);
-    res.json(result);
+
+    // Return immediately — render happens in background
+    res.json({ success: true, status: 'processing', message: 'Video render started' });
+
+    // Background: render, then update DB with result
+    videoEngineLocal.renderLocalVideo(job, variantId).then(async (result) => {
+      if (variantId && result.success) {
+        try {
+          const variant = await store.getVariant(variantId);
+          if (variant) {
+            const mp = { ...(variant.media_plan_json as Record<string, unknown>) };
+            mp.ai_generated = {
+              ...(mp.ai_generated as Record<string, unknown> || {}),
+              local_video: {
+                url: result.url,
+                duration_sec: Math.round(result.durationMs / 1000),
+                provider: 'video-engine-local',
+                status: result.status,
+                size_bytes: result.fileSizeBytes,
+              },
+              generated_at: new Date().toISOString(),
+              services_used: ['video_engine_local'],
+            };
+            await store.updateVariant(variantId, { media_plan_json: mp });
+            console.log('[video-worker]', `Variant ${variantId} updated with rendered video`, { url: result.url });
+          }
+        } catch (dbErr) {
+          console.error('[video-worker]', `Failed to update variant: ${(dbErr as Error).message}`);
+        }
+      } else if (variantId) {
+        console.error('[video-worker]', `Render failed for variant ${variantId}: ${result.error}`);
+      }
+    }).catch((err) => {
+      console.error('[video-worker]', `Background render error: ${(err as Error).message}`);
+    });
   } catch (err: any) {
-    res.status(500).json({ success: false, url: '', durationMs: 0, status: 'failed', fileSizeBytes: 0, error: err.message, storageProvider: 'none' });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Poll endpoint — frontend checks if video is ready
+app.get('/api/video/status/:variantId', async (req, res) => {
+  try {
+    const variant = await store.getVariant(req.params.variantId);
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+    const mp = variant.media_plan_json as Record<string, unknown>;
+    const ai = mp?.ai_generated as Record<string, unknown> | undefined;
+    const localVideo = ai?.local_video as Record<string, unknown> | undefined;
+    if (localVideo?.url) {
+      res.json({ status: 'completed', local_video: localVideo });
+    } else {
+      res.json({ status: 'processing' });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

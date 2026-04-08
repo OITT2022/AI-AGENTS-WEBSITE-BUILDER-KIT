@@ -103,6 +103,8 @@
     .board-item:hover .board-tools{opacity:1}
     .board-tool{width:20px;height:20px;border:none;background:none;color:#fff;cursor:pointer;font-size:11px;border-radius:3px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
     .board-tool:hover{background:rgba(255,255,255,0.2)}
+    .board-resize{position:absolute;bottom:-4px;right:-4px;width:12px;height:12px;cursor:nwse-resize;background:var(--primary);border-radius:2px;opacity:0;transition:opacity .15s}
+    .board-item:hover .board-resize{opacity:0.8}
     .board-cta{background:var(--primary);border-color:var(--primary);color:#fff}
     .ai-gen-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:16px;text-align:left}
     .ai-gen-scene{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2)}
@@ -471,9 +473,11 @@ function previewSound(sel) {
 // ── Board: Visual Text Position Editor ──
 
 function boardTools(key) {
-  return `<button class="board-tool" onclick="event.stopPropagation();toggleDir('${key}')" title="Toggle RTL/LTR">&#8646;</button>`
-    + `<button class="board-tool" onclick="event.stopPropagation();resizeBox('${key}',-10)" title="Narrow">&#8592;</button>`
-    + `<button class="board-tool" onclick="event.stopPropagation();resizeBox('${key}',10)" title="Wider">&#8594;</button>`;
+  return `<button class="board-tool" onclick="event.stopPropagation();toggleDir('${key}')" title="RTL/LTR">&#8646;</button>`
+    + `<button class="board-tool" onclick="event.stopPropagation();setAlign('${key}','left')" title="Align Left">&#9664;</button>`
+    + `<button class="board-tool" onclick="event.stopPropagation();setAlign('${key}','center')" title="Center">&#9632;</button>`
+    + `<button class="board-tool" onclick="event.stopPropagation();setAlign('${key}','right')" title="Align Right">&#9654;</button>`
+    + `<button class="board-tool" onclick="event.stopPropagation();setAlign('${key}','justify')" title="Justify">&#9776;</button>`;
 }
 
 function toggleDir(key) {
@@ -483,11 +487,33 @@ function toggleDir(key) {
   el.setAttribute('dir', cur === 'rtl' ? 'ltr' : 'rtl');
 }
 
-function resizeBox(key, delta) {
+function setAlign(key, align) {
   const el = document.querySelector(`.board-item[data-key="${key}"]`);
   if (!el) return;
-  const cur = parseInt(el.style.maxWidth) || 80;
-  el.style.maxWidth = Math.max(30, Math.min(95, cur + delta)) + '%';
+  el.style.textAlign = align;
+  el.dataset.align = align;
+}
+
+function startResize(e, key) {
+  e.preventDefault();
+  e.stopPropagation();
+  const el = document.querySelector(`.board-item[data-key="${key}"]`);
+  const canvas = document.getElementById('board-canvas');
+  if (!el || !canvas) return;
+  const canvasW = canvas.getBoundingClientRect().width;
+  const startX = e.clientX;
+  const startW = parseInt(el.style.maxWidth) || 80;
+
+  const onMove = (e2) => {
+    const dx = (e2.clientX - startX) / canvasW * 100 * 2; // *2 because box is centered
+    el.style.maxWidth = Math.max(20, Math.min(95, startW + dx)) + '%';
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 function openBoard(variantId) {
@@ -523,18 +549,18 @@ function openBoard(variantId) {
       <div id="board-canvas" style="position:relative;width:${cw}px;height:${ch}px;margin:0 auto;border-radius:8px;overflow:hidden;border:2px solid var(--primary);background:#000">
         ${poster ? `<img src="${esc(poster)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:0.6">` : ''}
         <div style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
-        ${headline ? `<div class="board-item" id="board-headline" data-key="headline" dir="${savedPos.headline?.dir||'ltr'}" style="left:${savedPos.headline?.x ?? 50}%;top:${savedPos.headline?.y ?? 15}%;max-width:${savedPos.headline?.w ?? 80}%">
+        ${headline ? `<div class="board-item" id="board-headline" data-key="headline" data-align="${savedPos.headline?.align||'center'}" dir="${savedPos.headline?.dir||'ltr'}" style="left:${savedPos.headline?.x ?? 50}%;top:${savedPos.headline?.y ?? 15}%;max-width:${savedPos.headline?.w ?? 80}%;text-align:${savedPos.headline?.align||'center'}">
           <div class="board-tools">${boardTools('headline')}</div>
-          <div class="board-label">Headline</div><div class="board-text">${esc(headline)}</div></div>` : ''}
-        ${description ? `<div class="board-item" id="board-subtitle" data-key="subtitle" dir="${savedPos.subtitle?.dir||'ltr'}" style="left:${savedPos.subtitle?.x ?? 50}%;top:${savedPos.subtitle?.y ?? 32}%;max-width:${savedPos.subtitle?.w ?? 80}%">
+          <div class="board-label">Headline</div><div class="board-text">${esc(headline)}</div><div class="board-resize" onmousedown="startResize(event,'headline')"></div></div>` : ''}
+        ${description ? `<div class="board-item" id="board-subtitle" data-key="subtitle" data-align="${savedPos.subtitle?.align||'center'}" dir="${savedPos.subtitle?.dir||'ltr'}" style="left:${savedPos.subtitle?.x ?? 50}%;top:${savedPos.subtitle?.y ?? 32}%;max-width:${savedPos.subtitle?.w ?? 80}%;text-align:${savedPos.subtitle?.align||'center'}">
           <div class="board-tools">${boardTools('subtitle')}</div>
-          <div class="board-label">Description</div><div class="board-text">${esc(description)}</div></div>` : ''}
-        ${infoText ? `<div class="board-item" id="board-info" data-key="info" dir="${savedPos.info?.dir||'ltr'}" style="left:${savedPos.info?.x ?? 50}%;top:${savedPos.info?.y ?? 55}%;font-size:11px;max-width:${savedPos.info?.w ?? 70}%">
+          <div class="board-label">Description</div><div class="board-text">${esc(description)}</div><div class="board-resize" onmousedown="startResize(event,'subtitle')"></div></div>` : ''}
+        ${infoText ? `<div class="board-item" id="board-info" data-key="info" data-align="${savedPos.info?.align||'center'}" dir="${savedPos.info?.dir||'ltr'}" style="left:${savedPos.info?.x ?? 50}%;top:${savedPos.info?.y ?? 55}%;font-size:11px;max-width:${savedPos.info?.w ?? 70}%;text-align:${savedPos.info?.align||'center'}">
           <div class="board-tools">${boardTools('info')}</div>
-          <div class="board-label">Info</div><div class="board-text">${esc(infoText).replace(/\n/g, '<br>')}</div></div>` : ''}
-        ${cta ? `<div class="board-item board-cta" id="board-cta" data-key="cta" dir="${savedPos.cta?.dir||'ltr'}" style="left:${savedPos.cta?.x ?? 50}%;top:${savedPos.cta?.y ?? 80}%;max-width:${savedPos.cta?.w ?? 80}%">
+          <div class="board-label">Info</div><div class="board-text">${esc(infoText).replace(/\n/g, '<br>')}</div><div class="board-resize" onmousedown="startResize(event,'info')"></div></div>` : ''}
+        ${cta ? `<div class="board-item board-cta" id="board-cta" data-key="cta" data-align="${savedPos.cta?.align||'center'}" dir="${savedPos.cta?.dir||'ltr'}" style="left:${savedPos.cta?.x ?? 50}%;top:${savedPos.cta?.y ?? 80}%;max-width:${savedPos.cta?.w ?? 80}%;text-align:${savedPos.cta?.align||'center'}">
           <div class="board-tools">${boardTools('cta')}</div>
-          <div class="board-label">CTA</div><div class="board-text">${esc(cta)}</div></div>` : ''}
+          <div class="board-label">CTA</div><div class="board-text">${esc(cta)}</div><div class="board-resize" onmousedown="startResize(event,'cta')"></div></div>` : ''}
       </div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
         <button class="btn btn-sm" onclick="resetBoard()">Reset</button>
@@ -623,6 +649,7 @@ async function saveBoard(variantId) {
       x: Math.round(parseFloat(el.style.left) * 10) / 10,
       y: Math.round(parseFloat(el.style.top) * 10) / 10,
       dir: el.getAttribute('dir') || 'ltr',
+      align: el.dataset.align || el.style.textAlign || 'center',
       w: parseInt(el.style.maxWidth) || 80,
     };
   });

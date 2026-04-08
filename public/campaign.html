@@ -579,10 +579,13 @@ function openBoard(variantId) {
     </div>`;
   document.body.appendChild(overlay);
 
-  // Enable drag
+  // Enable drag (skip if clicking on resize handles or tool buttons)
   document.querySelectorAll('.board-item').forEach(el => {
     let dragging = false, startX, startY, startLeft, startTop;
     el.addEventListener('mousedown', (e) => {
+      // Don't drag when clicking resize handles or tool buttons
+      const target = e.target;
+      if (target.classList?.contains('board-resize') || target.classList?.contains('board-resize-l') || target.classList?.contains('board-tool') || target.closest?.('.board-tools')) return;
       e.preventDefault();
       dragging = true;
       const canvas = document.getElementById('board-canvas');
@@ -614,6 +617,8 @@ function openBoard(variantId) {
 
     // Touch support
     el.addEventListener('touchstart', (e) => {
+      const target = e.target;
+      if (target.classList?.contains('board-resize') || target.classList?.contains('board-resize-l') || target.closest?.('.board-tools')) return;
       const touch = e.touches[0];
       const canvas = document.getElementById('board-canvas');
       const rect = canvas.getBoundingClientRect();

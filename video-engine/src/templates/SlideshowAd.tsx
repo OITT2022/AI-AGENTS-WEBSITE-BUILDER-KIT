@@ -124,6 +124,7 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
                   title={index === 1 ? video.input.title : scene.image?.caption ?? video.input.title}
                   subtitle={index === 1 ? video.input.subtitle : undefined}
                   cta={index === video.scenes.length - 2 ? video.input.cta : undefined}
+                  info={index === 1 ? video.input.info : undefined}
                   accent={accent}
                   textColor={textColor}
                   rtl={rtl}

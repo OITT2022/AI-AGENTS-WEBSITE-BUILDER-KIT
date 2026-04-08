@@ -20,6 +20,7 @@ const jobSchema = z.object({
   title: z.string().min(1),
   subtitle: z.string().optional(),
   cta: z.string().optional(),
+  info: z.string().optional(),
   outroTitle: z.string().optional(),
   outroSubtitle: z.string().optional(),
   themeColor: z.string().optional(),

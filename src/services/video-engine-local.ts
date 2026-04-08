@@ -38,6 +38,7 @@ export interface LocalVideoJob {
   title: string;
   subtitle?: string;
   cta?: string;
+  info?: string;
   outroTitle?: string;
   outroSubtitle?: string;
   themeColor?: string;

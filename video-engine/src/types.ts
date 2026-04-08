@@ -57,10 +57,10 @@ export type PresetConfig = {
     safeMargins?: { top: number; bottom: number; left: number; right: number };
     /** Custom text positions from the Board editor (percent of canvas) */
     positions?: {
-      headline?: { x: number; y: number };
-      subtitle?: { x: number; y: number };
-      cta?: { x: number; y: number };
-      description?: { x: number; y: number };
+      headline?: { x: number; y: number; dir?: string; align?: string; w?: number };
+      subtitle?: { x: number; y: number; dir?: string; align?: string; w?: number };
+      cta?: { x: number; y: number; dir?: string; align?: string; w?: number };
+      info?: { x: number; y: number; dir?: string; align?: string; w?: number };
     };
   };
   /** Overlay styling */
@@ -95,6 +95,7 @@ export type JobInput = {
   title: string;
   subtitle?: string;
   cta?: string;
+  info?: string;
   outroTitle?: string;
   outroSubtitle?: string;
   themeColor?: string;

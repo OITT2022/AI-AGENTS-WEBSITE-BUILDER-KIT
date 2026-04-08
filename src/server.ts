@@ -1749,6 +1749,13 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
 
           console.log('[ai-ad] Video job text:', JSON.stringify({ title, subtitle, cta, outroTitle, outroSubtitle, imageCount: veImages.length, hasMusic: !!musicConfig }));
 
+          // Build info text from primary_text or entity data
+          const infoText = req.body.primary_text || String(
+            (payload.title_he || payload.title_en || '') +
+            (payload.city ? '\n' + payload.city + (payload.area ? ', ' + payload.area : '') : '') +
+            (payload.price_text ? '\n' + payload.price_text : '')
+          ).trim() || undefined;
+
           const job: videoEngineLocal.LocalVideoJob = {
             projectId: `variant-${variant.id}`,
             platform: vePlatform,
@@ -1758,6 +1765,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
             title,
             subtitle: subtitle !== title ? subtitle : undefined,
             cta,
+            info: infoText,
             outroTitle,
             outroSubtitle: outroSubtitle || undefined,
             images: veImages,

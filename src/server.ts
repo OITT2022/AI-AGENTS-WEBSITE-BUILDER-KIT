@@ -499,6 +499,49 @@ app.post('/api/sound-assets/internal-upload', upload.single('file'), async (req,
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// ── General media upload (images/logos — stores to local storage on EC2) ──
+app.post('/api/media/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const file = req.file;
+    const crypto = require('crypto');
+    const fileBuffer = fs.readFileSync(file.path);
+    const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex').slice(0, 16);
+    const ext = path.extname(file.originalname || '.jpg');
+    const category = req.body.category || 'images';
+
+    // If worker URL set (Amplify), proxy to EC2
+    const workerUrl = process.env.VIDEO_WORKER_URL?.trim();
+    if (workerUrl) {
+      try {
+        const boundary = '----MediaUpload' + Date.now();
+        const parts: Buffer[] = [];
+        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${file.originalname}"\r\nContent-Type: ${file.mimetype}\r\n\r\n`));
+        parts.push(fileBuffer);
+        parts.push(Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="category"\r\n\r\n${category}\r\n--${boundary}--\r\n`));
+        const body = Buffer.concat(parts);
+        const wRes = await fetch(`${workerUrl.replace(/\/+$/, '')}/api/media/upload`, {
+          method: 'POST', body,
+          headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+        });
+        fs.unlinkSync(file.path);
+        if (!wRes.ok) throw new Error(`Worker ${wRes.status}`);
+        return res.json(await wRes.json());
+      } catch (proxyErr) {
+        console.warn('[media-upload] Worker proxy failed:', (proxyErr as Error).message);
+      }
+    }
+
+    // Store locally
+    const { getStorage } = await import('./lib/storage');
+    const storage = getStorage();
+    const storageKey = `${category}/${checksum}${ext}`;
+    await storage.write(storageKey, fileBuffer, file.mimetype || 'application/octet-stream');
+    fs.unlinkSync(file.path);
+    res.json({ success: true, url: storage.getUrl(storageKey), key: storageKey });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Protect all API routes below ──
 app.use('/api', requireAuth);
 

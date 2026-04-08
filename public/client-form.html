@@ -281,30 +281,25 @@ async function handleLogoUpload(input) {
   if (!file) return;
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('name', 'client-logo');
-  formData.append('category', 'logo');
+  formData.append('category', 'logos');
   try {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch('/api/sound-assets/upload', {
+    const res = await fetch('/api/media/upload', {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       credentials: 'include',
       body: formData,
     });
     const data = await res.json();
-    if (data.asset?.storage_url || data.success) {
-      clientLogoUrl = data.asset?.storage_url || '';
+    if (data.url) {
+      clientLogoUrl = data.url;
       showLogoPreview(clientLogoUrl);
       showToast('Logo uploaded');
+    } else {
+      showToast('Upload failed: ' + (data.error || ''));
     }
   } catch (err) {
-    // Fallback: use data URL for preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      clientLogoUrl = e.target.result;
-      showLogoPreview(clientLogoUrl);
-    };
-    reader.readAsDataURL(file);
+    showToast('Upload error: ' + err.message);
   }
 }
 

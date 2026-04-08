@@ -315,6 +315,13 @@ async function deleteVariant(vid) {
   else showToast('Delete failed');
 }
 
+function platformIcon(p) {
+  if (p === 'facebook') return '<svg width="16" height="16" viewBox="0 0 24 24" title="Facebook"><path fill="#1877f2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>';
+  if (p === 'instagram') return '<svg width="16" height="16" viewBox="0 0 24 24" title="Instagram"><path fill="#e4405f" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>';
+  if (p === 'tiktok') return '<svg width="14" height="16" viewBox="0 0 448 512" title="TikTok"><path fill="#fff" d="M448 209.9a210.1 210.1 0 01-122.8-39.3v178.8A162.6 162.6 0 11185 188.3v89.9a74.6 74.6 0 1052.2 71.2V0h88a121 121 0 00121 121v88.9z"/></svg>';
+  return `<span class="platform-tag platform-${p}">${p}</span>`;
+}
+
 // ── Candidates ──
 
 async function renderCandidates(el) {
@@ -335,7 +342,7 @@ async function renderCandidates(el) {
         <div class="detail-row"><span class="label">Price</span><span>${s.price_text||(s.price_currency?s.price_currency+' '+Number(s.price_amount).toLocaleString():'N/A')}</span></div>
         <div class="detail-row"><span class="label">Angle</span><span class="badge badge-purple">${c.recommended_angle||'-'}</span></div>
         <div class="score-bar"><span class="label" style="font-size:12px;color:var(--text2)">Score</span><div class="score-bar-track"><div class="score-bar-fill" style="width:${c.score_total}%;background:${sc}"></div></div><span class="score-value" style="color:${sc}">${c.score_total}</span></div>
-        <div class="platforms">${(c.recommended_platforms||[]).map(p=>`<span class="platform-tag platform-${p}">${p}</span>`).join('')}</div>
+        <div class="platforms" style="display:flex;gap:5px;align-items:center;margin-top:8px">${(c.recommended_platforms||[]).map(p=>platformIcon(p)).join('')}</div>
       </div>
       ${c.selected?`<div class="card-footer"><button class="btn btn-primary" onclick="generateFor('${c.id}')">Generate Creatives</button></div>`:''}
     </div>`;
@@ -1094,33 +1101,68 @@ async function renderApprovals(el) {
   const allTasks = await apiCall(`/api/clients/${clientId}/approvals`);
   const tasks = allTasks.filter(t => t.status === 'approved' || t.status === 'approved_with_edits');
   if (!tasks.length) { el.innerHTML = '<div class="empty-state"><h3>No approved ads yet</h3><p>Approve creatives in the Creatives tab first.</p></div>'; return; }
-  el.innerHTML = `<div class="card-grid">${tasks.map(t=>{
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:20px">${tasks.map((t,idx)=>{
     const v=t.variant||{};const copy=v.copy_json||{};const media=v.media_plan_json||{};
-    const platform = v.platform || 'facebook';
-    let preview = '';
-    if (platform === 'facebook') preview = previewFB(copy, media);
-    else if (platform === 'instagram') preview = previewIG(copy, media);
-    else if (platform === 'tiktok') preview = previewTK(copy, media);
-    return `<div class="card">
-      <div class="card-header">
-        <div><h3>${t.entity?.title_he||t.entity?.title_en||'-'}</h3>
-        <div style="color:var(--text2);font-size:12px;margin-top:4px">
-          <span class="platform-tag platform-${platform}">${platform}</span>
-          <span style="margin-left:6px">${copy.language==='he'?'Hebrew':'English'} · V#${v.variant_no||1}</span>
-        </div></div>
-        <span class="badge badge-green">Approved</span>
+    const adUrl = v.entity?.listing_url || '';
+    const uid = 'appr-'+idx;
+
+    // Build previews for all 3 platforms
+    function injectVid(mp) {
+      const m = { ...mp };
+      const sv = m.saved_video || m.ai_generated?.local_video;
+      if (sv?.url) m.videos = ['/api/media/video/' + v.id];
+      return m;
+    }
+    const mMedia = injectVid(media);
+    const fbPrev = previewFB(copy, mMedia, adUrl);
+    const igPrev = previewIG(copy, mMedia, adUrl);
+    const tkPrev = previewTK(copy, mMedia, adUrl);
+    const videoPrev = renderApprovalVideo(v, media);
+
+    return `<div class="card" style="max-width:100%">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <h3 style="font-size:16px;font-weight:700;margin-right:8px">${esc(t.entity?.title_he||t.entity?.title_en||'-')}</h3>
+        <div style="display:flex;gap:4px;align-items:center">${platformIcon('facebook')}${platformIcon('instagram')}${platformIcon('tiktok')}</div>
+        <span style="font-size:11px;color:var(--text2)">${copy.language==='he'?'Hebrew':'English'} · V#${v.variant_no||1}</span>
+        <span class="badge badge-green" style="font-size:10px">Approved</span>
+        ${t.decision_notes?`<span style="font-size:11px;color:var(--text2);margin-left:8px">Notes: ${esc(t.decision_notes)}</span>`:''}
       </div>
-      <div class="card-body" style="padding:12px">
-        ${renderApprovalVideo(v, media) || preview}
+      <div style="padding:12px 20px">
+        ${videoPrev ? `<div style="margin-bottom:16px">${videoPrev}</div>` : ''}
+        <div style="display:flex;gap:0;margin-bottom:12px;background:var(--surface2);border-radius:8px;padding:3px;max-width:400px">
+          <button class="prev-tab active" data-uid="${uid}" data-p="facebook" onclick="switchApprovalTab('${uid}','facebook')" style="flex:1">${platformIcon('facebook')} Facebook</button>
+          <button class="prev-tab" data-uid="${uid}" data-p="instagram" onclick="switchApprovalTab('${uid}','instagram')" style="flex:1">${platformIcon('instagram')} Instagram</button>
+          <button class="prev-tab" data-uid="${uid}" data-p="tiktok" onclick="switchApprovalTab('${uid}','tiktok')" style="flex:1">${platformIcon('tiktok')} TikTok</button>
+        </div>
+        <div class="appr-panel" data-uid="${uid}" data-p="facebook" style="display:block">${fbPrev}</div>
+        <div class="appr-panel" data-uid="${uid}" data-p="instagram" style="display:none">${igPrev}</div>
+        <div class="appr-panel" data-uid="${uid}" data-p="tiktok" style="display:none">${tkPrev}</div>
       </div>
-      ${t.decision_notes?`<div style="padding:8px 20px 12px;font-size:13px;color:var(--text2)">Notes: ${esc(t.decision_notes)}</div>`:''}
-      <div class="card-footer">
-        ${platform==='facebook'?`<button class="btn btn-sm" style="background:#1877f2;border-color:#1877f2;color:#fff" onclick="publishTo('facebook','${v.id}')">Publish to Facebook</button>`:''}
-        ${platform==='instagram'?`<button class="btn btn-sm" style="background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);border:none;color:#fff" onclick="publishTo('instagram','${v.id}')">Publish to Instagram</button>`:''}
-        ${platform==='tiktok'?`<button class="btn btn-sm" style="background:#000;border-color:#333;color:#fff" onclick="publishTo('tiktok','${v.id}')">Publish to TikTok</button>`:''}
+      <div class="card-footer" id="appr-footer-${uid}">
+        <button class="btn btn-sm" style="background:#1877f2;border-color:#1877f2;color:#fff" onclick="publishTo('facebook','${v.id}')">${platformIcon('facebook')} Publish to Facebook</button>
       </div>
     </div>`;
   }).join('')}</div>`;
+}
+
+function switchApprovalTab(uid, platform) {
+  document.querySelectorAll(`.prev-tab[data-uid="${uid}"]`).forEach(t => t.classList.remove('active'));
+  document.querySelector(`.prev-tab[data-uid="${uid}"][data-p="${platform}"]`)?.classList.add('active');
+  document.querySelectorAll(`.appr-panel[data-uid="${uid}"]`).forEach(p => p.style.display = p.dataset.p === platform ? 'block' : 'none');
+  // Update publish button
+  const footer = document.getElementById('appr-footer-' + uid);
+  if (!footer) return;
+  const vid = footer.closest('.card')?.querySelector('[data-p]')?.closest('.card')?.id;
+  // Extract variant id from the publish button
+  const oldBtn = footer.querySelector('button');
+  const variantId = oldBtn?.getAttribute('onclick')?.match(/'([^']+)'\)/)?.[1] || '';
+  const styles = {
+    facebook: 'background:#1877f2;border-color:#1877f2;color:#fff',
+    instagram: 'background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);border:none;color:#fff',
+    tiktok: 'background:#000;border-color:#333;color:#fff'
+  };
+  const labels = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' };
+  footer.innerHTML = `<button class="btn btn-sm" style="${styles[platform]}" onclick="publishTo('${platform}','${variantId}')">${platformIcon(platform)} Publish to ${labels[platform]}</button>`;
 }
 
 // ── Properties ──

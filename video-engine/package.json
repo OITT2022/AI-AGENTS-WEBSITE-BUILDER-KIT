@@ -12,13 +12,15 @@
   },
   "dependencies": {
     "remotion": "^4.0.267",
+    "@remotion/bundler": "^4.0.267",
+    "@remotion/renderer": "^4.0.267",
+    "@remotion/cli": "^4.0.267",
+    "tsx": "^4.19.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@remotion/cli": "^4.0.267",
     "@types/node": "^22.13.10",
     "@types/react": "^19.2.14",
-    "tsx": "^4.19.2",
     "typescript": "^5.8.2"
   }
 }

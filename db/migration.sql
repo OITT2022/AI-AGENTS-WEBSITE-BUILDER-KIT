@@ -3,6 +3,8 @@ DO $$ BEGIN CREATE TYPE user_role AS ENUM ('admin', 'manager', 'viewer'); EXCEPT
 DO $$ BEGIN ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'client_manager'; EXCEPTION WHEN duplicate_object THEN null; END $$;
 -- Add client_ids column for client-scoped access
 ALTER TABLE users ADD COLUMN IF NOT EXISTS client_ids UUID[] NOT NULL DEFAULT '{}';
+-- Client logo
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS logo_url TEXT;
 
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -86,9 +86,12 @@ function renderClientCards(clients) {
   document.getElementById('clients-content').innerHTML = `<div class="clients-grid">${clients.map(c => `
     <div class="client-card" onclick="window.location.href='/dashboard/campaign.html?client=${c.id}'">
       <div class="client-card-header">
-        <div>
-          <h3>${escapeHtml(c.company)}</h3>
-          <div class="company">${escapeHtml(c.name)} ${c.email ? '· ' + escapeHtml(c.email) : ''}</div>
+        <div style="display:flex;gap:12px;align-items:center">
+          ${c.logo_url ? `<img src="${escapeHtml(c.logo_url)}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0" onerror="this.style.display='none'">` : ''}
+          <div>
+            <h3>${escapeHtml(c.company)}</h3>
+            <div class="company">${escapeHtml(c.name)} ${c.email ? '· ' + escapeHtml(c.email) : ''}</div>
+          </div>
         </div>
         <span class="badge ${c.active ? 'badge-green' : 'badge-yellow'}">${c.active ? 'Active' : 'Inactive'}</span>
       </div>

@@ -56,6 +56,14 @@
     .drive-crumb{cursor:pointer;color:var(--primary);text-decoration:none;font-weight:500}.drive-crumb:hover{text-decoration:underline}
     .selected-tag{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;font-size:13px}
     .selected-tag .remove{cursor:pointer;color:var(--red);font-weight:700;font-size:16px;line-height:1}
+    .inner-tabs{display:flex;gap:0;margin-bottom:24px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+    .inner-tab{padding:12px 24px;background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:14px;font-weight:500;transition:all .15s;flex:1;text-align:center}
+    .inner-tab.active{background:var(--primary);color:#fff}
+    .inner-tab:hover:not(.active){background:var(--surface2)}
+    .tab-panel{display:none}.tab-panel.active{display:block}
+    .logo-upload{width:80px;height:80px;border-radius:var(--radius);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s;overflow:hidden;background:var(--bg)}
+    .logo-upload:hover{border-color:var(--primary)}
+    .logo-upload img{width:100%;height:100%;object-fit:cover}
     @media(max-width:768px){.container{padding:16px}.form-row{grid-template-columns:1fr}}
   </style>
 </head>
@@ -75,16 +83,37 @@
   <div class="error-msg" id="error-msg"></div>
   <div class="success-msg" id="success-msg"></div>
 
-  <!-- Contact Info -->
+  <!-- Inner Navigation -->
+  <div class="inner-tabs">
+    <button class="inner-tab active" onclick="switchClientTab('general')">General Information</button>
+    <button class="inner-tab" onclick="switchClientTab('api')">API Connection</button>
+    <button class="inner-tab" onclick="switchClientTab('drive')">Google Drive</button>
+    <button class="inner-tab" onclick="switchClientTab('social')">Social Platforms</button>
+  </div>
+
+  <!-- Tab: General Information -->
+  <div class="tab-panel active" id="panel-general">
   <div class="section">
     <div class="section-header"><h2>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Client Information
     </h2></div>
     <div class="section-body">
-      <div class="form-row">
-        <div class="form-group"><label>Contact Name *</label><input type="text" id="f-name" placeholder="Full name" required></div>
-        <div class="form-group"><label>Company *</label><input type="text" id="f-company" placeholder="Company name" required></div>
+      <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Logo</label>
+          <div class="logo-upload" id="logo-upload" onclick="document.getElementById('logo-file').click()" title="Click to upload logo">
+            <span id="logo-placeholder" style="font-size:24px;color:var(--text2)">+</span>
+            <img id="logo-preview" src="" style="display:none">
+          </div>
+          <input type="file" id="logo-file" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
+        </div>
+        <div style="flex:1">
+          <div class="form-row">
+            <div class="form-group"><label>Contact Name *</label><input type="text" id="f-name" placeholder="Full name" required></div>
+            <div class="form-group"><label>Company *</label><input type="text" id="f-company" placeholder="Company name" required></div>
+          </div>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Email *</label><input type="email" id="f-email" placeholder="client@company.com" required></div>
@@ -93,8 +122,10 @@
       <div class="form-group"><label>Notes</label><textarea id="f-notes" placeholder="Internal notes about this client..."></textarea></div>
     </div>
   </div>
+  </div>
 
-  <!-- API Connection -->
+  <!-- Tab: API Connection -->
+  <div class="tab-panel" id="panel-api">
   <div class="section">
     <div class="section-header"><h2>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -114,7 +145,10 @@
     </div>
   </div>
 
-  <!-- Google Drive Media -->
+  </div>
+
+  <!-- Tab: Google Drive -->
+  <div class="tab-panel" id="panel-drive">
   <div class="section">
     <div class="section-header">
       <h2>
@@ -172,8 +206,11 @@
     </div>
   </div>
 
-  <!-- Social Platforms -->
-  <div class="section" id="social-section" style="display:none">
+  </div>
+
+  <!-- Tab: Social Platforms -->
+  <div class="tab-panel" id="panel-social">
+  <div class="section" id="social-section">
     <div class="section-header"><h2>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
       Social Platforms
@@ -211,7 +248,9 @@
     </div>
   </div>
 
-  <!-- Actions -->
+  </div>
+
+  <!-- Actions (always visible) -->
   <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px">
     <a href="/dashboard/clients.html" class="btn">Cancel</a>
     <button class="btn btn-primary btn-lg" onclick="saveClient()" id="btn-save">Save Client</button>
@@ -225,6 +264,57 @@ const editId = params.get('id');
 let selectedFolders = []; // Array of {id, name, path}
 let googleConnected = false;
 let currentBrowsePath = []; // breadcrumb: [{id, name}, ...]
+let clientLogoUrl = '';
+
+function switchClientTab(tab) {
+  document.querySelectorAll('.inner-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.inner-tab[onclick="switchClientTab('${tab}')"]`)?.classList.add('active');
+  document.getElementById('panel-' + tab)?.classList.add('active');
+  // Show social section when on social tab
+  const ss = document.getElementById('social-section');
+  if (ss) ss.style.display = 'block';
+}
+
+async function handleLogoUpload(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('name', 'client-logo');
+  formData.append('category', 'logo');
+  try {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch('/api/sound-assets/upload', {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      credentials: 'include',
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.asset?.storage_url || data.success) {
+      clientLogoUrl = data.asset?.storage_url || '';
+      showLogoPreview(clientLogoUrl);
+      showToast('Logo uploaded');
+    }
+  } catch (err) {
+    // Fallback: use data URL for preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      clientLogoUrl = e.target.result;
+      showLogoPreview(clientLogoUrl);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function showLogoPreview(url) {
+  if (!url) return;
+  const img = document.getElementById('logo-preview');
+  const placeholder = document.getElementById('logo-placeholder');
+  if (img) { img.src = url; img.style.display = 'block'; }
+  if (placeholder) placeholder.style.display = 'none';
+}
 
 async function init() {
   await requireLogin();
@@ -544,6 +634,8 @@ async function loadClient() {
   document.getElementById('f-email').value = c.email || '';
   document.getElementById('f-phone').value = c.phone || '';
   document.getElementById('f-notes').value = c.notes || '';
+  // Load logo
+  if (c.logo_url) { clientLogoUrl = c.logo_url; showLogoPreview(c.logo_url); }
   document.getElementById('f-api-url').value = c.api_config?.base_url || 'https://www.findus.co.il/api/v1';
   document.getElementById('f-api-token').placeholder = c.api_config?.api_token ? 'Token saved (leave blank to keep)' : 'Bearer token';
   document.getElementById('f-filter-city').value = c.api_config?.filters?.city || '';
@@ -623,6 +715,7 @@ async function saveClient() {
     notes: document.getElementById('f-notes').value.trim() || undefined,
     google_drive_folder_url: driveUrl || undefined,
     google_drive_folder_id: selectedFolders.length > 0 ? selectedFolders.map(f => f.id).join(',') : undefined,
+    logo_url: clientLogoUrl || undefined,
   };
 
   const apiUrl = document.getElementById('f-api-url').value.trim();

@@ -167,7 +167,8 @@
     .tk-desc{font-size:13px;line-height:1.5;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
     .tk-cta{background:#fe2c55;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-weight:700;font-size:14px;display:inline-block}
 
-    @media(max-width:768px){.container{padding:16px}.card-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:1100px){.creative-3col{grid-template-columns:1fr 1fr!important}.creative-3col>div:last-child{grid-column:1/-1}}
+    @media(max-width:768px){.container{padding:16px}.card-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}.creative-3col{grid-template-columns:1fr!important}}
   </style>
 </head>
 <body>
@@ -333,54 +334,79 @@ async function renderCandidates(el) {
 async function renderCreatives(el) {
   const batches = await apiCall(`/api/clients/${clientId}/creatives`);
   if (!batches.length) { el.innerHTML = '<div class="empty-state"><h3>No creatives</h3><p>Select candidates and generate creatives first.</p></div>'; return; }
-  el.innerHTML = `<div class="card-grid">${batches.flatMap(b=>(b.variants||[]).map(v=>{
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:20px">${batches.flatMap(b=>(b.variants||[]).map(v=>{
     const copy=v.copy_json||{};const review=(v.reviews||[])[0];const approval=v.approval;
     const qs=review?.status||'pending';const qb=qs==='pass'?'badge-green':qs==='warn'?'badge-yellow':qs==='fail'?'badge-red':'badge-blue';
     const mainText = copy.primary_text||copy.caption||((copy.hook||'')+'\n\n'+(copy.voiceover_script||''));
     const vid = v.id;
     const media = v.media_plan_json || {};
     const adType = copy.ad_type || (media.videos?.length ? 'video' : 'image');
-    return `<div class="card" id="card-${vid}">
-      <div class="card-header">
-        <div><h3>${b.entity?.title_he||b.entity?.title_en||b.entity_id}</h3>
-        <div style="color:var(--text2);font-size:12px;margin-top:4px">
-          <span class="platform-tag platform-${v.platform}">${v.platform}</span>
-          <span style="margin-left:6px">V#${v.variant_no} · ${copy.language||b.language_code}</span>
-          ${adType!=='image'?`<span class="badge badge-blue" style="margin-left:6px;font-size:10px">${adType}</span>`:''}
-        </div></div>
-        <span class="badge ${qb}">QA: ${qs}</span>
-      </div>
-      <div class="card-body">
-        ${renderMediaGrid(media, vid)}
-        ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
-        ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
-        <div class="detail-row"><span class="label">CTA</span><input type="text" id="cta-${vid}" value="${esc(copy.cta||copy.closing_cta||'')}" placeholder="Learn More" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
-        <div class="detail-row"><span class="label">Ad URL</span><input type="url" id="url-${vid}" value="${esc(copy.ad_url||b.entity?.listing_url||'')}" placeholder="https://..." style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
-        <div class="detail-row"><span class="label">Hashtags</span><input type="text" id="tags-${vid}" value="${esc((copy.hashtags||[]).join(' '))}" placeholder="#realestate #property" style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
-        <div class="creative-preview" contenteditable="true" id="text-${vid}">${esc(mainText.trim())}</div>
-        ${media.reel_timeline ? renderStoryboard(media.reel_timeline) : ''}
-        ${approval?`<div style="margin-top:12px"><span class="badge ${approval.status==='approved'?'badge-green':approval.status==='rejected'?'badge-red':'badge-yellow'}">${approval.status}</span></div>`:''}
-      </div>
-      ${renderSavedVideo(media, vid)}
-      <div class="card-footer">
-        <button class="btn btn-sm btn-green" onclick="saveCopy('${vid}','${v.platform}')">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
-          Save
-        </button>
-        <button class="btn btn-sm" onclick="openPreview('${vid}','${v.platform}')">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          Preview
-        </button>
+    const poster = media.hero_image || (media.selected_images||[])[0] || '';
+    const hasSavedVideo = !!(media.saved_video?.url || media.ai_generated?.local_video?.url);
+    return `<div class="card" id="card-${vid}" style="max-width:100%">
+      <!-- TOP BAR: title + indicators left, actions right -->
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <h3 style="font-size:16px;font-weight:700;margin-right:8px">${esc(b.entity?.title_he||b.entity?.title_en||b.entity_id)}</h3>
+        <span class="platform-tag platform-${v.platform}">${v.platform}</span>
+        <span style="font-size:11px;color:var(--text2)">V#${v.variant_no} · ${copy.language||b.language_code}</span>
+        ${adType!=='image'?`<span class="badge badge-blue" style="font-size:10px">${adType}</span>`:''}
+        <span class="badge ${qb}" style="font-size:10px">QA: ${qs}</span>
+        ${approval?`<span class="badge ${approval.status==='approved'?'badge-green':approval.status==='rejected'?'badge-red':'badge-yellow'}" style="font-size:10px">${approval.status}</span>`:''}
         <div style="flex:1"></div>
         ${approval&&approval.status==='pending'?`
           <button class="btn btn-sm btn-green" onclick="approve('${approval.id}','approved')">Approve</button>
           <button class="btn btn-sm btn-red" onclick="approve('${approval.id}','rejected')">Reject</button>
         `:''}
-        <button class="btn btn-sm btn-red" onclick="deleteVariant('${vid}')" title="Delete creative" style="min-width:auto;padding:5px 8px">&times;</button>
-        <input type="checkbox" class="card-select" onchange="toggleSelect('${vid}',this)" title="Select for bulk delete" style="accent-color:var(--red);width:16px;height:16px;cursor:pointer;margin-left:4px">
+        <button class="btn btn-sm btn-red" onclick="deleteVariant('${vid}')" title="Delete" style="min-width:auto;padding:5px 10px">&times;</button>
+        <input type="checkbox" class="card-select" onchange="toggleSelect('${vid}',this)" title="Select" style="accent-color:var(--red);width:16px;height:16px;cursor:pointer">
       </div>
-      <div style="padding:10px 20px;border-top:1px solid var(--border)">
-        <button class="btn ai-gen-btn" onclick="generateAiAd('${vid}')">Advplanner AI Ads Generator</button>
+
+      <!-- 3-BOX LAYOUT -->
+      <div class="creative-3col" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;min-height:300px">
+
+        <!-- BOX 1: Edit Media -->
+        <div style="padding:16px 20px;border-right:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">Edit Media</div>
+          ${renderMediaGrid(media, vid)}
+        </div>
+
+        <!-- BOX 2: Ad Text & Information -->
+        <div style="padding:16px 20px;border-right:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">Ad Text & Information</div>
+          ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
+          ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
+          <div class="detail-row"><span class="label">CTA</span><input type="text" id="cta-${vid}" value="${esc(copy.cta||copy.closing_cta||'')}" placeholder="Learn More" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
+          <div class="detail-row"><span class="label">Ad URL</span><input type="url" id="url-${vid}" value="${esc(copy.ad_url||b.entity?.listing_url||'')}" placeholder="https://..." style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
+          <div class="detail-row"><span class="label">Hashtags</span><input type="text" id="tags-${vid}" value="${esc((copy.hashtags||[]).join(' '))}" placeholder="#realestate #property" style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
+          <div class="creative-preview" contenteditable="true" id="text-${vid}" style="margin-top:10px;max-height:140px">${esc(mainText.trim())}</div>
+          <div style="margin-top:10px;display:flex;gap:6px">
+            <button class="btn btn-sm btn-green" onclick="saveCopy('${vid}','${v.platform}')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+              Save
+            </button>
+          </div>
+        </div>
+
+        <!-- BOX 3: Advplanner AI Video Gen -->
+        <div style="padding:16px 20px;display:flex;flex-direction:column">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">Advplanner AI Video Gen</div>
+          ${hasSavedVideo ? `
+            <div style="flex:1;display:flex;flex-direction:column">
+              ${renderSavedVideoBox(media, vid, poster)}
+              <div style="margin-top:auto;padding-top:10px;display:flex;gap:6px">
+                <button class="btn btn-sm btn-green" onclick="saveCopy('${vid}','${v.platform}')">Save</button>
+                <button class="btn btn-sm" onclick="openPreview('${vid}','${v.platform}')">Preview</button>
+              </div>
+            </div>
+          ` : `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text2);text-align:center;padding:20px">
+              <div style="font-size:32px;margin-bottom:12px">&#127916;</div>
+              <div style="font-size:13px;margin-bottom:16px">No video generated yet</div>
+              <button class="btn ai-gen-btn" onclick="generateAiAd('${vid}')" style="width:100%">Generate Video Ad</button>
+            </div>
+          `}
+        </div>
+
       </div>
     </div>`;
   })).join('')}</div>`;
@@ -447,6 +473,25 @@ function renderMediaGrid(mp, vid) {
   }
   h += `</div><button class="btn btn-sm" style="margin-top:6px" onclick="saveMediaSelection('${vid}')">Update Media</button></details>`;
   return h;
+}
+
+function renderSavedVideoBox(mp, vid, poster) {
+  const sv = mp?.saved_video || mp?.ai_generated?.local_video;
+  if (!sv?.url) return '';
+  return `<div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:600">Saved Video</span>
+      <span class="badge badge-green" style="font-size:9px">READY</span>
+    </div>
+    <video controls preload="metadata" ${poster ? `poster="${esc(poster)}"` : ''} style="width:100%;border-radius:8px;border:1px solid var(--border)">
+      <source src="/api/media/video/${vid}" type="video/mp4">
+    </video>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">
+      ${sv.duration_sec ? sv.duration_sec + 's' : ''} ${sv.size_bytes ? '· ' + (sv.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
+      ${sv.saved_at ? '· ' + new Date(sv.saved_at).toLocaleDateString() : ''}
+    </div>
+    <button class="btn btn-sm ai-gen-btn" onclick="generateAiAd('${vid}')" style="width:100%;margin-top:8px;font-size:11px">Regenerate Video</button>
+  </div>`;
 }
 
 function renderSavedVideo(mp, vid) {

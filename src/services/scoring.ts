@@ -75,6 +75,11 @@ const OVERUSE_THRESHOLD = 3;
 const OVERUSE_WINDOW_DAYS = 7;
 
 export async function scoreAndSelectCandidates(date: string, maxCandidates: number = 10, clientId?: string): Promise<CampaignCandidate[]> {
+  // Clean old candidates for this client so each entity gets exactly 1 candidate
+  if (clientId) {
+    await store.deleteCandidatesByClient(clientId);
+  }
+
   let entities = await store.getEntities();
   entities = entities.filter(e => e.campaign_ready && e.source_status === 'active');
   if (clientId) entities = entities.filter(e => e.client_id === clientId);
@@ -119,7 +124,8 @@ export async function scoreAndSelectCandidates(date: string, maxCandidates: numb
   }
 
   candidates.sort((a, b) => b.score_total - a.score_total);
-  candidates.slice(0, maxCandidates).forEach((c, i) => { c.selected = true; c.selection_reason = `Rank #${i + 1}`; });
+  // Select all candidates — each property/project gets exactly 1 candidate, all selected
+  candidates.forEach((c, i) => { c.selected = true; c.selection_reason = `Rank #${i + 1}`; });
   // Upsert and use the returned DB IDs (may differ from generated UUIDs on conflict)
   const saved: CampaignCandidate[] = [];
   for (const c of candidates) saved.push(await store.upsertCandidate(c));

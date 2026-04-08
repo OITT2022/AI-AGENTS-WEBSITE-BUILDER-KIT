@@ -362,6 +362,34 @@ app.get('/api/video/status/:variantId', async (req, res) => {
 const storageDir = path.join(getWritableBaseDir(), 'data', 'storage');
 app.use('/api/media/storage', express.static(storageDir));
 
+// ── Sound proxy: stream audio from EC2 through Amplify (HTTPS) ──
+app.get('/api/media/sound/:soundId', async (req, res) => {
+  try {
+    const asset = await store.getSoundAsset(req.params.soundId);
+    if (!asset) return res.status(404).json({ error: 'Sound not found' });
+    const audioUrl = asset.storage_url as string;
+    if (!audioUrl) return res.status(404).json({ error: 'No audio URL' });
+
+    // Local file
+    if (audioUrl.startsWith('/api/media/storage/')) {
+      const localPath = path.join(storageDir, audioUrl.replace('/api/media/storage/', ''));
+      if (fs.existsSync(localPath)) return res.sendFile(localPath);
+    }
+
+    // Proxy from EC2
+    const upstream = await fetch(audioUrl);
+    if (!upstream.ok) return res.status(upstream.status).json({ error: `Upstream: ${upstream.status}` });
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || asset.mime_type || 'audio/mpeg');
+    const cl = upstream.headers.get('content-length');
+    if (cl) res.setHeader('Content-Length', cl);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.end(buf);
+  } catch (err: any) {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Video proxy: stream video from EC2 worker through Amplify (HTTPS) ──
 // Browser requests /api/media/video/:variantId → Amplify fetches from EC2 → streams back.
 // No exposed EC2 IP, no mixed content, same-origin HTTPS.

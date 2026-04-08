@@ -327,7 +327,7 @@ async function loadSoundsForEditor(selectedId){
     const sounds=await apiCall('/api/sound-assets');
     const sel=E('e-music-sound');if(!sel)return;
     sel.innerHTML='<option value="">-- None --</option>'+sounds.map(s=>
-      `<option value="${s.id}" data-url="${esc(s.storage_url)}"${s.id===selectedId||s.storage_url===selectedId?' selected':''}>${esc(s.name)}${s.is_default?' (default)':''} — ${s.duration_seconds?Math.round(s.duration_seconds)+'s':''}</option>`
+      `<option value="${s.id}" data-url="/api/media/sound/${s.id}"${s.id===selectedId||s.storage_url===selectedId?' selected':''}>${esc(s.name)}${s.is_default?' (default)':''} — ${s.duration_seconds?Math.round(s.duration_seconds)+'s':''}</option>`
     ).join('');
     sel.addEventListener('change',()=>{
       const opt=sel.selectedOptions[0];const url=opt?.dataset?.url;

@@ -91,7 +91,7 @@ function renderList(el){
             ${s.tags?.length?`<span>${s.tags.map(t=>esc(t)).join(', ')}</span>`:''}
           </div>
           <div class="sound-player" style="margin-top:8px">
-            <audio controls preload="metadata" src="${esc(s.storage_url)}"></audio>
+            <audio controls preload="metadata" src="/api/media/sound/${s.id}"></audio>
           </div>
         </div>
         <div class="sound-actions">

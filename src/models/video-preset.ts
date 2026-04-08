@@ -111,6 +111,8 @@ export type AnimationSettings = z.infer<typeof AnimationSettingsSchema>;
 
 export const AudioSettingsSchema = z.object({
   musicEnabled: z.boolean().default(false),
+  musicSoundId: z.string().uuid().optional(),
+  musicSoundUrl: z.string().optional(),
   musicVolume: z.number().min(0).max(1).default(0.3),
   musicFadeInMs: z.number().int().min(0).max(5000).default(500),
   musicFadeOutMs: z.number().int().min(0).max(5000).default(1000),

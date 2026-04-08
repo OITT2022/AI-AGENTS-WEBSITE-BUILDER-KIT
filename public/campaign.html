@@ -867,8 +867,7 @@ async function renderApprovals(el) {
         <span class="badge badge-green">Approved</span>
       </div>
       <div class="card-body" style="padding:12px">
-        ${renderApprovalVideo(v, media)}
-        ${preview}
+        ${renderApprovalVideo(v, media) || preview}
       </div>
       ${t.decision_notes?`<div style="padding:8px 20px 12px;font-size:13px;color:var(--text2)">Notes: ${esc(t.decision_notes)}</div>`:''}
       <div class="card-footer">

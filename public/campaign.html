@@ -84,6 +84,17 @@
     .ai-gen-modal{background:var(--surface);border-radius:var(--radius);padding:32px;text-align:center;max-width:560px;width:90%;max-height:85vh;overflow-y:auto}
     .ai-gen-spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
     @keyframes spin{to{transform:rotate(360deg)}}
+    .render-progress{margin:20px 0}
+    .render-progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:12px 0}
+    .render-progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),#a78bfa,var(--primary));background-size:200% 100%;animation:shimmer 2s ease-in-out infinite;border-radius:3px;transition:width 0.8s ease}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .render-steps{text-align:left;margin:16px 0}
+    .render-step{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;color:var(--text2);transition:all 0.3s}
+    .render-step.active{color:var(--text);font-weight:600}
+    .render-step.done{color:#22c55e}
+    .render-step .step-icon{width:20px;text-align:center;font-size:14px}
+    .render-step.active .step-icon{animation:pulse 1.5s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
     .ai-gen-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:16px;text-align:left}
     .ai-gen-scene{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2)}
     .ai-gen-scene img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block;cursor:pointer}
@@ -912,23 +923,77 @@ async function generateAiAd(vid) {
   const v = window._variants?.[vid];
   if (!v) return showToast('Variant data not found');
 
-  // Show progress overlay
+  // Show progress overlay with animated steps
   const overlay = document.createElement('div');
   overlay.className = 'ai-gen-overlay';
   overlay.id = 'ai-gen-overlay';
   overlay.innerHTML = `<div class="ai-gen-modal">
-    <div class="ai-gen-spinner"></div>
-    <h3 style="margin-bottom:8px">Generating AI Ad Assets</h3>
-    <div class="ai-gen-status" id="ai-gen-status">Generating AI images, video &amp; local slideshow...</div>
+    <h3 style="margin-bottom:4px">Creating Your Video Ad</h3>
+    <p style="color:var(--text2);font-size:12px;margin-bottom:8px">${esc(v.entity?.title_he || v.entity?.title_en || '')}</p>
+    <div class="render-progress">
+      <div class="render-progress-bar"><div class="render-progress-fill" id="render-progress-fill" style="width:5%"></div></div>
+    </div>
+    <div class="render-steps" id="render-steps">
+      <div class="render-step active" id="step-0"><span class="step-icon">&#9881;</span> Preparing assets...</div>
+      <div class="render-step" id="step-1"><span class="step-icon">&#9675;</span> Analyzing property media</div>
+      <div class="render-step" id="step-2"><span class="step-icon">&#9675;</span> Composing video scenes</div>
+      <div class="render-step" id="step-3"><span class="step-icon">&#9675;</span> Rendering with FFmpeg</div>
+      <div class="render-step" id="step-4"><span class="step-icon">&#9675;</span> Encoding &amp; optimizing</div>
+      <div class="render-step" id="step-5"><span class="step-icon">&#9675;</span> Uploading final video</div>
+    </div>
+    <div style="font-size:11px;color:var(--text2)" id="render-elapsed"></div>
   </div>`;
   document.body.appendChild(overlay);
+
+  // Animate progress steps during API call + rendering
+  const renderStartTime = Date.now();
+  let currentStep = 0;
+  const stepTimings = [0, 3000, 6000, 10000, 25000, 40000]; // approximate ms per step
+  const stepLabels = [
+    '&#9881; Preparing assets...',
+    '&#128269; Analyzing property media',
+    '&#127916; Composing video scenes',
+    '&#9654; Rendering with FFmpeg',
+    '&#128190; Encoding &amp; optimizing',
+    '&#9729; Uploading final video',
+  ];
+  window._renderProgressInterval = setInterval(() => {
+    const elapsed = Date.now() - renderStartTime;
+    const elapsedEl = document.getElementById('render-elapsed');
+    if (elapsedEl) elapsedEl.textContent = `${Math.floor(elapsed / 1000)}s elapsed`;
+
+    // Advance steps based on time
+    let newStep = 0;
+    for (let i = stepTimings.length - 1; i >= 0; i--) {
+      if (elapsed >= stepTimings[i]) { newStep = i; break; }
+    }
+    if (newStep > currentStep) {
+      for (let i = currentStep; i < newStep; i++) {
+        const el = document.getElementById('step-' + i);
+        if (el) { el.className = 'render-step done'; el.querySelector('.step-icon').innerHTML = '&#10003;'; }
+      }
+      const activeEl = document.getElementById('step-' + newStep);
+      if (activeEl) { activeEl.className = 'render-step active'; activeEl.querySelector('.step-icon').innerHTML = stepLabels[newStep].match(/^[^<]*(<[^>]+>)?([^<]+)/)?.[0]?.match(/^[^ ]+/)?.[0] || '&#9881;'; }
+      currentStep = newStep;
+    }
+
+    // Smooth progress bar (cap at 90% until actually done)
+    const maxProgress = Math.min(90, Math.floor((elapsed / 55000) * 100));
+    const fill = document.getElementById('render-progress-fill');
+    if (fill) fill.style.width = maxProgress + '%';
+  }, 500);
 
   try {
     const res = await apiCall(`/api/generate/ai-ad/${vid}`, { method: 'POST', body: JSON.stringify({}) });
 
-    // Remove spinner
+    // API returned — stop fake progress if video is NOT still processing
+    const isStillRendering = res.generated?.local_video?.status === 'processing';
+    if (!isStillRendering) clearInterval(window._renderProgressInterval);
+
+    // Update modal
     const modal = overlay.querySelector('.ai-gen-modal');
     if (!res.success) {
+      clearInterval(window._renderProgressInterval);
       modal.innerHTML = `<h3 style="color:var(--red);margin-bottom:12px">Generation Failed</h3>
         <p style="color:var(--text2);font-size:14px">${esc(res.error || 'Unknown error')}</p>
         <button class="btn btn-sm" style="margin-top:16px" onclick="document.getElementById('ai-gen-overlay')?.remove()">Close</button>`;
@@ -965,14 +1030,9 @@ async function generateAiAd(vid) {
 
     const localVideo = gen.local_video;
     if (localVideo && localVideo.status === 'processing') {
-      // Async render — show spinner and poll for completion
-      html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (Rendering...)</div>
-        <div id="video-poll-status" style="padding:16px;text-align:center;color:var(--text2)">
-          <div style="font-size:24px;margin-bottom:8px">&#9203;</div>
-          <div>Video is being rendered on the server...</div>
-          <div style="font-size:11px;margin-top:4px">This may take 30-60 seconds. Please wait.</div>
-        </div>`;
-      // Start polling (vid is the variant ID from generateAiAd parameter)
+      // Keep the animated progress — just update the label
+      html += `<div id="video-poll-status"></div>`;
+      // Continue the progress animation — poll will complete it
       setTimeout(() => pollVideoStatus(vid), 5000);
     } else if (localVideo && localVideo.url) {
       html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (Local Slideshow)</div>
@@ -1008,6 +1068,7 @@ async function generateAiAd(vid) {
       v.media_plan_json.ai_generated = { scene_images: scenes, video, local_video: gen.local_video || null, canva_design: canvaDesign, generated_at: new Date().toISOString(), services_used: used };
     }
   } catch (err) {
+    clearInterval(window._renderProgressInterval);
     document.getElementById('ai-gen-overlay')?.remove();
     showToast('AI generation failed: ' + (err.message || err));
   }
@@ -1077,32 +1138,51 @@ function updateCardWithSavedVideo(variantId, savedVideo) {
 }
 
 async function pollVideoStatus(variantId, attempt = 0) {
-  if (attempt > 30) { // 30 * 5s = 2.5 min max
+  if (attempt > 30) {
+    clearInterval(window._renderProgressInterval);
     const el = document.getElementById('video-poll-status');
-    if (el) el.innerHTML = '<div style="color:var(--red)">Video render timed out. Please try again.</div>';
+    if (el) el.innerHTML = '<div style="color:var(--red);padding:16px">Video render timed out. Please try again.</div>';
     return;
   }
   try {
     const res = await apiCall(`/api/video/status/${variantId}`);
     if (res.status === 'completed' && res.local_video?.url) {
-      const el = document.getElementById('video-poll-status');
-      if (el) {
-        el.innerHTML = `
-          <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
-            <source src="/api/media/video/${variantId}" type="video/mp4">
-          </video>
-          <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Generated via VideoEngine</div>
-          <button class="btn btn-sm btn-green" id="save-video-btn" onclick="saveGeneratedVideo('${variantId}')">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
-            Save Video to Creative
-          </button>`;
+      // Complete! Mark all steps done, fill progress to 100%
+      clearInterval(window._renderProgressInterval);
+      const fill = document.getElementById('render-progress-fill');
+      if (fill) fill.style.width = '100%';
+      for (let i = 0; i < 6; i++) {
+        const step = document.getElementById('step-' + i);
+        if (step) { step.className = 'render-step done'; step.querySelector('.step-icon').innerHTML = '&#10003;'; }
       }
-      // Update in-memory variant data
+      const elapsedEl = document.getElementById('render-elapsed');
+      if (elapsedEl) elapsedEl.textContent = 'Complete!';
+
+      // Show the video after a brief celebration
+      setTimeout(() => {
+        const modal = document.querySelector('.ai-gen-modal');
+        if (modal) {
+          modal.innerHTML = `
+            <h3 style="margin-bottom:4px">Video Ad Ready</h3>
+            <p style="color:#22c55e;font-size:13px;margin-bottom:16px">&#10003; Successfully rendered</p>
+            <video controls autoplay muted preload="auto" style="width:100%;max-width:400px;border-radius:10px;margin-bottom:12px;border:2px solid var(--primary)">
+              <source src="/api/media/video/${variantId}" type="video/mp4">
+            </video>
+            <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+              <button class="btn btn-sm btn-green" id="save-video-btn" onclick="saveGeneratedVideo('${variantId}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+                Save Video to Creative
+              </button>
+              <a href="/api/media/video/${variantId}/download" class="btn btn-sm" style="text-decoration:none">Download</a>
+            </div>
+            <button class="btn btn-sm" onclick="document.getElementById('ai-gen-overlay')?.remove()">Close</button>`;
+        }
+      }, 800);
+
       const v = window._variants?.[variantId];
       if (v?.media_plan_json) {
         v.media_plan_json.ai_generated = { ...v.media_plan_json.ai_generated, local_video: res.local_video };
       }
-      showToast('Video ready!');
       return;
     }
   } catch (e) { /* keep polling */ }

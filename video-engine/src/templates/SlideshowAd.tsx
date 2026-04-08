@@ -69,9 +69,9 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
                   dir={rtl ? 'rtl' : 'ltr'}
                 >
                   <div style={{maxWidth: '82%', textAlign: rtl ? 'right' : 'left'}}>
-                    <div style={{fontSize: introTitleSize, color: textColor, fontWeight: 800, lineHeight: 1.02}}>{video.input.title}</div>
+                    <div style={{fontSize: introTitleSize, color: textColor, fontWeight: 800, lineHeight: 1.02, textShadow: '0 4px 20px rgba(0,0,0,0.5)'}}>{video.input.title}</div>
                     {video.input.subtitle ? (
-                      <div style={{marginTop: 22, fontSize: introSubSize, lineHeight: 1.35, color: textColor, opacity: 0.9}}>
+                      <div style={{marginTop: 22, fontSize: introSubSize, lineHeight: 1.35, color: textColor, opacity: 0.9, textShadow: '0 2px 12px rgba(0,0,0,0.4)'}}>
                         {video.input.subtitle}
                       </div>
                     ) : null}
@@ -94,7 +94,7 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
                   dir={rtl ? 'rtl' : 'ltr'}
                 >
                   <div style={{textAlign: 'center', maxWidth: '86%'}}>
-                    <div style={{fontSize: outroTitleSize, lineHeight: 1.06, color: textColor, fontWeight: 800}}>
+                    <div style={{fontSize: outroTitleSize, lineHeight: 1.06, color: textColor, fontWeight: 800, textShadow: '0 4px 20px rgba(0,0,0,0.5)'}}>
                       {video.input.outroTitle ?? video.input.cta ?? ''}
                     </div>
                     {video.input.outroSubtitle ? (

@@ -1647,6 +1647,8 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
           const outroTitle = cta || title;
           const outroSubtitle = req.body.ad_url || String(copy.ad_url || entity.listing_url || '');
 
+          console.log('[ai-ad] Video job text:', JSON.stringify({ title, subtitle, cta, outroTitle, outroSubtitle, imageCount: veImages.length }));
+
           const job: videoEngineLocal.LocalVideoJob = {
             projectId: `variant-${variant.id}`,
             platform: vePlatform,

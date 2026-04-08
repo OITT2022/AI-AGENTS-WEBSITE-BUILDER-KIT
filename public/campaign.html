@@ -734,6 +734,26 @@ function previewTK(c, media, listingUrl) {
 
 // ── Approvals ──
 
+function renderApprovalVideo(v, media) {
+  const sv = media?.saved_video;
+  const lv = media?.ai_generated?.local_video;
+  const videoData = sv || lv;
+  if (!videoData?.url) return '';
+  const poster = media?.hero_image || (media?.selected_images || [])[0] || '';
+  return `<div style="margin-bottom:12px;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:600">Generated Video Ad</span>
+      <span class="badge badge-green" style="font-size:10px">Ready</span>
+    </div>
+    <video controls preload="metadata" ${poster ? `poster="${esc(poster)}"` : ''} style="width:100%;border-radius:8px">
+      <source src="/api/media/video/${v.id}" type="video/mp4">
+    </video>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <a href="/api/media/video/${v.id}/download" class="btn btn-sm" style="text-decoration:none;font-size:11px">Download MP4</a>
+    </div>
+  </div>`;
+}
+
 async function renderApprovals(el) {
   const allTasks = await apiCall(`/api/clients/${clientId}/approvals`);
   const tasks = allTasks.filter(t => t.status === 'approved' || t.status === 'approved_with_edits');
@@ -754,7 +774,10 @@ async function renderApprovals(el) {
         </div></div>
         <span class="badge badge-green">Approved</span>
       </div>
-      <div class="card-body" style="padding:12px">${preview}</div>
+      <div class="card-body" style="padding:12px">
+        ${renderApprovalVideo(v, media)}
+        ${preview}
+      </div>
       ${t.decision_notes?`<div style="padding:8px 20px 12px;font-size:13px;color:var(--text2)">Notes: ${esc(t.decision_notes)}</div>`:''}
       <div class="card-footer">
         ${platform==='facebook'?`<button class="btn btn-sm" style="background:#1877f2;border-color:#1877f2;color:#fff" onclick="publishTo('facebook','${v.id}')">Publish to Facebook</button>`:''}

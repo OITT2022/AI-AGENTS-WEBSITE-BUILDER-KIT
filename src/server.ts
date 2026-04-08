@@ -1573,7 +1573,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
         };
         const vePlatform = vePlatformMap[variant.platform] || 'tiktok';
 
-        // Collect image URLs — prefer scene images just generated, fall back to media plan
+        // Collect media — images from selected_images/gallery, plus Drive videos as still frames
         const veImages: videoEngineLocal.LocalVideoJob['images'] = [];
         if (sceneImages.length > 0) {
           for (const si of sceneImages) {
@@ -1582,8 +1582,14 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
         } else {
           const heroImg = mediaPlan.hero_image as string | undefined;
           const selectedImgs = (mediaPlan.selected_images as string[] | undefined) ?? [];
-          const allImgs = heroImg ? [heroImg, ...selectedImgs.filter(u => u !== heroImg)] : selectedImgs;
-          for (const imgUrl of allImgs.slice(0, 5)) {
+          const galleryImgs = (mediaPlan.gallery as string[] | undefined) ?? [];
+          // Combine: hero first, then selected, then remaining gallery (deduplicated)
+          const seen = new Set<string>();
+          const allImgs: string[] = [];
+          for (const img of [heroImg, ...selectedImgs, ...galleryImgs].filter(Boolean) as string[]) {
+            if (!seen.has(img)) { seen.add(img); allImgs.push(img); }
+          }
+          for (const imgUrl of allImgs.slice(0, 8)) {
             veImages.push({ src: imgUrl });
           }
         }

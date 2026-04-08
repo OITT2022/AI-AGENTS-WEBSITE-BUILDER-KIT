@@ -21,6 +21,13 @@ function isLocalPath(p: string): boolean {
   return !p.startsWith('http://') && !p.startsWith('https://') && !p.startsWith('data:');
 }
 
+/** Convert Google Drive sharing URL to direct download URL. */
+function toDriveDirectUrl(url: string): string {
+  const m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return `https://drive.google.com/uc?export=download&id=${m[1]}`;
+  return url;
+}
+
 /** Download a remote URL to a local file. Follows redirects (up to 5). */
 function downloadFile(url: string, dest: string, maxRedirects = 5): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -73,10 +80,11 @@ async function prepareAssets(input: JobInput): Promise<{ publicDir: string; rewr
       }
       fs.copyFileSync(absPath, destPath);
     } else {
-      // Download remote asset to temp dir
-      console.log(`Downloading asset: ${filePath}`);
+      // Download remote asset to temp dir (convert Drive URLs to direct download)
+      const downloadUrl = toDriveDirectUrl(filePath);
+      console.log(`Downloading asset: ${downloadUrl}`);
       try {
-        await downloadFile(filePath, destPath);
+        await downloadFile(downloadUrl, destPath);
         const stat = fs.statSync(destPath);
         if (stat.size === 0) {
           console.warn(`Downloaded empty file from ${filePath}`);

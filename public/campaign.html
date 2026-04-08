@@ -394,7 +394,7 @@ async function renderCreatives(el) {
           ${renderMediaGrid(media, vid)}
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
             <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">&#127925; Background Music</div>
-            <select id="sound-${vid}" style="width:100%;padding:6px 10px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)" onchange="previewSound(this)">
+            <select id="sound-${vid}" style="width:100%;padding:6px 10px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)" onchange="previewSound(this);markDirty('${vid}')">
               <option value="">Use preset default</option>
             </select>
             <div id="sound-preview-${vid}" style="margin-top:4px"></div>
@@ -404,21 +404,13 @@ async function renderCreatives(el) {
         <!-- BOX 2: Ad Text & Information -->
         <div style="padding:16px 20px;border-right:1px solid var(--border)">
           <div style="font-size:15px;font-weight:600;margin-bottom:10px;color:var(--text2)">Ad Text & Information</div>
-          ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
-          ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
-          <div class="detail-row"><span class="label">CTA</span><input type="text" id="cta-${vid}" value="${esc(copy.cta||copy.closing_cta||'')}" placeholder="Learn More" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
-          <div class="detail-row"><span class="label">Ad URL</span><input type="url" id="url-${vid}" value="${esc(copy.ad_url||b.entity?.listing_url||'')}" placeholder="https://..." style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
-          <div class="detail-row"><span class="label">Hashtags</span><input type="text" id="tags-${vid}" value="${esc((copy.hashtags||[]).join(' '))}" placeholder="#realestate #property" style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
-          <div class="creative-preview" contenteditable="true" id="text-${vid}" style="margin-top:10px;max-height:140px">${esc(mainText.trim())}</div>
-          <div style="margin-top:10px;display:flex;gap:6px">
-            <button class="btn btn-sm btn-green" onclick="saveCopy('${vid}','${v.platform}')">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
-              Save
-            </button>
-            <button class="btn btn-sm" onclick="openBoard('${vid}')" title="Visual text position editor">
-              Board
-            </button>
-          </div>
+          ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" oninput="markDirty('${vid}')" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
+          ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" oninput="markDirty('${vid}')" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
+          <div class="detail-row"><span class="label">CTA</span><input type="text" id="cta-${vid}" value="${esc(copy.cta||copy.closing_cta||'')}" oninput="markDirty('${vid}')" placeholder="Learn More" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
+          <div class="detail-row"><span class="label">Ad URL</span><input type="url" id="url-${vid}" value="${esc(copy.ad_url||b.entity?.listing_url||'')}" oninput="markDirty('${vid}')" placeholder="https://..." style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
+          <div class="detail-row"><span class="label">Hashtags</span><input type="text" id="tags-${vid}" value="${esc((copy.hashtags||[]).join(' '))}" oninput="markDirty('${vid}')" placeholder="#realestate #property" style="flex:1;margin-left:8px;padding:4px 8px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
+          <div class="creative-preview" contenteditable="true" id="text-${vid}" oninput="markDirty('${vid}')" style="margin-top:10px;max-height:140px">${esc(mainText.trim())}</div>
+          <div style="margin-top:10px"><button class="btn btn-sm" onclick="openBoard('${vid}')">Board</button></div>
         </div>
 
         <!-- BOX 3: Advplanner AI Video Gen -->
@@ -427,8 +419,7 @@ async function renderCreatives(el) {
           ${hasSavedVideo ? `
             <div style="flex:1;display:flex;flex-direction:column">
               ${renderSavedVideoBox(media, vid, poster)}
-              <div style="margin-top:auto;padding-top:10px;display:flex;gap:6px">
-                <button class="btn btn-sm btn-green" onclick="saveCopy('${vid}','${v.platform}')">Save</button>
+              <div style="margin-top:auto;padding-top:10px">
                 <button class="btn btn-sm" onclick="openPreview('${vid}','${v.platform}')">Preview</button>
               </div>
             </div>
@@ -441,6 +432,13 @@ async function renderCreatives(el) {
           `}
         </div>
 
+      </div>
+      <!-- FOOTER: single Save bar -->
+      <div style="padding:10px 20px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
+        <button class="btn btn-sm" id="save-btn-${vid}" style="background:var(--surface2);border-color:var(--border);color:var(--text2);cursor:default;opacity:0.6" onclick="saveAll('${vid}','${v.platform}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+          Save
+        </button>
       </div>
     </div>`;
   })).join('')}</div>`;
@@ -745,7 +743,7 @@ function renderMediaGrid(mp, vid) {
       <button class="media-view-btn" onclick="event.stopPropagation();openGallery('${vid}',${idx})" title="View video">&#128065;</button>
     </div>`;
   }
-  h += `</div><button class="btn btn-sm" style="margin-top:6px" onclick="saveMediaSelection('${vid}')">Update Media</button></details>`;
+  h += `</div></details>`;
   return h;
 }
 
@@ -799,6 +797,7 @@ function toggleMediaItem(el, vid, type, url) {
     grid.insertBefore(el, grid.firstChild);
     grid.scrollTop = 0;
   }
+  markDirty(vid);
 }
 
 async function saveMediaSelection(vid) {
@@ -843,6 +842,38 @@ function renderStoryboard(timeline) {
 }
 
 // ── Save edited copy ──
+
+function markDirty(vid) {
+  const btn = document.getElementById('save-btn-' + vid);
+  if (btn) {
+    btn.style.background = 'var(--green)';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = '#fff';
+    btn.style.cursor = 'pointer';
+    btn.style.opacity = '1';
+  }
+}
+
+function markClean(vid) {
+  const btn = document.getElementById('save-btn-' + vid);
+  if (btn) {
+    btn.style.background = 'var(--surface2)';
+    btn.style.borderColor = 'var(--border)';
+    btn.style.color = 'var(--text2)';
+    btn.style.cursor = 'default';
+    btn.style.opacity = '0.6';
+    btn.textContent = 'Saved';
+    setTimeout(() => { if (btn) btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg> Save'; }, 2000);
+  }
+}
+
+async function saveAll(variantId, platform) {
+  // Save media selection
+  await saveMediaSelection(variantId);
+  // Save text/copy
+  await saveCopy(variantId, platform);
+  markClean(variantId);
+}
 
 async function saveCopy(variantId, platform) {
   const textEl = document.getElementById('text-' + variantId);

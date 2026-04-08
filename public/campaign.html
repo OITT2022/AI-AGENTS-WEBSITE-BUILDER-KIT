@@ -446,18 +446,23 @@ function renderMediaGrid(mp, vid) {
 function renderSavedVideo(mp, vid) {
   const sv = mp?.saved_video;
   if (!sv?.url) return '';
+  const poster = mp?.hero_image || (mp?.selected_images || [])[0] || '';
   return `<div class="saved-video-section" style="padding:10px 20px;border-top:1px solid var(--border)">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="font-size:12px;font-weight:600;color:var(--text)">Saved Video</span>
-      <span class="badge badge-green" style="font-size:10px">Ready</span>
-    </div>
-    <video controls preload="metadata" style="width:100%;max-width:320px;border-radius:8px;border:1px solid var(--border)">
-      <source src="/api/media/video/${vid}" type="video/mp4">
-    </video>
-    <div style="font-size:10px;color:var(--text2);margin-top:4px">
-      ${sv.duration_sec ? sv.duration_sec + 's' : ''} ${sv.size_bytes ? '· ' + (sv.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
-      ${sv.saved_at ? '· Saved ' + new Date(sv.saved_at).toLocaleDateString() : ''}
-    </div>
+    <details open>
+      <summary style="font-size:12px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-weight:600;color:var(--text)">Saved Video</span>
+        <span class="badge badge-green" style="font-size:10px">Ready</span>
+        <span style="font-size:10px;color:var(--text2);margin-left:auto">
+          ${sv.duration_sec ? sv.duration_sec + 's' : ''} ${sv.size_bytes ? '· ' + (sv.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
+        </span>
+      </summary>
+      <video controls preload="metadata" ${poster ? `poster="${esc(poster)}"` : ''} style="width:100%;max-width:320px;border-radius:8px;border:1px solid var(--border)">
+        <source src="/api/media/video/${vid}" type="video/mp4">
+      </video>
+      <div style="font-size:10px;color:var(--text2);margin-top:4px">
+        ${sv.saved_at ? 'Saved ' + new Date(sv.saved_at).toLocaleDateString() : ''}
+      </div>
+    </details>
   </div>`;
 }
 
@@ -793,6 +798,7 @@ async function renderSavedMedia(el) {
           title: b.entity?.title_he || b.entity?.title_en || 'Untitled',
           city: b.entity?.city || '',
           is_approved: isApproved,
+          poster: mp.hero_image || (mp.selected_images || [])[0] || '',
         });
       }
     }
@@ -815,7 +821,7 @@ async function renderSavedMedia(el) {
           ${v.is_approved ? '<span class="badge badge-green" style="font-size:10px">Approved</span>' : ''}
         </div>
         <div style="padding:12px 20px">
-          <video controls preload="metadata" style="width:100%;border-radius:8px;border:1px solid var(--border)">
+          <video controls preload="metadata" ${v.poster ? `poster="${esc(v.poster)}"` : ''} style="width:100%;border-radius:8px;border:1px solid var(--border)">
             <source src="/api/media/video/${v.variant_id}" type="video/mp4">
           </video>
           <div style="font-size:10px;color:var(--text2);margin-top:6px">

@@ -17,12 +17,14 @@ export const planVideo = (input: JobInput): PlannedVideo => {
   const scenes: PlannedScene[] = [];
   let cursor = 0;
 
+  // Intro: use first image as background (never black)
   const introFrames = Math.round(INTRO_SECONDS * fps);
   scenes.push({
     id: 'intro',
     type: 'intro',
     from: cursor,
-    durationInFrames: introFrames
+    durationInFrames: introFrames,
+    image: input.images[0] // first image as intro background
   });
   cursor += introFrames;
 
@@ -38,12 +40,14 @@ export const planVideo = (input: JobInput): PlannedVideo => {
     cursor += durationInFrames;
   });
 
+  // Outro: use last image as background (never black)
   const outroFrames = Math.round(OUTRO_SECONDS * fps);
   scenes.push({
     id: 'outro',
     type: 'outro',
     from: cursor,
-    durationInFrames: outroFrames
+    durationInFrames: outroFrames,
+    image: input.images[input.images.length - 1] // last image as outro background
   });
   cursor += outroFrames;
 

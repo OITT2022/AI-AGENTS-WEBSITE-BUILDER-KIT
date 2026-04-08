@@ -57,52 +57,58 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
       <Series>
         {video.scenes.map((scene, index) => {
           if (scene.type === 'intro') {
+            const introSrc = scene.image ? resolveSrc(scene.image.src) : null;
             return (
               <Series.Sequence key={scene.id} durationInFrames={scene.durationInFrames}>
-                <AbsoluteFill
-                  style={{
-                    background: `linear-gradient(135deg, ${backgroundColor} 0%, #1b1b1d 100%)`,
-                    justifyContent: 'center',
-                    alignItems: rtl ? 'flex-end' : 'flex-start',
-                    padding: '0 72px'
-                  }}
-                  dir={rtl ? 'rtl' : 'ltr'}
-                >
-                  <div style={{maxWidth: '82%', textAlign: rtl ? 'right' : 'left'}}>
-                    <div style={{fontSize: introTitleSize, color: textColor, fontWeight: 800, lineHeight: 1.02, textShadow: '0 4px 20px rgba(0,0,0,0.5)'}}>{video.input.title}</div>
-                    {video.input.subtitle ? (
-                      <div style={{marginTop: 22, fontSize: introSubSize, lineHeight: 1.35, color: textColor, opacity: 0.9, textShadow: '0 2px 12px rgba(0,0,0,0.4)'}}>
-                        {video.input.subtitle}
-                      </div>
-                    ) : null}
-                  </div>
+                <AbsoluteFill style={{backgroundColor}}>
+                  {introSrc ? <ImageSlide src={introSrc} fitMode={video.input.fitMode ?? 'cover'} overlay="rgba(0,0,0,0.55)" /> : null}
+                  <AbsoluteFill
+                    style={{
+                      justifyContent: 'center',
+                      alignItems: rtl ? 'flex-end' : 'flex-start',
+                      padding: '0 72px'
+                    }}
+                    dir={rtl ? 'rtl' : 'ltr'}
+                  >
+                    <div style={{maxWidth: '82%', textAlign: rtl ? 'right' : 'left'}}>
+                      <div style={{fontSize: introTitleSize, color: textColor, fontWeight: 800, lineHeight: 1.02, textShadow: '0 6px 24px rgba(0,0,0,0.7)'}}>{video.input.title}</div>
+                      {video.input.subtitle ? (
+                        <div style={{marginTop: 22, fontSize: introSubSize, lineHeight: 1.35, color: textColor, opacity: 0.95, textShadow: '0 4px 16px rgba(0,0,0,0.6)'}}>
+                          {video.input.subtitle}
+                        </div>
+                      ) : null}
+                    </div>
+                  </AbsoluteFill>
                 </AbsoluteFill>
               </Series.Sequence>
             );
           }
 
           if (scene.type === 'outro') {
+            const outroSrc = scene.image ? resolveSrc(scene.image.src) : null;
             return (
               <Series.Sequence key={scene.id} durationInFrames={scene.durationInFrames}>
-                <AbsoluteFill
-                  style={{
-                    background: `linear-gradient(180deg, ${backgroundColor} 0%, #000 100%)`,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: '0 72px'
-                  }}
-                  dir={rtl ? 'rtl' : 'ltr'}
-                >
-                  <div style={{textAlign: 'center', maxWidth: '86%'}}>
-                    <div style={{fontSize: outroTitleSize, lineHeight: 1.06, color: textColor, fontWeight: 800, textShadow: '0 4px 20px rgba(0,0,0,0.5)'}}>
-                      {video.input.outroTitle ?? video.input.cta ?? ''}
-                    </div>
-                    {video.input.outroSubtitle ? (
-                      <div style={{marginTop: 20, fontSize: outroSubSize, color: textColor, opacity: 0.9, lineHeight: 1.35}}>
-                        {video.input.outroSubtitle}
+                <AbsoluteFill style={{backgroundColor}}>
+                  {outroSrc ? <ImageSlide src={outroSrc} fitMode={video.input.fitMode ?? 'cover'} overlay="rgba(0,0,0,0.6)" /> : null}
+                  <AbsoluteFill
+                    style={{
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      padding: '0 72px'
+                    }}
+                    dir={rtl ? 'rtl' : 'ltr'}
+                  >
+                    <div style={{textAlign: 'center', maxWidth: '86%'}}>
+                      <div style={{fontSize: outroTitleSize, lineHeight: 1.06, color: textColor, fontWeight: 800, textShadow: '0 6px 24px rgba(0,0,0,0.7)'}}>
+                        {video.input.outroTitle ?? video.input.cta ?? ''}
                       </div>
-                    ) : null}
-                  </div>
+                      {video.input.outroSubtitle ? (
+                        <div style={{marginTop: 20, fontSize: outroSubSize, color: textColor, opacity: 0.95, lineHeight: 1.35, textShadow: '0 4px 16px rgba(0,0,0,0.6)'}}>
+                          {video.input.outroSubtitle}
+                        </div>
+                      ) : null}
+                    </div>
+                  </AbsoluteFill>
                 </AbsoluteFill>
               </Series.Sequence>
             );

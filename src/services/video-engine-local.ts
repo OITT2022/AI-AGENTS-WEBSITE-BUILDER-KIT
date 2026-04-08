@@ -262,10 +262,68 @@ function spawnRender(
 
 // ── Public API ──
 
+// ── Remote worker delegation ──
+
+/**
+ * Delegate rendering to a remote EC2/ECS worker via HTTP.
+ * Used when VIDEO_WORKER_URL is set (hybrid Amplify + EC2 architecture).
+ */
+async function renderViaWorker(
+  workerUrl: string,
+  job: LocalVideoJob,
+  variantId?: string,
+): Promise<LocalVideoResult> {
+  const url = `${workerUrl.replace(/\/+$/, '')}/api/video/render`;
+  log.info('video-engine-local', `Delegating render to worker: ${url}`, {
+    variant_id: variantId,
+    platform: job.platform,
+  });
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 600_000); // 10 min timeout
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job, variantId }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Worker responded ${res.status}: ${body}`);
+    }
+
+    const result = await res.json() as LocalVideoResult;
+    log.info('video-engine-local', `Worker render complete`, {
+      variant_id: variantId,
+      url: result.url,
+      status: result.status,
+      size_bytes: result.fileSizeBytes,
+    });
+    return result;
+  } catch (err) {
+    const msg = (err as Error).message;
+    log.error('video-engine-local', `Worker render failed: ${msg}`, { variant_id: variantId });
+    return {
+      success: false,
+      url: '',
+      durationMs: 0,
+      status: 'failed',
+      fileSizeBytes: 0,
+      error: `Video worker error: ${msg}`,
+      storageProvider: 'none',
+    };
+  }
+}
+
 /**
  * Render a video from an in-memory job object.
  *
- * Full pipeline:
+ * If VIDEO_WORKER_URL is set, delegates to the remote EC2 worker.
+ * Otherwise, renders locally:
  * 1. Create temp workspace
  * 2. Write job JSON to workspace
  * 3. Spawn Remotion render (assets are downloaded inside render.ts)
@@ -279,6 +337,11 @@ export async function renderLocalVideo(
   job: LocalVideoJob,
   variantId?: string,
 ): Promise<LocalVideoResult> {
+  // Delegate to remote worker if configured (hybrid Amplify + EC2 setup)
+  const workerUrl = process.env.VIDEO_WORKER_URL?.trim();
+  if (workerUrl) {
+    return renderViaWorker(workerUrl, job, variantId);
+  }
   const videoEngineDir = getVideoEngineDir();
   const workspace = createTempWorkspace();
   const jobId = `job-${randomUUID()}`;
@@ -431,6 +494,11 @@ export async function renderLocalVideoFromFile(
  * so it can be explicitly enabled on AWS EC2/ECS while staying off on Lambda.
  */
 export function isVideoEngineReady(): { ready: boolean; issues: string[]; skipped: boolean } {
+  // Remote worker mode — always ready if URL is configured
+  if (process.env.VIDEO_WORKER_URL?.trim()) {
+    return { ready: true, issues: [], skipped: false };
+  }
+
   if (!isVideoCapable()) {
     return { ready: false, issues: [], skipped: true };
   }

@@ -1480,6 +1480,27 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ── Video render worker endpoint (EC2) ──
+// Called by Amplify via VIDEO_WORKER_URL when video rendering is delegated.
+// On EC2 this renders locally; on Amplify this endpoint is unused.
+app.post('/api/video/render', async (req, res) => {
+  try {
+    const { job, variantId } = req.body;
+    if (!job || !job.images?.length) {
+      return res.status(400).json({ success: false, error: 'Missing job or images' });
+    }
+    const veReady = videoEngineLocal.isVideoEngineReady();
+    if (!veReady.ready) {
+      return res.status(503).json({ success: false, error: 'Video engine not available on this host', issues: veReady.issues });
+    }
+    // Render locally on this EC2 worker — do NOT delegate again (no infinite loop)
+    const result = await videoEngineLocal.renderLocalVideo(job, variantId);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, url: '', durationMs: 0, status: 'failed', fileSizeBytes: 0, error: err.message, storageProvider: 'none' });
+  }
+});
+
 // ── Canva triggers ──
 
 app.get('/api/canva/connect/:clientId', async (req, res) => {

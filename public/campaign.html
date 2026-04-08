@@ -441,7 +441,7 @@ function renderSavedVideo(mp, vid) {
       <span class="badge badge-green" style="font-size:10px">Ready</span>
     </div>
     <video controls preload="metadata" style="width:100%;max-width:320px;border-radius:8px;border:1px solid var(--border)">
-      <source src="${esc(sv.url)}" type="video/mp4">
+      <source src="/api/media/video/${vid}" type="video/mp4">
     </video>
     <div style="font-size:10px;color:var(--text2);margin-top:4px">
       ${sv.duration_sec ? sv.duration_sec + 's' : ''} ${sv.size_bytes ? '· ' + (sv.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
@@ -805,7 +805,7 @@ async function renderSavedMedia(el) {
         </div>
         <div style="padding:12px 20px">
           <video controls preload="metadata" style="width:100%;border-radius:8px;border:1px solid var(--border)">
-            <source src="${esc(v.url)}" type="video/mp4">
+            <source src="/api/media/video/${v.variant_id}" type="video/mp4">
           </video>
           <div style="font-size:10px;color:var(--text2);margin-top:6px">
             ${v.duration_sec ? v.duration_sec + 's' : ''} ${v.size_bytes ? '· ' + (v.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
@@ -813,7 +813,7 @@ async function renderSavedMedia(el) {
           </div>
         </div>
         <div class="card-footer">
-          <a href="${esc(v.url)}" download class="btn btn-sm" style="text-decoration:none">Download</a>
+          <a href="/api/media/video/${v.variant_id}/download" class="btn btn-sm" style="text-decoration:none">Download</a>
           <div style="flex:1"></div>
           <button class="btn btn-sm btn-red" onclick="deleteSavedVideo('${v.variant_id}', ${v.is_approved})">Delete</button>
         </div>
@@ -977,7 +977,7 @@ async function generateAiAd(vid) {
     } else if (localVideo && localVideo.url) {
       html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (Local Slideshow)</div>
         <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
-          <source src="${esc(localVideo.url)}" type="video/mp4">
+          <source src="/api/media/video/${vid}" type="video/mp4">
         </video>
         <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Generated locally via VideoEngine</div>
         <button class="btn btn-sm btn-green" id="save-video-btn" onclick="saveGeneratedVideo('${vid}')">
@@ -1067,7 +1067,7 @@ function updateCardWithSavedVideo(variantId, savedVideo) {
       <span class="badge badge-green" style="font-size:10px">Ready</span>
     </div>
     <video controls preload="metadata" style="width:100%;max-width:320px;border-radius:8px;border:1px solid var(--border)">
-      <source src="${esc(savedVideo.url)}" type="video/mp4">
+      <source src="/api/media/video/${variantId}" type="video/mp4">
     </video>
     <div style="font-size:10px;color:var(--text2);margin-top:4px">
       ${savedVideo.duration_sec ? savedVideo.duration_sec + 's' : ''} ${savedVideo.size_bytes ? '· ' + (savedVideo.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
@@ -1089,7 +1089,7 @@ async function pollVideoStatus(variantId, attempt = 0) {
       if (el) {
         el.innerHTML = `
           <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
-            <source src="${esc(res.local_video.url)}" type="video/mp4">
+            <source src="/api/media/video/${variantId}" type="video/mp4">
           </video>
           <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Generated via VideoEngine</div>
           <button class="btn btn-sm btn-green" id="save-video-btn" onclick="saveGeneratedVideo('${variantId}')">

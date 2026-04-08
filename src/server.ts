@@ -357,6 +357,89 @@ app.get('/api/video/status/:variantId', async (req, res) => {
 const storageDir = path.join(getWritableBaseDir(), 'data', 'storage');
 app.use('/api/media/storage', express.static(storageDir));
 
+// ── Video proxy: stream video from EC2 worker through Amplify (HTTPS) ──
+// Browser requests /api/media/video/:variantId → Amplify fetches from EC2 → streams back.
+// No exposed EC2 IP, no mixed content, same-origin HTTPS.
+app.get('/api/media/video/:variantId', async (req, res) => {
+  try {
+    const variant = await store.getVariant(req.params.variantId);
+    if (!variant) return res.status(404).json({ error: 'Video not found' });
+    const mp = variant.media_plan_json as Record<string, unknown>;
+    const ai = mp?.ai_generated as Record<string, unknown> | undefined;
+    const sv = mp?.saved_video as Record<string, unknown> | undefined;
+    const videoUrl = (sv?.url || ai?.local_video && (ai.local_video as Record<string, unknown>).url) as string | undefined;
+    if (!videoUrl) return res.status(404).json({ error: 'No video for this variant' });
+
+    // If video is on local storage (same host), serve directly
+    if (videoUrl.startsWith('/api/media/storage/')) {
+      const localPath = path.join(storageDir, videoUrl.replace('/api/media/storage/', ''));
+      if (fs.existsSync(localPath)) return res.sendFile(localPath);
+    }
+
+    // Proxy from remote EC2 worker
+    const upstream = await fetch(videoUrl);
+    if (!upstream.ok) return res.status(upstream.status).json({ error: `Upstream: ${upstream.status}` });
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'video/mp4');
+    const contentLength = upstream.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    // Stream the response body
+    const reader = upstream.body as any;
+    if (reader?.pipe) {
+      reader.pipe(res);
+    } else if (reader?.getReader) {
+      const r = reader.getReader();
+      const pump = async () => {
+        while (true) {
+          const { done, value } = await r.read();
+          if (done) { res.end(); return; }
+          res.write(value);
+        }
+      };
+      pump().catch(() => res.end());
+    } else {
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      res.end(buf);
+    }
+  } catch (err: any) {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
+});
+
+// Download endpoint with content-disposition header
+app.get('/api/media/video/:variantId/download', async (req, res) => {
+  try {
+    const variant = await store.getVariant(req.params.variantId);
+    if (!variant) return res.status(404).json({ error: 'Video not found' });
+    const mp = variant.media_plan_json as Record<string, unknown>;
+    const ai = mp?.ai_generated as Record<string, unknown> | undefined;
+    const sv = mp?.saved_video as Record<string, unknown> | undefined;
+    const videoUrl = (sv?.url || ai?.local_video && (ai.local_video as Record<string, unknown>).url) as string | undefined;
+    if (!videoUrl) return res.status(404).json({ error: 'No video' });
+
+    const filename = `${req.params.variantId}-${variant.platform || 'video'}.mp4`;
+
+    if (videoUrl.startsWith('/api/media/storage/')) {
+      const localPath = path.join(storageDir, videoUrl.replace('/api/media/storage/', ''));
+      if (fs.existsSync(localPath)) {
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.sendFile(localPath);
+      }
+    }
+
+    const upstream = await fetch(videoUrl);
+    if (!upstream.ok) return res.status(upstream.status).json({ error: `Upstream: ${upstream.status}` });
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    const contentLength = upstream.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.end(buf);
+  } catch (err: any) {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Protect all API routes below ──
 app.use('/api', requireAuth);
 

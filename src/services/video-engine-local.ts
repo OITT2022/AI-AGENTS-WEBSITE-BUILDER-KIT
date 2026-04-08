@@ -435,14 +435,18 @@ export function isVideoEngineReady(): { ready: boolean; issues: string[]; skippe
     return { ready: false, issues: [], skipped: true };
   }
 
-  const issues: string[] = [];
   const videoEngineDir = getVideoEngineDir();
 
+  // If the video-engine directory doesn't exist at all, treat as skipped
+  // (e.g. Amplify deploy where video-engine is intentionally excluded)
   const renderScriptTs = path.join(videoEngineDir, 'scripts', 'render.ts');
   const renderScriptJs = path.join(videoEngineDir, 'scripts', 'render.js');
   if (!fs.existsSync(renderScriptTs) && !fs.existsSync(renderScriptJs)) {
-    issues.push(`Render script not found in: ${videoEngineDir}/scripts/`);
+    log.info('video-engine-local', 'Video engine not deployed on this host — skipping');
+    return { ready: false, issues: [], skipped: true };
   }
+
+  const issues: string[] = [];
 
   const nodeModules = path.join(videoEngineDir, 'node_modules');
   if (!fs.existsSync(nodeModules)) {

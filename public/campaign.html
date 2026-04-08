@@ -986,11 +986,6 @@ async function generateAiAd(vid) {
   try {
     const res = await apiCall(`/api/generate/ai-ad/${vid}`, { method: 'POST', body: JSON.stringify({}) });
 
-    // API returned — stop fake progress if video is NOT still processing
-    const isStillRendering = res.generated?.local_video?.status === 'processing';
-    if (!isStillRendering) clearInterval(window._renderProgressInterval);
-
-    // Update modal
     const modal = overlay.querySelector('.ai-gen-modal');
     if (!res.success) {
       clearInterval(window._renderProgressInterval);
@@ -1001,6 +996,17 @@ async function generateAiAd(vid) {
     }
 
     const gen = res.generated || {};
+    const localVideo = gen.local_video;
+
+    // If video is still rendering on EC2, keep the animated progress and poll
+    if (localVideo && localVideo.status === 'processing') {
+      // Progress animation keeps running — just start polling for completion
+      setTimeout(() => pollVideoStatus(vid), 5000);
+      return; // DO NOT replace modal — keep the progress steps visible
+    }
+
+    // Video done or no video — show results
+    clearInterval(window._renderProgressInterval);
     const scenes = gen.scene_images || [];
     const video = gen.video;
     const canvaDesign = gen.canva_design;
@@ -1028,13 +1034,7 @@ async function generateAiAd(vid) {
         </a>`;
     }
 
-    const localVideo = gen.local_video;
-    if (localVideo && localVideo.status === 'processing') {
-      // Keep the animated progress — just update the label
-      html += `<div id="video-poll-status"></div>`;
-      // Continue the progress animation — poll will complete it
-      setTimeout(() => pollVideoStatus(vid), 5000);
-    } else if (localVideo && localVideo.url) {
+    if (localVideo && localVideo.url) {
       html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (Local Slideshow)</div>
         <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
           <source src="/api/media/video/${vid}" type="video/mp4">

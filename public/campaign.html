@@ -1132,7 +1132,7 @@ async function renderApprovals(el) {
   const allTasks = await apiCall(`/api/clients/${clientId}/approvals`);
   const tasks = allTasks.filter(t => t.status === 'approved' || t.status === 'approved_with_edits');
   if (!tasks.length) { el.innerHTML = '<div class="empty-state"><h3>No approved ads yet</h3><p>Approve creatives in the Creatives tab first.</p></div>'; return; }
-  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px">${tasks.map((t,idx)=>{
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">${tasks.map((t,idx)=>{
     const v=t.variant||{};const copy=v.copy_json||{};const media=v.media_plan_json||{};
     const adUrl = v.entity?.listing_url || '';
     const uid = 'appr-'+idx;

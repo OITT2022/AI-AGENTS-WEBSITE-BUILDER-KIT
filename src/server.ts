@@ -353,6 +353,10 @@ app.get('/api/video/status/:variantId', async (req, res) => {
   }
 });
 
+// Serve stored media files (videos, images) — public, no auth required
+const storageDir = path.join(getWritableBaseDir(), 'data', 'storage');
+app.use('/api/media/storage', express.static(storageDir));
+
 // ── Protect all API routes below ──
 app.use('/api', requireAuth);
 
@@ -714,10 +718,6 @@ app.post('/api/ingest/batch', async (req, res) => {
 });
 
 app.use('/api/media/uploads', express.static(uploadDir));
-
-// Serve files from the storage provider (local filesystem)
-const storageDir = path.join(getWritableBaseDir(), 'data', 'storage');
-app.use('/api/media/storage', express.static(storageDir));
 
 // ── Pipeline ──
 

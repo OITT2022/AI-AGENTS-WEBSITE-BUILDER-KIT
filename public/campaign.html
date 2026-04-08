@@ -368,6 +368,13 @@ async function renderCreatives(el) {
         <div style="padding:16px 20px;border-right:1px solid var(--border)">
           <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">Edit Media</div>
           ${renderMediaGrid(media, vid)}
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">&#127925; Background Music</div>
+            <select id="sound-${vid}" style="width:100%;padding:6px 10px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)" onchange="previewSound(this)">
+              <option value="">Use preset default</option>
+            </select>
+            <div id="sound-preview-${vid}" style="margin-top:4px"></div>
+          </div>
         </div>
 
         <!-- BOX 2: Ad Text & Information -->
@@ -413,6 +420,40 @@ async function renderCreatives(el) {
 
   window._variants = {};
   batches.forEach(b => (b.variants||[]).forEach(v => { window._variants[v.id] = { ...v, entity: b.entity, batch: b }; }));
+
+  // Load sound options into all sound selectors
+  loadSoundSelectors();
+}
+
+let _cachedSounds = null;
+async function loadSoundSelectors() {
+  try {
+    if (!_cachedSounds) _cachedSounds = await apiCall('/api/sound-assets');
+    const sounds = _cachedSounds || [];
+    document.querySelectorAll('select[id^="sound-"]').forEach(sel => {
+      const vid = sel.id.replace('sound-', '');
+      // Check if variant already has a sound override saved
+      const v = window._variants?.[vid];
+      const savedSoundId = v?.media_plan_json?.override_sound_id || '';
+      const opts = sounds.map(s =>
+        `<option value="${s.id}" ${s.id === savedSoundId ? 'selected' : ''}>${esc(s.name)}${s.is_default ? ' (default)' : ''} — ${s.duration_seconds ? Math.round(s.duration_seconds) + 's' : ''}</option>`
+      ).join('');
+      sel.innerHTML = `<option value="">Use preset default</option><option value="none">No music</option>${opts}`;
+      if (savedSoundId) sel.value = savedSoundId;
+    });
+  } catch {}
+}
+
+function previewSound(sel) {
+  const vid = sel.id.replace('sound-', '');
+  const prev = document.getElementById('sound-preview-' + vid);
+  if (!prev) return;
+  const soundId = sel.value;
+  if (soundId && soundId !== 'none') {
+    prev.innerHTML = `<audio controls preload="metadata" src="/api/media/sound/${soundId}" style="width:100%;height:28px;margin-top:2px"></audio>`;
+  } else {
+    prev.innerHTML = '';
+  }
 }
 
 // ── Media rendering ──
@@ -1071,6 +1112,10 @@ async function generateAiAd(vid) {
     const urlEl = document.getElementById('url-' + vid);
     const tagsEl = document.getElementById('tags-' + vid);
     const textEl = document.getElementById('text-' + vid);
+    // Get sound override from the Edit Media sound picker
+    const soundSel = document.getElementById('sound-' + vid);
+    const soundOverride = soundSel?.value || undefined;
+
     const reqBody = {
       headline: hlEl?.value || undefined,
       description: descEl?.value || undefined,
@@ -1078,6 +1123,7 @@ async function generateAiAd(vid) {
       ad_url: urlEl?.value || undefined,
       hashtags: tagsEl?.value || undefined,
       primary_text: textEl?.innerText || undefined,
+      sound_id: soundOverride, // overrides preset default
     };
     const res = await apiCall(`/api/generate/ai-ad/${vid}`, { method: 'POST', body: JSON.stringify(reqBody) });
 

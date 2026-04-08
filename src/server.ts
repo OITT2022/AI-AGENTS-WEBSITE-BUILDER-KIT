@@ -1719,23 +1719,33 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
           const outroTitle = cta || title;
           const outroSubtitle = req.body.ad_url || String(copy.ad_url || entity.listing_url || '');
 
-          // Resolve background music from preset audio settings
+          // Resolve background music: request override > preset > default
           let musicConfig: videoEngineLocal.LocalVideoJob['music'] | undefined;
           try {
+            const overrideSoundId = req.body.sound_id as string | undefined;
             const resolvedPreset2 = await videoPresetService.resolvePreset(req.body.preset_id);
             const audioSettings = resolvedPreset2?.audio_settings as Record<string, unknown> | undefined;
-            if (audioSettings?.musicEnabled) {
+            const musicVolume = (audioSettings?.musicVolume as number) ?? 0.3;
+
+            if (overrideSoundId === 'none') {
+              // Explicitly no music
+              musicConfig = undefined;
+            } else if (overrideSoundId) {
+              // Creative-level sound override
+              const sound = await store.getSoundAsset(overrideSoundId);
+              if (sound) musicConfig = { src: sound.storage_url, volume: musicVolume };
+            } else if (audioSettings?.musicEnabled) {
+              // Preset sound
               const soundId = audioSettings.musicSoundId as string | undefined;
               const soundUrl = audioSettings.musicSoundUrl as string | undefined;
               if (soundId) {
                 const sound = await store.getSoundAsset(soundId);
-                if (sound) musicConfig = { src: sound.storage_url, volume: (audioSettings.musicVolume as number) ?? 0.3 };
+                if (sound) musicConfig = { src: sound.storage_url, volume: musicVolume };
               } else if (soundUrl) {
-                musicConfig = { src: soundUrl, volume: (audioSettings.musicVolume as number) ?? 0.3 };
+                musicConfig = { src: soundUrl, volume: musicVolume };
               } else {
-                // Try default sound
                 const defaultSound = await store.getDefaultSoundAsset();
-                if (defaultSound) musicConfig = { src: defaultSound.storage_url, volume: (audioSettings.musicVolume as number) ?? 0.3 };
+                if (defaultSound) musicConfig = { src: defaultSound.storage_url, volume: musicVolume };
               }
             }
           } catch {}

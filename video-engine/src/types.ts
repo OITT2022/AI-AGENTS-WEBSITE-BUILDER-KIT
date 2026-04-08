@@ -39,6 +39,7 @@ export type PresetConfig = {
   transitionDurationMs?: number;
   /** Text styling */
   text?: {
+    fontFamily?: string;
     headlineFontSize?: number;
     subheadlineFontSize?: number;
     ctaFontSize?: number;

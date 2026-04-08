@@ -179,6 +179,22 @@ function openEditor(id){
         <label class="check-row"><input type="checkbox" id="e-headline-on" ${t.headlineEnabled!==false?'checked':''}> Headline</label>
         <label class="check-row"><input type="checkbox" id="e-sub-on" ${t.subheadlineEnabled!==false?'checked':''}> Subheadline</label>
         <label class="check-row"><input type="checkbox" id="e-cta-on" ${t.ctaEnabled!==false?'checked':''}> CTA Button</label>
+        <div class="section-title">Font</div>
+        <div class="fg"><label>Font Family</label>
+          <select id="e-fontfamily" style="font-size:14px">
+            <option value="Noto Sans Hebrew, Noto Sans, sans-serif"${(t.fontFamily||'').includes('Noto Sans Hebrew')?' selected':''}>Noto Sans Hebrew (default)</option>
+            <option value="Roboto, Noto Sans Hebrew, sans-serif"${(t.fontFamily||'').includes('Roboto')?' selected':''}>Roboto</option>
+            <option value="Montserrat, Noto Sans Hebrew, sans-serif"${(t.fontFamily||'').includes('Montserrat')?' selected':''}>Montserrat</option>
+            <option value="Noto Serif, Noto Sans Hebrew, serif"${(t.fontFamily||'').includes('Noto Serif')?' selected':''}>Noto Serif</option>
+            <option value="Liberation Sans, Noto Sans Hebrew, sans-serif"${(t.fontFamily||'').includes('Liberation Sans')?' selected':''}>Liberation Sans (Arial-like)</option>
+            <option value="Liberation Serif, Noto Sans Hebrew, serif"${(t.fontFamily||'').includes('Liberation Serif')?' selected':''}>Liberation Serif (Times-like)</option>
+            <option value="DejaVu Sans, Noto Sans Hebrew, sans-serif"${(t.fontFamily||'').includes('DejaVu')?' selected':''}>DejaVu Sans</option>
+            <option value="Noto Sans, Noto Sans Hebrew, sans-serif"${(t.fontFamily||'')==='Noto Sans, Noto Sans Hebrew, sans-serif'?' selected':''}>Noto Sans</option>
+          </select>
+          <div style="margin-top:6px;padding:12px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+            <div id="font-preview" style="font-size:24px;line-height:1.3">Preview: Luxury Penthouse<br>תצוגה מקדימה: דירת יוקרה</div>
+          </div>
+        </div>
         <div class="section-title">Font Sizes</div>
         <div class="row3">
           <div class="fg"><label>Headline</label><input type="number" id="e-hl-size" value="${t.headlineFontSize||80}" min="8" max="200"></div>
@@ -285,6 +301,10 @@ function openEditor(id){
 
   // Auto-slug
   E('e-name').addEventListener('input',()=>{if(!editId)E('e-slug').value=E('e-name').value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'')});
+  // Font preview
+  const updateFontPreview=()=>{const f=E('e-fontfamily')?.value||'sans-serif';const p=E('font-preview');if(p)p.style.fontFamily=f};
+  E('e-fontfamily')?.addEventListener('change',updateFontPreview);
+  updateFontPreview();
   // Platform presets
   E('e-platform').addEventListener('change',()=>{
     const v=E('e-platform').value;
@@ -315,6 +335,7 @@ function collectForm(){
       crf:n('e-crf'),encodingPreset:s('e-encpreset'),audioBitrate:s('e-abitrate'),
       transitionType:s('e-transition'),transitionDurationMs:n('e-transdur')},
     text_settings:{enabled:c('e-txt-on'),headlineEnabled:c('e-headline-on'),subheadlineEnabled:c('e-sub-on'),ctaEnabled:c('e-cta-on'),
+      fontFamily:s('e-fontfamily'),
       headlineFontSize:n('e-hl-size'),subheadlineFontSize:n('e-sub-size'),ctaFontSize:n('e-cta-size'),
       fontColor:s('e-fontcolor'),strokeColor:s('e-strokecolor'),strokeWidth:n('e-strokew'),
       shadowEnabled:c('e-shadow-on'),shadowColor:s('e-shadow-color'),shadowX:shadowXY[0]||0,shadowY:shadowXY[1]??4,

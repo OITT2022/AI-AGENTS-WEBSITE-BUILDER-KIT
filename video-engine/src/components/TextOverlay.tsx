@@ -21,6 +21,7 @@ export const TextOverlay: React.FC<{
 
   // Preset text settings with defaults
   const t = preset?.text;
+  const fontFamily = t?.fontFamily ?? 'Noto Sans Hebrew, Noto Sans, sans-serif';
   const titleSize = t?.headlineFontSize ?? 70;
   const subtitleSize = t?.subheadlineFontSize ?? 34;
   const ctaSize = t?.ctaFontSize ?? 28;
@@ -61,7 +62,8 @@ export const TextOverlay: React.FC<{
           flexDirection: 'column',
           gap: 18,
           alignItems,
-          textAlign: align
+          textAlign: align,
+          fontFamily
         }}
       >
         <div

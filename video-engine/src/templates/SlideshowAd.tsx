@@ -45,6 +45,7 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
   const introSubSize = preset?.text?.subheadlineFontSize ?? 34;
   const outroTitleSize = preset?.text?.headlineFontSize ? Math.round(preset.text.headlineFontSize * 0.88) : 70;
   const outroSubSize = preset?.text?.subheadlineFontSize ?? 32;
+  const fontFamily = preset?.text?.fontFamily ?? 'Noto Sans Hebrew, Noto Sans, sans-serif';
 
   // Logo overlay settings
   const logoOpacity = preset?.overlay?.logoOpacity ?? 1;
@@ -70,7 +71,7 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
                     }}
                     dir={rtl ? 'rtl' : 'ltr'}
                   >
-                    <div style={{maxWidth: '82%', textAlign: rtl ? 'right' : 'left'}}>
+                    <div style={{maxWidth: '82%', textAlign: rtl ? 'right' : 'left', fontFamily}}>
                       <div style={{fontSize: introTitleSize, color: textColor, fontWeight: 800, lineHeight: 1.02, textShadow: '0 6px 24px rgba(0,0,0,0.7)'}}>{video.input.title}</div>
                       {video.input.subtitle ? (
                         <div style={{marginTop: 22, fontSize: introSubSize, lineHeight: 1.35, color: textColor, opacity: 0.95, textShadow: '0 4px 16px rgba(0,0,0,0.6)'}}>
@@ -98,7 +99,7 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
                     }}
                     dir={rtl ? 'rtl' : 'ltr'}
                   >
-                    <div style={{textAlign: 'center', maxWidth: '86%'}}>
+                    <div style={{textAlign: 'center', maxWidth: '86%', fontFamily}}>
                       <div style={{fontSize: outroTitleSize, lineHeight: 1.06, color: textColor, fontWeight: 800, textShadow: '0 6px 24px rgba(0,0,0,0.7)'}}>
                         {video.input.outroTitle ?? video.input.cta ?? ''}
                       </div>

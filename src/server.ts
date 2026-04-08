@@ -1622,6 +1622,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
               transitionType: renderConfig.scenes.transitionType,
               transitionDurationMs: renderConfig.scenes.transitionDurationMs,
               text: {
+                fontFamily: renderConfig.text.fontFamily,
                 headlineFontSize: renderConfig.text.headline.fontSize,
                 subheadlineFontSize: renderConfig.text.subheadline.fontSize,
                 ctaFontSize: renderConfig.text.cta.fontSize,

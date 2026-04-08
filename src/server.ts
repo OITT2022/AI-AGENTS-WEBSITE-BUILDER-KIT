@@ -1896,23 +1896,36 @@ app.post('/api/sound-assets/upload', requireRole('admin', 'manager'), upload.sin
     const workerUrl = process.env.VIDEO_WORKER_URL?.trim();
     if (workerUrl) {
       try {
-        const FormData = (await import('form-data')).default;
-        const form = new FormData();
-        form.append('file', fileBuffer, { filename: file.originalname, contentType: file.mimetype });
-        form.append('name', name);
-        form.append('category', category);
-        if (tags.length) form.append('tags', tags.join(','));
-        if (req.body.duration_seconds) form.append('duration_seconds', req.body.duration_seconds);
+        const boundary = '----SoundUpload' + Date.now();
+        const parts: Buffer[] = [];
+        const addField = (name: string, value: string) => {
+          parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
+        };
+        // File part
+        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${file.originalname}"\r\nContent-Type: ${file.mimetype || 'audio/mpeg'}\r\n\r\n`));
+        parts.push(fileBuffer);
+        parts.push(Buffer.from('\r\n'));
+        // Fields
+        addField('name', name);
+        addField('category', category);
+        if (tags.length) addField('tags', tags.join(','));
+        if (req.body.duration_seconds) addField('duration_seconds', String(req.body.duration_seconds));
+        parts.push(Buffer.from(`--${boundary}--\r\n`));
+        const body = Buffer.concat(parts);
+
         const workerRes = await fetch(`${workerUrl.replace(/\/+$/, '')}/api/sound-assets/internal-upload`, {
           method: 'POST',
-          body: form as any,
-          headers: form.getHeaders(),
+          body,
+          headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
         });
         fs.unlinkSync(file.path);
+        if (!workerRes.ok) {
+          const errText = await workerRes.text();
+          throw new Error(`Worker ${workerRes.status}: ${errText.substring(0, 200)}`);
+        }
         const workerData = await workerRes.json();
         return res.json(workerData);
       } catch (proxyErr) {
-        // Fall through to local upload
         console.warn('[sound-upload] Worker proxy failed, uploading locally:', (proxyErr as Error).message);
       }
     }

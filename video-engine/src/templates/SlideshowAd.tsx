@@ -29,16 +29,24 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
   const rtl = video.input.rtl ?? ['he', 'ar'].includes(video.input.language);
   const preset = video.input.preset;
 
-  // Audio: use preset fade settings if available
-  const musicVolume = preset?.audio?.musicVolume ?? video.input.music?.volume ?? 0.7;
-  const fadeInFrames = preset?.audio?.fadeInFrames ?? 20;
-  const fadeOutFrames = preset?.audio?.fadeOutFrames ?? 20;
+  // Audio: calculate fade envelope matched to video duration
+  const musicVolume = preset?.audio?.musicVolume ?? video.input.music?.volume ?? 0.3;
+  const fps = video.fps;
+  // Fade in over ~1s, fade out over ~2s (smooth ending)
+  const fadeInFrames = preset?.audio?.fadeInFrames ?? Math.round(fps * 1);
+  const fadeOutFrames = preset?.audio?.fadeOutFrames ?? Math.round(fps * 2);
+  // Ensure fade frames don't exceed video length
+  const safeFadeIn = Math.min(fadeInFrames, Math.floor(video.totalFrames * 0.2));
+  const safeFadeOut = Math.min(fadeOutFrames, Math.floor(video.totalFrames * 0.3));
   const audioFade = interpolate(
     frame,
-    [0, fadeInFrames, video.totalFrames - fadeOutFrames, video.totalFrames],
+    [0, safeFadeIn, video.totalFrames - safeFadeOut, video.totalFrames],
     [0, musicVolume, musicVolume, 0],
     { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
   );
+  // Trim: skip first 0.5s of music (often silent), end at video duration
+  const musicTrimStart = Math.round((video.input.music?.trimStartSeconds ?? 0.5) * fps);
+  const musicEndAt = video.totalFrames + musicTrimStart;
 
   // Intro text sizes from preset
   const introTitleSize = preset?.text?.headlineFontSize ?? 80;
@@ -53,7 +61,7 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
 
   return (
     <AbsoluteFill style={{backgroundColor}}>
-      {video.input.music ? <Audio src={resolveSrc(video.input.music.src)} volume={audioFade} /> : null}
+      {video.input.music ? <Audio src={resolveSrc(video.input.music.src)} volume={audioFade} startFrom={musicTrimStart} endAt={musicEndAt} /> : null}
 
       <Series>
         {video.scenes.map((scene, index) => {

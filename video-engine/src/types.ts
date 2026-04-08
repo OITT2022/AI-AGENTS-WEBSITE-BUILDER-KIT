@@ -55,6 +55,13 @@ export type PresetConfig = {
     backgroundBoxOpacity?: number;
     textAlign?: 'left' | 'center' | 'right';
     safeMargins?: { top: number; bottom: number; left: number; right: number };
+    /** Custom text positions from the Board editor (percent of canvas) */
+    positions?: {
+      headline?: { x: number; y: number };
+      subtitle?: { x: number; y: number };
+      cta?: { x: number; y: number };
+      description?: { x: number; y: number };
+    };
   };
   /** Overlay styling */
   overlay?: {

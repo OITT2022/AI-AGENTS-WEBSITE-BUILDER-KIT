@@ -95,6 +95,11 @@
     .render-step .step-icon{width:20px;text-align:center;font-size:14px}
     .render-step.active .step-icon{animation:pulse 1.5s ease-in-out infinite}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    .board-item{position:absolute;transform:translate(-50%,-50%);cursor:grab;padding:8px 16px;border-radius:8px;background:rgba(0,0,0,0.6);border:2px solid rgba(255,255,255,0.4);color:#fff;font-size:14px;font-weight:600;max-width:80%;text-align:center;user-select:none;transition:border-color .15s,box-shadow .15s;z-index:2}
+    .board-item:hover{border-color:var(--primary);box-shadow:0 0 12px rgba(99,102,241,0.5)}
+    .board-item:active{border-color:#22c55e;cursor:grabbing}
+    .board-item .board-label{font-size:9px;text-transform:uppercase;color:var(--primary);letter-spacing:1px;margin-bottom:2px}
+    .board-cta{background:var(--primary);border-color:var(--primary);color:#fff}
     .ai-gen-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:16px;text-align:left}
     .ai-gen-scene{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2)}
     .ai-gen-scene img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block;cursor:pointer}
@@ -391,6 +396,9 @@ async function renderCreatives(el) {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
               Save
             </button>
+            <button class="btn btn-sm" onclick="openBoard('${vid}')" title="Visual text position editor">
+              Board
+            </button>
           </div>
         </div>
 
@@ -453,6 +461,142 @@ function previewSound(sel) {
     prev.innerHTML = `<audio controls preload="metadata" src="/api/media/sound/${soundId}" style="width:100%;height:28px;margin-top:2px"></audio>`;
   } else {
     prev.innerHTML = '';
+  }
+}
+
+// ── Board: Visual Text Position Editor ──
+
+function openBoard(variantId) {
+  const v = window._variants?.[variantId];
+  if (!v) return showToast('Variant not found');
+  const media = v.media_plan_json || {};
+  const copy = v.copy_json || {};
+  const poster = media.hero_image || (media.selected_images||[])[0] || '';
+  const savedPos = media.text_positions || {};
+
+  // Determine canvas aspect ratio from platform
+  const platform = v.platform || 'facebook';
+  const aspectMap = { facebook: { w: 1080, h: 1350 }, instagram: { w: 1080, h: 1920 }, tiktok: { w: 1080, h: 1920 } };
+  const dims = aspectMap[platform] || aspectMap.facebook;
+  // Scale to fit screen (max 400px wide)
+  const scale = Math.min(400 / dims.w, (window.innerHeight * 0.7) / dims.h);
+  const cw = Math.round(dims.w * scale);
+  const ch = Math.round(dims.h * scale);
+
+  const headline = document.getElementById('hl-' + variantId)?.value || copy.headline || '';
+  const description = document.getElementById('desc-' + variantId)?.value || copy.description || '';
+  const cta = document.getElementById('cta-' + variantId)?.value || copy.cta || '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'ai-gen-overlay';
+  overlay.id = 'board-overlay';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border-radius:var(--radius);padding:20px;text-align:center;max-width:${cw+80}px">
+      <h3 style="margin-bottom:4px">Text Position Board</h3>
+      <p style="font-size:11px;color:var(--text2);margin-bottom:12px">Drag each text element to position it on the video</p>
+      <div id="board-canvas" style="position:relative;width:${cw}px;height:${ch}px;margin:0 auto;border-radius:8px;overflow:hidden;border:2px solid var(--primary);background:#000">
+        ${poster ? `<img src="${esc(poster)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:0.6">` : ''}
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
+        ${headline ? `<div class="board-item" id="board-headline" data-key="headline" style="left:${savedPos.headline?.x ?? 50}%;top:${savedPos.headline?.y ?? 20}%">
+          <div class="board-label">Headline</div>${esc(headline)}</div>` : ''}
+        ${description ? `<div class="board-item" id="board-subtitle" data-key="subtitle" style="left:${savedPos.subtitle?.x ?? 50}%;top:${savedPos.subtitle?.y ?? 40}%">
+          <div class="board-label">Description</div>${esc(description)}</div>` : ''}
+        ${cta ? `<div class="board-item board-cta" id="board-cta" data-key="cta" style="left:${savedPos.cta?.x ?? 50}%;top:${savedPos.cta?.y ?? 75}%">
+          <div class="board-label">CTA</div>${esc(cta)}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+        <button class="btn btn-sm" onclick="resetBoard()">Reset</button>
+        <button class="btn btn-sm btn-green" onclick="saveBoard('${variantId}')">Save Positions</button>
+        <button class="btn btn-sm" onclick="document.getElementById('board-overlay')?.remove()">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Enable drag
+  document.querySelectorAll('.board-item').forEach(el => {
+    let dragging = false, startX, startY, startLeft, startTop;
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dragging = true;
+      const canvas = document.getElementById('board-canvas');
+      const rect = canvas.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = parseFloat(el.style.left);
+      startTop = parseFloat(el.style.top);
+      el.style.zIndex = '10';
+      el.style.cursor = 'grabbing';
+
+      const onMove = (e2) => {
+        if (!dragging) return;
+        const dx = (e2.clientX - startX) / rect.width * 100;
+        const dy = (e2.clientY - startY) / rect.height * 100;
+        el.style.left = Math.max(5, Math.min(95, startLeft + dx)) + '%';
+        el.style.top = Math.max(5, Math.min(95, startTop + dy)) + '%';
+      };
+      const onUp = () => {
+        dragging = false;
+        el.style.zIndex = '';
+        el.style.cursor = 'grab';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    // Touch support
+    el.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      const canvas = document.getElementById('board-canvas');
+      const rect = canvas.getBoundingClientRect();
+      startX = touch.clientX;
+      startY = touch.clientY;
+      startLeft = parseFloat(el.style.left);
+      startTop = parseFloat(el.style.top);
+
+      const onMove = (e2) => {
+        const t = e2.touches[0];
+        const dx = (t.clientX - startX) / rect.width * 100;
+        const dy = (t.clientY - startY) / rect.height * 100;
+        el.style.left = Math.max(5, Math.min(95, startLeft + dx)) + '%';
+        el.style.top = Math.max(5, Math.min(95, startTop + dy)) + '%';
+      };
+      const onEnd = () => {
+        el.removeEventListener('touchmove', onMove);
+        el.removeEventListener('touchend', onEnd);
+      };
+      el.addEventListener('touchmove', onMove, { passive: true });
+      el.addEventListener('touchend', onEnd);
+    }, { passive: true });
+  });
+}
+
+function resetBoard() {
+  const items = document.querySelectorAll('.board-item');
+  const defaults = { headline: { x: 50, y: 20 }, subtitle: { x: 50, y: 40 }, cta: { x: 50, y: 75 } };
+  items.forEach(el => {
+    const key = el.dataset.key;
+    if (defaults[key]) { el.style.left = defaults[key].x + '%'; el.style.top = defaults[key].y + '%'; }
+  });
+}
+
+async function saveBoard(variantId) {
+  const v = window._variants?.[variantId];
+  if (!v) return;
+  const positions = {};
+  document.querySelectorAll('.board-item').forEach(el => {
+    const key = el.dataset.key;
+    positions[key] = { x: Math.round(parseFloat(el.style.left) * 10) / 10, y: Math.round(parseFloat(el.style.top) * 10) / 10 };
+  });
+  const mp = { ...v.media_plan_json, text_positions: positions };
+  const res = await apiCall(`/api/creatives/${variantId}`, { method: 'PUT', body: JSON.stringify({ media_plan_json: mp }) });
+  if (res.success) {
+    v.media_plan_json = mp;
+    showToast('Text positions saved');
+    document.getElementById('board-overlay')?.remove();
+  } else {
+    showToast('Save failed');
   }
 }
 
@@ -1143,7 +1287,7 @@ async function generateAiAd(vid) {
       clearInterval(window._renderProgressInterval);
       modal.innerHTML = `<h3 style="color:var(--red);margin-bottom:12px">Generation Failed</h3>
         <p style="color:var(--text2);font-size:14px">${esc(res.error || 'Unknown error')}</p>
-        <button class="btn btn-sm" style="margin-top:16px" onclick="document.getElementById('ai-gen-overlay')?.remove()">Close</button>`;
+        <button class="btn btn-sm" style="margin-top:16px" onclick="document.getElementById('ai-gen-overlay')?.remove();switchTab('creatives')">Close</button>`;
       return;
     }
 
@@ -1212,7 +1356,7 @@ async function generateAiAd(vid) {
         </details></div>`;
     }
 
-    html += `<button class="btn btn-sm" style="margin-top:20px" onclick="document.getElementById('ai-gen-overlay')?.remove()">Close</button>`;
+    html += `<button class="btn btn-sm" style="margin-top:20px" onclick="document.getElementById('ai-gen-overlay')?.remove();switchTab('creatives')">Close</button>`;
     modal.innerHTML = html;
 
     // Update variant data in memory
@@ -1327,7 +1471,7 @@ async function pollVideoStatus(variantId, attempt = 0) {
               </button>
               <a href="/api/media/video/${variantId}/download" class="btn btn-sm" style="text-decoration:none">Download</a>
             </div>
-            <button class="btn btn-sm" onclick="document.getElementById('ai-gen-overlay')?.remove()">Close</button>`;
+            <button class="btn btn-sm" onclick="document.getElementById('ai-gen-overlay')?.remove();switchTab('creatives')">Close</button>`;
         }
       }, 800);
 

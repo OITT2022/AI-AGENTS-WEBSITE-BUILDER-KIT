@@ -1689,6 +1689,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
                 shadowY: renderConfig.text.shadow.y,
                 textAlign: renderConfig.text.textAlign,
                 safeMargins: renderConfig.text.safeMargins,
+                positions: (mediaPlan.text_positions as Record<string, unknown>) || undefined,
               },
               overlay: {
                 logoOpacity: renderConfig.overlays.logo.opacity,

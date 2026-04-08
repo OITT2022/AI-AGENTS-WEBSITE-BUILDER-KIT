@@ -291,8 +291,9 @@ async function handleLogoUpload(input) {
       body: formData,
     });
     const data = await res.json();
-    if (data.url) {
-      clientLogoUrl = data.url;
+    if (data.url || data.key) {
+      // Use relative storage path (proxied through Amplify) instead of direct EC2 URL
+      clientLogoUrl = data.key ? '/api/media/storage/' + data.key : data.url;
       showLogoPreview(clientLogoUrl);
       showToast('Logo uploaded');
     } else {
@@ -305,9 +306,14 @@ async function handleLogoUpload(input) {
 
 function showLogoPreview(url) {
   if (!url) return;
+  // Convert EC2 direct URLs to proxy paths
+  let displayUrl = url;
+  if (url.includes('/api/media/storage/') && url.startsWith('http')) {
+    displayUrl = '/api/media/storage/' + url.split('/api/media/storage/')[1];
+  }
   const img = document.getElementById('logo-preview');
   const placeholder = document.getElementById('logo-placeholder');
-  if (img) { img.src = url; img.style.display = 'block'; }
+  if (img) { img.src = displayUrl; img.style.display = 'block'; }
   if (placeholder) placeholder.style.display = 'none';
 }
 

@@ -358,9 +358,24 @@ app.get('/api/video/status/:variantId', async (req, res) => {
   }
 });
 
-// Serve stored media files (videos, images) — public, no auth required
+// Serve stored media files (videos, images, logos, sounds) — public, no auth required
 const storageDir = path.join(getWritableBaseDir(), 'data', 'storage');
 app.use('/api/media/storage', express.static(storageDir));
+
+// Fallback proxy: if file not found locally, stream from EC2 worker
+app.use('/api/media/storage', (req, res, next) => {
+  const workerUrl = process.env.VIDEO_WORKER_URL?.trim();
+  if (!workerUrl) return next();
+  const upstream = `${workerUrl.replace(/\/+$/, '')}/api/media/storage${req.path}`;
+  const httpMod = upstream.startsWith('https') ? require('https') : require('http');
+  httpMod.get(upstream, { timeout: 30_000 }, (upRes: any) => {
+    if (upRes.statusCode >= 400) { res.status(upRes.statusCode).end(); return; }
+    if (upRes.headers['content-type']) res.setHeader('Content-Type', upRes.headers['content-type']);
+    if (upRes.headers['content-length']) res.setHeader('Content-Length', upRes.headers['content-length']);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    upRes.pipe(res);
+  }).on('error', () => next());
+});
 
 // ── Sound proxy: stream audio from EC2 through Amplify (HTTPS) ──
 app.get('/api/media/sound/:soundId', async (req, res) => {

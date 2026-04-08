@@ -7,56 +7,54 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/dashboard/favicon-32x32.png">
   <title>Video Ad Presets - Marketing Agent</title>
   <style>
-    :root {
-      --bg: #0f1117; --surface: #1a1d27; --surface2: #242836; --border: #2e3345;
-      --text: #e4e6f0; --text2: #9da3b7; --primary: #6366f1; --primary-hover: #818cf8;
-      --green: #22c55e; --yellow: #eab308; --red: #ef4444; --blue: #3b82f6; --radius: 12px;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-    .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-    .header h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-    .header-actions { display: flex; gap: 10px; align-items: center; }
-    .back-link { color: var(--text2); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 6px; }
-    .back-link:hover { color: var(--text); }
-    .container { padding: 32px; max-width: 1200px; margin: 0 auto; }
-    .btn { padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 13px; cursor: pointer; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 8px; }
-    .btn:hover { background: var(--border); }
-    .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-hover); }
-    .btn-green { background: var(--green); border-color: var(--green); color: #fff; }
-    .btn-red { background: var(--red); border-color: var(--red); color: #fff; }
-    .btn-sm { padding: 6px 14px; font-size: 12px; }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-    .badge-green { background: rgba(34,197,94,.15); color: #22c55e; }
-    .badge-blue { background: rgba(59,130,246,.15); color: #3b82f6; }
-    .badge-yellow { background: rgba(234,179,8,.15); color: #eab308; }
+    :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#242836;--border:#2e3345;--text:#e4e6f0;--text2:#9da3b7;--primary:#6366f1;--primary-hover:#818cf8;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--blue:#3b82f6;--radius:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+    .header h1{font-size:20px;font-weight:700}
+    .header-actions{display:flex;gap:10px;align-items:center}
+    .back-link{color:var(--text2);text-decoration:none;font-size:13px}.back-link:hover{color:var(--text)}
+    .container{padding:32px;max-width:1200px;margin:0 auto}
+    .btn{padding:10px 20px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+    .btn:hover{background:var(--border)}.btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
+    .btn-green{background:var(--green);border-color:var(--green);color:#fff}
+    .btn-red{background:var(--red);border-color:var(--red);color:#fff}
+    .btn-sm{padding:6px 14px;font-size:12px}
+    .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+    .badge-green{background:rgba(34,197,94,.15);color:#22c55e}.badge-blue{background:rgba(59,130,246,.15);color:#3b82f6}.badge-yellow{background:rgba(234,179,8,.15);color:#eab308}
+    .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+    .card.default-card{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+    .card-header{padding:16px 20px;display:flex;justify-content:space-between;align-items:start}
+    .card-body{padding:0 20px 16px}.card-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+    .detail-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}.detail-row .label{color:var(--text2)}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--text2)}.loading{text-align:center;padding:40px;color:var(--text2)}
 
-    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    .card.default-card { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
-    .card-header { padding: 16px 20px; display: flex; justify-content: space-between; align-items: start; }
-    .card-body { padding: 0 20px 16px; }
-    .card-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
-    .detail-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-    .detail-row .label { color: var(--text2); }
-    .detail-row .value { font-weight: 500; }
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
-    .loading { text-align: center; padding: 40px; color: var(--text2); }
-
-    .tabs { display: flex; gap: 0; margin-bottom: 24px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
-    .tab { padding: 12px 24px; background: transparent; border: none; color: var(--text2); cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; }
-    .tab.active { background: var(--primary); color: #fff; }
-
-    .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
-    .form-section h3 { font-size: 15px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-    .form-group { display: flex; flex-direction: column; gap: 4px; }
-    .form-group label { font-size: 12px; color: var(--text2); font-weight: 500; }
-    .form-group input, .form-group select { padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px; }
-    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
-    .form-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-    .form-check input { accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer; }
+    /* Editor */
+    .editor-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center}
+    .editor-modal{background:var(--surface);border-radius:var(--radius);width:95%;max-width:800px;max-height:90vh;display:flex;flex-direction:column}
+    .editor-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .editor-header h2{font-size:18px}
+    .editor-tabs{display:flex;border-bottom:1px solid var(--border);overflow-x:auto}
+    .editor-tab{padding:12px 20px;background:none;border:none;color:var(--text2);cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s}
+    .editor-tab.active{color:var(--text);border-bottom-color:var(--primary)}
+    .editor-tab:hover{color:var(--text)}
+    .editor-body{padding:24px;overflow-y:auto;flex:1}
+    .editor-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+    .fg{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+    .fg label{font-size:12px;color:var(--text2);font-weight:500}
+    .fg input,.fg select{padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px}
+    .fg input:focus,.fg select:focus{outline:none;border-color:var(--primary)}
+    .fg input[type=checkbox]{width:16px;height:16px;accent-color:var(--primary)}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .section-title{font-size:14px;font-weight:600;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+    .section-title:first-child{margin-top:0}
+    .check-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;cursor:pointer}
+    .check-row input{width:16px;height:16px;accent-color:var(--primary)}
+    .tab-panel{display:none}.tab-panel.active{display:block}
+    .toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);color:var(--text);padding:12px 20px;border-radius:8px;border:1px solid var(--border);font-size:13px;z-index:9999}
   </style>
 </head>
 <body>
@@ -64,121 +62,296 @@
     <h1>Video Ad Presets</h1>
     <div class="header-actions">
       <a href="/dashboard/index.html" class="back-link">&larr; Dashboard</a>
-      <button class="btn btn-primary" onclick="showCreate()">+ New Preset</button>
+      <button class="btn btn-primary" onclick="openEditor()">+ New Preset</button>
     </div>
   </div>
+  <div class="container"><div id="content"><div class="loading">Loading presets...</div></div></div>
 
-  <div class="container">
-    <div id="content"><div class="loading">Loading presets...</div></div>
-  </div>
+<script src="/dashboard/shared.js"></script>
+<script>
+let presets = [];
+const E = id => document.getElementById(id);
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+function showToast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
 
-  <script src="/dashboard/shared.js"></script>
-  <script>
-    let presets = [];
+// ── List ──
+async function loadPresets(){
+  const el=E('content');
+  try{
+    presets=await apiCall('/api/video-ad-presets');
+    if(!presets.length){el.innerHTML=`<div class="empty-state"><h3>No presets yet</h3><p style="margin:12px 0">Create your first video ad preset or seed defaults.</p><button class="btn btn-primary" onclick="seedDefaults()">Seed Default Presets</button></div>`;return}
+    renderList(el);
+  }catch(err){el.innerHTML=`<div class="empty-state"><h3>Error</h3><p>${err.message}</p></div>`}
+}
+function renderList(el){
+  el.innerHTML=`<div class="card-grid">${presets.map(p=>{
+    const g=p.general_settings||{};
+    return `<div class="card ${p.is_default?'default-card':''}">
+      <div class="card-header"><div><h3 style="font-size:16px">${esc(p.name)}</h3><div style="color:var(--text2);font-size:12px;margin-top:4px">${esc(p.slug)}</div></div>
+        <div style="display:flex;gap:6px">${p.is_default?'<span class="badge badge-blue">Default</span>':''}${p.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-yellow">Inactive</span>'}</div></div>
+      <div class="card-body">${p.description?`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(p.description)}</div>`:''}
+        <div class="detail-row"><span class="label">Resolution</span><span>${g.width||'?'}x${g.height||'?'}</span></div>
+        <div class="detail-row"><span class="label">Aspect Ratio</span><span>${g.aspectRatio||'?'}</span></div>
+        <div class="detail-row"><span class="label">FPS / Duration</span><span>${g.fps||30}fps / ${g.durationSeconds||15}s</span></div>
+        <div class="detail-row"><span class="label">Style / Fit</span><span>${g.stylePreset||'luxury'} / ${g.fitMode||'cover'}</span></div>
+        <div class="detail-row"><span class="label">CRF / Preset</span><span>${g.crf??28} / ${g.encodingPreset||'fast'}</span></div></div>
+      <div class="card-footer">
+        <button class="btn btn-sm" onclick="openEditor('${p.id}')">Edit</button>
+        ${!p.is_default?`<button class="btn btn-sm btn-primary" onclick="setDef('${p.id}')">Set Default</button>`:''}
+        <button class="btn btn-sm" onclick="testRender('${p.id}')">Test Render</button>
+        <button class="btn btn-sm" onclick="clonePreset('${p.id}')">Clone</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-sm btn-red" onclick="delPreset('${p.id}','${esc(p.name)}')">Delete</button>
+      </div></div>`}).join('')}</div>`;
+}
+async function seedDefaults(){await apiCall('/api/video-ad-presets/seed');showToast('Default presets created');loadPresets()}
+async function setDef(id){await apiCall(`/api/video-ad-presets/${id}/set-default`,{method:'POST'});showToast('Default updated');loadPresets()}
+async function delPreset(id,name){if(!confirm(`Delete "${name}"?`))return;await apiCall(`/api/video-ad-presets/${id}`,{method:'DELETE'});showToast('Deleted');loadPresets()}
+async function testRender(id){showToast('Starting test render...');const r=await apiCall(`/api/video-ad-presets/${id}/test-render`,{method:'POST',body:'{}'});if(r.mode==='preview')showToast('Preview only (no video engine)');else if(r.success)showToast('Test render complete!');else showToast('Failed: '+(r.result?.error||r.error||''))}
+async function clonePreset(id){const p=presets.find(x=>x.id===id);if(!p)return;const name=prompt('Name for cloned preset:',p.name+' (copy)');if(!name)return;const r=await apiCall('/api/video-ad-presets',{method:'POST',body:JSON.stringify({name,slug:name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,''),description:p.description,general_settings:p.general_settings,text_settings:p.text_settings,animation_settings:p.animation_settings,audio_settings:p.audio_settings,overlay_settings:p.overlay_settings})});if(r.id){showToast('Cloned');loadPresets()}else showToast('Clone failed: '+(r.error||''))}
 
-    async function loadPresets() {
-      const el = document.getElementById('content');
-      try {
-        presets = await apiCall('/api/video-ad-presets');
-        if (!presets.length) {
-          el.innerHTML = `<div class="empty-state">
-            <h3>No presets yet</h3>
-            <p style="margin:12px 0">Create your first video ad preset or seed defaults.</p>
-            <button class="btn btn-primary" onclick="seedDefaults()">Seed Default Presets</button>
-          </div>`;
-          return;
-        }
-        renderPresetList(el);
-      } catch (err) {
-        el.innerHTML = `<div class="empty-state"><h3>Error</h3><p>${err.message}</p></div>`;
-      }
-    }
+// ── Editor ──
+let editId=null;
+function openEditor(id){
+  editId=id||null;
+  const p=id?presets.find(x=>x.id===id):null;
+  const g=p?.general_settings||{};const t=p?.text_settings||{};const an=p?.animation_settings||{};const au=p?.audio_settings||{};const o=p?.overlay_settings||{};
 
-    function renderPresetList(el) {
-      el.innerHTML = `<div class="card-grid">${presets.map(p => {
-        const g = p.general_settings || {};
-        return `<div class="card ${p.is_default ? 'default-card' : ''}">
-          <div class="card-header">
-            <div>
-              <h3 style="font-size:16px">${esc(p.name)}</h3>
-              <div style="color:var(--text2);font-size:12px;margin-top:4px">${esc(p.slug)}</div>
-            </div>
-            <div style="display:flex;gap:6px">
-              ${p.is_default ? '<span class="badge badge-blue">Default</span>' : ''}
-              ${p.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-yellow">Inactive</span>'}
-            </div>
-          </div>
-          <div class="card-body">
-            ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(p.description)}</div>` : ''}
-            <div class="detail-row"><span class="label">Resolution</span><span class="value">${g.width || '?'}x${g.height || '?'}</span></div>
-            <div class="detail-row"><span class="label">Aspect Ratio</span><span class="value">${g.aspectRatio || '?'}</span></div>
-            <div class="detail-row"><span class="label">FPS</span><span class="value">${g.fps || 30}</span></div>
-            <div class="detail-row"><span class="label">Duration</span><span class="value">${g.durationSeconds || 15}s</span></div>
-            <div class="detail-row"><span class="label">Style</span><span class="value">${g.stylePreset || 'luxury'}</span></div>
-            <div class="detail-row"><span class="label">Fit Mode</span><span class="value">${g.fitMode || 'cover'}</span></div>
-            <div class="detail-row"><span class="label">CRF</span><span class="value">${g.crf ?? 28}</span></div>
-          </div>
-          <div class="card-footer">
-            <button class="btn btn-sm" onclick="editPreset('${p.id}')">Edit</button>
-            ${!p.is_default ? `<button class="btn btn-sm btn-primary" onclick="setDefault('${p.id}')">Set Default</button>` : ''}
-            <button class="btn btn-sm" onclick="testRender('${p.id}')">Test Render</button>
-            <div style="flex:1"></div>
-            <button class="btn btn-sm btn-red" onclick="deletePreset('${p.id}','${esc(p.name)}')">Delete</button>
-          </div>
-        </div>`;
-      }).join('')}</div>`;
-    }
+  const overlay=document.createElement('div');overlay.className='editor-overlay';overlay.id='editor-overlay';
+  overlay.innerHTML=`<div class="editor-modal">
+    <div class="editor-header"><h2>${p?'Edit':'New'} Preset</h2><button class="btn btn-sm" onclick="closeEditor()">&times;</button></div>
+    <div class="editor-tabs">
+      <button class="editor-tab active" onclick="switchEditorTab(this,'tab-general')">General</button>
+      <button class="editor-tab" onclick="switchEditorTab(this,'tab-text')">Text</button>
+      <button class="editor-tab" onclick="switchEditorTab(this,'tab-anim')">Animation</button>
+      <button class="editor-tab" onclick="switchEditorTab(this,'tab-audio')">Audio</button>
+      <button class="editor-tab" onclick="switchEditorTab(this,'tab-overlay')">Overlays</button>
+    </div>
+    <div class="editor-body">
 
-    async function seedDefaults() {
-      await apiCall('/api/video-ad-presets/seed');
-      showToast('Default presets created');
-      loadPresets();
-    }
+      <!-- GENERAL -->
+      <div class="tab-panel active" id="tab-general">
+        <div class="row2">
+          <div class="fg"><label>Preset Name</label><input id="e-name" value="${esc(p?.name||'')}"></div>
+          <div class="fg"><label>Slug</label><input id="e-slug" value="${esc(p?.slug||'')}" placeholder="auto-generated"></div>
+        </div>
+        <div class="fg"><label>Description</label><input id="e-desc" value="${esc(p?.description||'')}"></div>
+        <div class="section-title">Output</div>
+        <div class="row3">
+          <div class="fg"><label>Platform</label><select id="e-platform"><option value="vertical_social"${g.targetPlatform==='vertical_social'?' selected':''}>Vertical Social (9:16)</option><option value="square_feed"${g.targetPlatform==='square_feed'?' selected':''}>Square Feed (1:1)</option><option value="landscape"${g.targetPlatform==='landscape'?' selected':''}>Landscape (16:9)</option><option value="custom"${g.targetPlatform==='custom'?' selected':''}>Custom</option></select></div>
+          <div class="fg"><label>Width</label><input type="number" id="e-width" value="${g.width||1080}"></div>
+          <div class="fg"><label>Height</label><input type="number" id="e-height" value="${g.height||1920}"></div>
+        </div>
+        <div class="row3">
+          <div class="fg"><label>FPS</label><input type="number" id="e-fps" value="${g.fps||30}" min="15" max="60"></div>
+          <div class="fg"><label>Duration (sec)</label><input type="number" id="e-duration" value="${g.durationSeconds||15}" min="5" max="120" step="1"></div>
+          <div class="fg"><label>Style</label><select id="e-style"><option value="luxury"${g.stylePreset==='luxury'?' selected':''}>Luxury</option><option value="modern"${g.stylePreset==='modern'?' selected':''}>Modern</option><option value="energetic"${g.stylePreset==='energetic'?' selected':''}>Energetic</option><option value="minimal"${g.stylePreset==='minimal'?' selected':''}>Minimal</option></select></div>
+        </div>
+        <div class="section-title">Timing</div>
+        <div class="row3">
+          <div class="fg"><label>Intro (sec)</label><input type="number" id="e-intro" value="${g.introDurationSeconds??1.4}" step="0.1" min="0" max="10"></div>
+          <div class="fg"><label>Image Hold (sec)</label><input type="number" id="e-imghold" value="${g.imageDurationSeconds??2.8}" step="0.1" min="0.5" max="30"></div>
+          <div class="fg"><label>Outro (sec)</label><input type="number" id="e-outro" value="${g.outroDurationSeconds??1.8}" step="0.1" min="0" max="10"></div>
+        </div>
+        <div class="row2">
+          <div class="fg"><label>Fit Mode</label><select id="e-fit"><option value="cover"${g.fitMode==='cover'?' selected':''}>Cover (crop)</option><option value="contain"${g.fitMode==='contain'?' selected':''}>Contain (pad)</option><option value="blur_fill"${g.fitMode==='blur_fill'?' selected':''}>Blur Fill</option></select></div>
+          <div class="fg"><label>Background Color</label><input type="color" id="e-bg" value="${g.backgroundColor||'#0f0f10'}"></div>
+        </div>
+        <div class="section-title">Encoding</div>
+        <div class="row3">
+          <div class="fg"><label>CRF (0-51)</label><input type="number" id="e-crf" value="${g.crf??28}" min="0" max="51"></div>
+          <div class="fg"><label>Encoding Speed</label><select id="e-encpreset"><option value="ultrafast">Ultrafast</option><option value="fast"${(g.encodingPreset||'fast')==='fast'?' selected':''}>Fast</option><option value="medium"${g.encodingPreset==='medium'?' selected':''}>Medium</option><option value="slow"${g.encodingPreset==='slow'?' selected':''}>Slow</option></select></div>
+          <div class="fg"><label>Audio Bitrate</label><select id="e-abitrate"><option value="96k"${g.audioBitrate==='96k'?' selected':''}>96k</option><option value="128k"${(g.audioBitrate||'128k')==='128k'?' selected':''}>128k</option><option value="192k"${g.audioBitrate==='192k'?' selected':''}>192k</option></select></div>
+        </div>
+        <div class="row2">
+          <div class="fg"><label>Transition</label><select id="e-transition"><option value="fade"${(g.transitionType||'fade')==='fade'?' selected':''}>Fade</option><option value="slide"${g.transitionType==='slide'?' selected':''}>Slide</option><option value="wipe"${g.transitionType==='wipe'?' selected':''}>Wipe</option><option value="none"${g.transitionType==='none'?' selected':''}>None</option></select></div>
+          <div class="fg"><label>Transition Duration (ms)</label><input type="number" id="e-transdur" value="${g.transitionDurationMs??300}" min="0" max="3000" step="50"></div>
+        </div>
+      </div>
 
-    async function setDefault(id) {
-      await apiCall(`/api/video-ad-presets/${id}/set-default`, { method: 'POST' });
-      showToast('Default preset updated');
-      loadPresets();
-    }
+      <!-- TEXT -->
+      <div class="tab-panel" id="tab-text">
+        <label class="check-row"><input type="checkbox" id="e-txt-on" ${t.enabled!==false?'checked':''}> Enable text overlays</label>
+        <div class="section-title">Elements</div>
+        <label class="check-row"><input type="checkbox" id="e-headline-on" ${t.headlineEnabled!==false?'checked':''}> Headline</label>
+        <label class="check-row"><input type="checkbox" id="e-sub-on" ${t.subheadlineEnabled!==false?'checked':''}> Subheadline</label>
+        <label class="check-row"><input type="checkbox" id="e-cta-on" ${t.ctaEnabled!==false?'checked':''}> CTA Button</label>
+        <div class="section-title">Font Sizes</div>
+        <div class="row3">
+          <div class="fg"><label>Headline</label><input type="number" id="e-hl-size" value="${t.headlineFontSize||80}" min="8" max="200"></div>
+          <div class="fg"><label>Subheadline</label><input type="number" id="e-sub-size" value="${t.subheadlineFontSize||34}" min="8" max="200"></div>
+          <div class="fg"><label>CTA</label><input type="number" id="e-cta-size" value="${t.ctaFontSize||28}" min="8" max="200"></div>
+        </div>
+        <div class="section-title">Colors</div>
+        <div class="row3">
+          <div class="fg"><label>Font Color</label><input type="color" id="e-fontcolor" value="${t.fontColor||'#ffffff'}"></div>
+          <div class="fg"><label>Stroke Color</label><input type="color" id="e-strokecolor" value="${t.strokeColor||'#000000'}"></div>
+          <div class="fg"><label>Stroke Width</label><input type="number" id="e-strokew" value="${t.strokeWidth||0}" min="0" max="20" step="0.5"></div>
+        </div>
+        <div class="section-title">Shadow</div>
+        <div class="row3">
+          <div class="fg"><label class="check-row"><input type="checkbox" id="e-shadow-on" ${t.shadowEnabled!==false?'checked':''}> Enable Shadow</label></div>
+          <div class="fg"><label>Shadow X / Y</label><input id="e-shadow-xy" value="${(t.shadowX||0)+','+(t.shadowY??4)}" placeholder="0,4"></div>
+          <div class="fg"><label>Shadow Color</label><input id="e-shadow-color" value="${t.shadowColor||'rgba(0,0,0,0.5)'}"></div>
+        </div>
+        <div class="section-title">Layout</div>
+        <div class="row3">
+          <div class="fg"><label>Text Align</label><select id="e-txtalign"><option value="left"${t.textAlign==='left'?' selected':''}>Left</option><option value="center"${(t.textAlign||'center')==='center'?' selected':''}>Center</option><option value="right"${t.textAlign==='right'?' selected':''}>Right</option></select></div>
+          <div class="fg"><label>Text Case</label><select id="e-txtcase"><option value="none"${(t.textCaseMode||'none')==='none'?' selected':''}>None</option><option value="uppercase"${t.textCaseMode==='uppercase'?' selected':''}>UPPERCASE</option><option value="lowercase"${t.textCaseMode==='lowercase'?' selected':''}>lowercase</option></select></div>
+          <div class="fg"><label>Line Spacing</label><input type="number" id="e-linespace" value="${t.lineSpacing||1.2}" step="0.1" min="0.5" max="3"></div>
+        </div>
+        <div class="section-title">Safe Margins (%)</div>
+        <div class="row2">
+          <div class="fg"><label>Top / Bottom</label><input id="e-margin-tb" value="${(t.safeMarginTopPercent||10)+','+(t.safeMarginBottomPercent||10)}" placeholder="10,10"></div>
+          <div class="fg"><label>Left / Right</label><input id="e-margin-lr" value="${(t.safeMarginLeftPercent||5)+','+(t.safeMarginRightPercent||5)}" placeholder="5,5"></div>
+        </div>
+      </div>
 
-    async function deletePreset(id, name) {
-      if (!confirm(`Delete preset "${name}"?`)) return;
-      await apiCall(`/api/video-ad-presets/${id}`, { method: 'DELETE' });
-      showToast('Preset deleted');
-      loadPresets();
-    }
+      <!-- ANIMATION -->
+      <div class="tab-panel" id="tab-anim">
+        <div class="section-title">Headline</div>
+        <div class="row3">
+          <div class="fg"><label>Animation</label><select id="e-hl-anim"><option value="none"${an.headlineAnimation==='none'?' selected':''}>None</option><option value="fade"${(an.headlineAnimation||'fade')==='fade'?' selected':''}>Fade</option><option value="slide_up"${an.headlineAnimation==='slide_up'?' selected':''}>Slide Up</option><option value="slide_left"${an.headlineAnimation==='slide_left'?' selected':''}>Slide Left</option></select></div>
+          <div class="fg"><label>In Duration (ms)</label><input type="number" id="e-hl-in" value="${an.headlineInDurationMs||400}" min="0" max="3000" step="50"></div>
+          <div class="fg"><label>Start Delay (ms)</label><input type="number" id="e-hl-start" value="${an.headlineStartMs||200}" min="0" step="50"></div>
+        </div>
+        <div class="section-title">Subheadline</div>
+        <div class="row3">
+          <div class="fg"><label>Animation</label><select id="e-sub-anim"><option value="none"${an.subheadlineAnimation==='none'?' selected':''}>None</option><option value="fade"${(an.subheadlineAnimation||'fade')==='fade'?' selected':''}>Fade</option><option value="slide_up"${an.subheadlineAnimation==='slide_up'?' selected':''}>Slide Up</option><option value="slide_left"${an.subheadlineAnimation==='slide_left'?' selected':''}>Slide Left</option></select></div>
+          <div class="fg"><label>In Duration (ms)</label><input type="number" id="e-sub-in" value="${an.subheadlineInDurationMs||400}" min="0" max="3000" step="50"></div>
+          <div class="fg"><label>Start Delay (ms)</label><input type="number" id="e-sub-start" value="${an.subheadlineStartMs||600}" min="0" step="50"></div>
+        </div>
+        <div class="section-title">CTA</div>
+        <div class="row3">
+          <div class="fg"><label>Animation</label><select id="e-cta-anim"><option value="none"${an.ctaAnimation==='none'?' selected':''}>None</option><option value="fade"${an.ctaAnimation==='fade'?' selected':''}>Fade</option><option value="slide_up"${(an.ctaAnimation||'slide_up')==='slide_up'?' selected':''}>Slide Up</option><option value="slide_left"${an.ctaAnimation==='slide_left'?' selected':''}>Slide Left</option></select></div>
+          <div class="fg"><label>In Duration (ms)</label><input type="number" id="e-cta-in" value="${an.ctaInDurationMs||500}" min="0" max="3000" step="50"></div>
+          <div class="fg"><label>Start Delay (ms)</label><input type="number" id="e-cta-start" value="${an.ctaStartMs||1000}" min="0" step="50"></div>
+        </div>
+      </div>
 
-    async function testRender(id) {
-      showToast('Starting test render...');
-      const res = await apiCall(`/api/video-ad-presets/${id}/test-render`, { method: 'POST', body: '{}' });
-      if (res.mode === 'preview') {
-        showToast('Preview mode (no video engine on this host)');
-        console.log('Render config:', res.config);
-      } else if (res.success) {
-        showToast('Test render complete!');
-      } else {
-        showToast('Render failed: ' + (res.result?.error || res.error || 'unknown'));
-      }
-    }
+      <!-- AUDIO -->
+      <div class="tab-panel" id="tab-audio">
+        <div class="section-title">Background Music</div>
+        <label class="check-row"><input type="checkbox" id="e-music-on" ${au.musicEnabled?'checked':''}> Enable music</label>
+        <div class="row3">
+          <div class="fg"><label>Volume (0-1)</label><input type="number" id="e-music-vol" value="${au.musicVolume??0.3}" step="0.05" min="0" max="1"></div>
+          <div class="fg"><label>Fade In (ms)</label><input type="number" id="e-music-fadein" value="${au.musicFadeInMs||500}" min="0" max="5000" step="100"></div>
+          <div class="fg"><label>Fade Out (ms)</label><input type="number" id="e-music-fadeout" value="${au.musicFadeOutMs||1000}" min="0" max="5000" step="100"></div>
+        </div>
+        <label class="check-row"><input type="checkbox" id="e-music-loop" ${au.musicLoop!==false?'checked':''}> Loop music</label>
+        <div class="section-title">Voiceover</div>
+        <label class="check-row"><input type="checkbox" id="e-vo-on" ${au.voiceoverEnabled?'checked':''}> Enable voiceover</label>
+        <div class="row2">
+          <div class="fg"><label>Voiceover Volume</label><input type="number" id="e-vo-vol" value="${au.voiceoverVolume??1}" step="0.05" min="0" max="1"></div>
+          <div class="fg"><label>Ducking Level</label><input type="number" id="e-duck" value="${au.duckingLevel??0.2}" step="0.05" min="0" max="1"></div>
+        </div>
+        <label class="check-row"><input type="checkbox" id="e-duck-on" ${au.duckingEnabled?'checked':''}> Enable ducking (lower music during voiceover)</label>
+        <label class="check-row"><input type="checkbox" id="e-normalize" ${au.normalizeAudio?'checked':''}> Normalize audio levels</label>
+      </div>
 
-    function showCreate() {
-      showToast('Preset editor coming in Phase 2');
-    }
+      <!-- OVERLAYS -->
+      <div class="tab-panel" id="tab-overlay">
+        <div class="section-title">Logo</div>
+        <label class="check-row"><input type="checkbox" id="e-logo-on" ${o.logoEnabled?'checked':''}> Enable logo overlay</label>
+        <div class="row3">
+          <div class="fg"><label>Position</label><select id="e-logo-pos"><option value="top_left"${o.logoPosition==='top_left'?' selected':''}>Top Left</option><option value="top_right"${(o.logoPosition||'top_right')==='top_right'?' selected':''}>Top Right</option><option value="bottom_left"${o.logoPosition==='bottom_left'?' selected':''}>Bottom Left</option><option value="bottom_right"${o.logoPosition==='bottom_right'?' selected':''}>Bottom Right</option><option value="center"${o.logoPosition==='center'?' selected':''}>Center</option></select></div>
+          <div class="fg"><label>Width (px)</label><input type="number" id="e-logo-w" value="${o.logoWidth||140}" min="20" max="500"></div>
+          <div class="fg"><label>Opacity</label><input type="number" id="e-logo-opacity" value="${o.logoOpacity??1}" step="0.05" min="0" max="1"></div>
+        </div>
+        <div class="section-title">Gradient Overlay</div>
+        <label class="check-row"><input type="checkbox" id="e-grad-on" ${o.gradientOverlayEnabled!==false?'checked':''}> Enable gradient</label>
+        <div class="row2">
+          <div class="fg"><label>Direction</label><select id="e-grad-dir"><option value="bottom_top"${(o.gradientDirection||'bottom_top')==='bottom_top'?' selected':''}>Bottom to Top</option><option value="top_bottom"${o.gradientDirection==='top_bottom'?' selected':''}>Top to Bottom</option></select></div>
+          <div class="fg"><label>Opacity</label><input type="number" id="e-grad-opacity" value="${o.gradientOpacity??0.4}" step="0.05" min="0" max="1"></div>
+        </div>
+        <div class="section-title">Property Badge</div>
+        <label class="check-row"><input type="checkbox" id="e-badge-on" ${o.propertyBadgeEnabled?'checked':''}> Enable badge</label>
+        <div class="row2">
+          <div class="fg"><label>Position</label><select id="e-badge-pos"><option value="top_left"${(o.propertyBadgePosition||'top_left')==='top_left'?' selected':''}>Top Left</option><option value="top_right"${o.propertyBadgePosition==='top_right'?' selected':''}>Top Right</option><option value="bottom_left"${o.propertyBadgePosition==='bottom_left'?' selected':''}>Bottom Left</option><option value="bottom_right"${o.propertyBadgePosition==='bottom_right'?' selected':''}>Bottom Right</option></select></div>
+          <div class="fg"><label>Style</label><select id="e-badge-style"><option value="luxury"${(o.propertyBadgeStyle||'luxury')==='luxury'?' selected':''}>Luxury</option><option value="minimal"${o.propertyBadgeStyle==='minimal'?' selected':''}>Minimal</option><option value="bold"${o.propertyBadgeStyle==='bold'?' selected':''}>Bold</option></select></div>
+        </div>
+      </div>
 
-    function editPreset(id) {
-      showToast('Preset editor coming in Phase 2');
-    }
+    </div>
+    <div class="editor-footer">
+      ${p?`<button class="btn" onclick="saveAsNew()">Save as New</button>`:''}
+      <button class="btn btn-green" onclick="savePreset()">${p?'Save Changes':'Create Preset'}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
 
-    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-    function showToast(msg) {
-      const t = document.createElement('div');
-      t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--surface2);color:var(--text);padding:12px 20px;border-radius:8px;border:1px solid var(--border);font-size:13px;z-index:9999;animation:fadeIn 0.2s';
-      t.textContent = msg;
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 3000);
-    }
+  // Auto-slug
+  E('e-name').addEventListener('input',()=>{if(!editId)E('e-slug').value=E('e-name').value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'')});
+  // Platform presets
+  E('e-platform').addEventListener('change',()=>{
+    const v=E('e-platform').value;
+    if(v==='vertical_social'){E('e-width').value='1080';E('e-height').value='1920'}
+    else if(v==='square_feed'){E('e-width').value='1080';E('e-height').value='1080'}
+    else if(v==='landscape'){E('e-width').value='1920';E('e-height').value='1080'}
+  });
+}
 
-    requireLogin().then(loadPresets);
-  </script>
+function closeEditor(){E('editor-overlay')?.remove();editId=null}
+function switchEditorTab(btn,panelId){
+  document.querySelectorAll('.editor-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');E(panelId).classList.add('active');
+}
+
+function collectForm(){
+  const s=v=>E(v)?.value||'';const n=v=>parseFloat(E(v)?.value||'0');const c=v=>E(v)?.checked||false;
+  const marginTB=(s('e-margin-tb')||'10,10').split(',').map(Number);
+  const marginLR=(s('e-margin-lr')||'5,5').split(',').map(Number);
+  const shadowXY=(s('e-shadow-xy')||'0,4').split(',').map(Number);
+  return {
+    name:s('e-name'),slug:s('e-slug'),description:s('e-desc'),
+    general_settings:{targetPlatform:s('e-platform'),aspectRatio:n('e-width')===n('e-height')?'1:1':n('e-width')>n('e-height')?'16:9':'9:16',
+      width:n('e-width'),height:n('e-height'),fps:n('e-fps'),durationSeconds:n('e-duration'),
+      introDurationSeconds:n('e-intro'),imageDurationSeconds:n('e-imghold'),outroDurationSeconds:n('e-outro'),
+      stylePreset:s('e-style'),fitMode:s('e-fit'),backgroundColor:s('e-bg'),
+      crf:n('e-crf'),encodingPreset:s('e-encpreset'),audioBitrate:s('e-abitrate'),
+      transitionType:s('e-transition'),transitionDurationMs:n('e-transdur')},
+    text_settings:{enabled:c('e-txt-on'),headlineEnabled:c('e-headline-on'),subheadlineEnabled:c('e-sub-on'),ctaEnabled:c('e-cta-on'),
+      headlineFontSize:n('e-hl-size'),subheadlineFontSize:n('e-sub-size'),ctaFontSize:n('e-cta-size'),
+      fontColor:s('e-fontcolor'),strokeColor:s('e-strokecolor'),strokeWidth:n('e-strokew'),
+      shadowEnabled:c('e-shadow-on'),shadowColor:s('e-shadow-color'),shadowX:shadowXY[0]||0,shadowY:shadowXY[1]??4,
+      textAlign:s('e-txtalign'),textCaseMode:s('e-txtcase'),lineSpacing:n('e-linespace'),
+      safeMarginTopPercent:marginTB[0]||10,safeMarginBottomPercent:marginTB[1]||10,
+      safeMarginLeftPercent:marginLR[0]||5,safeMarginRightPercent:marginLR[1]||5},
+    animation_settings:{headlineAnimation:s('e-hl-anim'),headlineInDurationMs:n('e-hl-in'),headlineStartMs:n('e-hl-start'),
+      subheadlineAnimation:s('e-sub-anim'),subheadlineInDurationMs:n('e-sub-in'),subheadlineStartMs:n('e-sub-start'),
+      ctaAnimation:s('e-cta-anim'),ctaInDurationMs:n('e-cta-in'),ctaStartMs:n('e-cta-start')},
+    audio_settings:{musicEnabled:c('e-music-on'),musicVolume:n('e-music-vol'),musicFadeInMs:n('e-music-fadein'),musicFadeOutMs:n('e-music-fadeout'),
+      musicLoop:c('e-music-loop'),voiceoverEnabled:c('e-vo-on'),voiceoverVolume:n('e-vo-vol'),
+      duckingEnabled:c('e-duck-on'),duckingLevel:n('e-duck'),normalizeAudio:c('e-normalize')},
+    overlay_settings:{logoEnabled:c('e-logo-on'),logoPosition:s('e-logo-pos'),logoWidth:n('e-logo-w'),logoOpacity:n('e-logo-opacity'),
+      gradientOverlayEnabled:c('e-grad-on'),gradientDirection:s('e-grad-dir'),gradientOpacity:n('e-grad-opacity'),
+      propertyBadgeEnabled:c('e-badge-on'),propertyBadgePosition:s('e-badge-pos'),propertyBadgeStyle:s('e-badge-style')}
+  };
+}
+
+async function savePreset(){
+  const data=collectForm();
+  if(!data.name){showToast('Name is required');return}
+  if(!data.slug)data.slug=data.name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  try{
+    if(editId){await apiCall(`/api/video-ad-presets/${editId}`,{method:'PUT',body:JSON.stringify(data)});showToast('Preset saved')}
+    else{const r=await apiCall('/api/video-ad-presets',{method:'POST',body:JSON.stringify(data)});if(r.id)showToast('Preset created');else{showToast('Error: '+(r.error||''));return}}
+    closeEditor();loadPresets();
+  }catch(e){showToast('Error: '+e.message)}
+}
+
+async function saveAsNew(){
+  const data=collectForm();
+  const name=prompt('Name for new preset:',data.name+' (copy)');if(!name)return;
+  data.name=name;data.slug=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'');
+  try{
+    const r=await apiCall('/api/video-ad-presets',{method:'POST',body:JSON.stringify(data)});
+    if(r.id){showToast('Created as new preset');closeEditor();loadPresets()}else showToast('Error: '+(r.error||''))
+  }catch(e){showToast('Error: '+e.message)}
+}
+
+requireLogin().then(loadPresets);
+</script>
 </body>
 </html>

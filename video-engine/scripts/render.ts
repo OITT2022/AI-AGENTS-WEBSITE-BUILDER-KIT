@@ -146,14 +146,12 @@ const main = async () => {
     // CRF 28 = great quality for social media ads, ~70-85% smaller than default
     // Env override: VIDEO_CRF (0-51, lower = higher quality + larger file)
     const crf = parseInt(process.env.VIDEO_CRF || '28', 10);
-    // Cap bitrate to prevent spikes (env override: VIDEO_MAX_BITRATE e.g. "5M")
-    const videoBitrate = (process.env.VIDEO_MAX_BITRATE || '5M') as `${number}M`;
     // x264 preset: fast = good balance of speed and compression
     const x264Preset = (process.env.VIDEO_PRESET || 'fast') as 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow';
     // Audio: AAC at 128k is sufficient for background music in ads
     const audioBitrate = (process.env.VIDEO_AUDIO_BITRATE || '128k') as `${number}k`;
 
-    console.log(`[render] Encoding: crf=${crf} bitrate=${videoBitrate} preset=${x264Preset} audio=${audioBitrate}`);
+    console.log(`[render] Encoding: crf=${crf} preset=${x264Preset} audio=${audioBitrate}`);
 
     console.log(`[render] Bundling Remotion composition...`);
     const bundled = await bundle({
@@ -183,7 +181,6 @@ const main = async () => {
       serveUrl: bundled,
       codec: 'h264',
       crf,
-      videoBitrate,
       x264Preset,
       pixelFormat: 'yuv420p',
       audioCodec: 'aac',

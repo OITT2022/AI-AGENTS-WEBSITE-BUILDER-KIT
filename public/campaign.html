@@ -1162,8 +1162,8 @@ async function renderSavedMedia(el) {
     return;
   }
   el.innerHTML = `<div style="margin-bottom:16px;color:var(--text2);font-size:13px">${videos.length} video${videos.length > 1 ? 's' : ''} saved</div>
-    <div class="card-grid">${videos.map(v => `
-      <div class="card" style="max-width:360px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">${videos.map(v => `
+      <div class="card">
         <div class="card-header">
           <div>
             <h3 style="font-size:14px">${esc(v.title)}</h3>

@@ -377,14 +377,18 @@ app.get('/api/media/sound/:soundId', async (req, res) => {
     }
 
     // Proxy from EC2
-    const upstream = await fetch(audioUrl);
-    if (!upstream.ok) return res.status(upstream.status).json({ error: `Upstream: ${upstream.status}` });
-    res.setHeader('Content-Type', upstream.headers.get('content-type') || asset.mime_type || 'audio/mpeg');
-    const cl = upstream.headers.get('content-length');
-    if (cl) res.setHeader('Content-Length', cl);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.end(buf);
+    const audioProxyUrl = new URL(audioUrl);
+    const httpModAudio = audioProxyUrl.protocol === 'https:' ? require('https') : require('http');
+    httpModAudio.get(audioUrl, { timeout: 30_000 }, (upstream: any) => {
+      if (upstream.statusCode >= 400) { res.status(upstream.statusCode).json({ error: `Upstream: ${upstream.statusCode}` }); return; }
+      res.setHeader('Content-Type', upstream.headers['content-type'] || asset.mime_type || 'audio/mpeg');
+      if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      upstream.pipe(res);
+    }).on('error', (err: any) => {
+      if (!res.headersSent) res.status(502).json({ error: err.message });
+    });
+    return;
   } catch (err: any) {
     if (!res.headersSent) res.status(500).json({ error: err.message });
   }
@@ -409,31 +413,19 @@ app.get('/api/media/video/:variantId', async (req, res) => {
       if (fs.existsSync(localPath)) return res.sendFile(localPath);
     }
 
-    // Proxy from remote EC2 worker
-    const upstream = await fetch(videoUrl);
-    if (!upstream.ok) return res.status(upstream.status).json({ error: `Upstream: ${upstream.status}` });
-    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'video/mp4');
-    const contentLength = upstream.headers.get('content-length');
-    if (contentLength) res.setHeader('Content-Length', contentLength);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    // Stream the response body
-    const reader = upstream.body as any;
-    if (reader?.pipe) {
-      reader.pipe(res);
-    } else if (reader?.getReader) {
-      const r = reader.getReader();
-      const pump = async () => {
-        while (true) {
-          const { done, value } = await r.read();
-          if (done) { res.end(); return; }
-          res.write(value);
-        }
-      };
-      pump().catch(() => res.end());
-    } else {
-      const buf = Buffer.from(await upstream.arrayBuffer());
-      res.end(buf);
-    }
+    // Proxy stream from remote EC2 worker using http module (avoids body size limits)
+    const proxyUrl = new URL(videoUrl);
+    const httpMod = proxyUrl.protocol === 'https:' ? require('https') : require('http');
+    httpMod.get(videoUrl, { timeout: 120_000 }, (upstream: any) => {
+      if (upstream.statusCode >= 400) { res.status(upstream.statusCode).json({ error: `Upstream: ${upstream.statusCode}` }); return; }
+      res.setHeader('Content-Type', upstream.headers['content-type'] || 'video/mp4');
+      if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      upstream.pipe(res);
+    }).on('error', (err: any) => {
+      if (!res.headersSent) res.status(502).json({ error: err.message });
+    });
+    return; // Don't fall through to catch
   } catch (err: any) {
     if (!res.headersSent) res.status(500).json({ error: err.message });
   }
@@ -460,14 +452,18 @@ app.get('/api/media/video/:variantId/download', async (req, res) => {
       }
     }
 
-    const upstream = await fetch(videoUrl);
-    if (!upstream.ok) return res.status(upstream.status).json({ error: `Upstream: ${upstream.status}` });
-    res.setHeader('Content-Type', 'video/mp4');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    const contentLength = upstream.headers.get('content-length');
-    if (contentLength) res.setHeader('Content-Length', contentLength);
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.end(buf);
+    const proxyUrl2 = new URL(videoUrl);
+    const httpMod2 = proxyUrl2.protocol === 'https:' ? require('https') : require('http');
+    httpMod2.get(videoUrl, { timeout: 120_000 }, (upstream: any) => {
+      if (upstream.statusCode >= 400) { res.status(upstream.statusCode).json({ error: `Upstream: ${upstream.statusCode}` }); return; }
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+      upstream.pipe(res);
+    }).on('error', (err: any) => {
+      if (!res.headersSent) res.status(502).json({ error: err.message });
+    });
+    return;
   } catch (err: any) {
     if (!res.headersSent) res.status(500).json({ error: err.message });
   }

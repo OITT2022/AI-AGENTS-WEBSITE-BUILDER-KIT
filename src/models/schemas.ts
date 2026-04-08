@@ -252,7 +252,7 @@ export interface PerformanceMetric {
 
 // ── Auth ──
 
-export type UserRole = 'admin' | 'manager' | 'viewer';
+export type UserRole = 'admin' | 'manager' | 'client_manager' | 'viewer';
 
 export interface User {
   id: string;
@@ -261,6 +261,7 @@ export interface User {
   password_hash: string;
   role: UserRole;
   active: boolean;
+  client_ids?: string[];
   created_at: string;
   updated_at: string;
 }

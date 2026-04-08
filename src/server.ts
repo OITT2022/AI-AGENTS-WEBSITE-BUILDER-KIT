@@ -17,7 +17,7 @@ import {
 import {
   ensureDefaultAdmin, login, logout, getSessionUser,
   createUser, updateUser, deleteUser, listUsers,
-  requireAuth, requireRole, AuthRequest,
+  requireAuth, requireRole, requireClientAccess, AuthRequest,
 } from './services/auth';
 import * as imageAi from './services/image-ai';
 import * as videoAi from './services/video-ai';
@@ -145,7 +145,7 @@ app.post('/api/users', requireAuth, requireRole('admin'), async (req: AuthReques
   try {
     const { email, name, password, role } = req.body;
     if (!email || !name || !password) return res.status(400).json({ error: 'Email, name, and password required' });
-    res.json({ success: true, user: await createUser(email, name, password, role ?? 'viewer') });
+    res.json({ success: true, user: await createUser(email, name, password, role ?? 'viewer', req.body.client_ids) });
   } catch (err: any) { res.status(400).json({ error: err.message }); }
 });
 
@@ -504,7 +504,15 @@ app.use('/api', requireAuth);
 
 // ── Clients ──
 
-app.get('/api/clients', async (_req, res) => { res.json(await store.getClients()); });
+app.get('/api/clients', async (req: AuthRequest, res) => {
+  let clients = await store.getClients();
+  // client_manager only sees their assigned clients
+  if (req.user?.role === 'client_manager' && (req.user as any).client_ids?.length) {
+    const allowed = new Set((req.user as any).client_ids);
+    clients = clients.filter(c => allowed.has(c.id));
+  }
+  res.json(clients);
+});
 
 app.get('/api/clients/:id', async (req, res) => {
   const c = await store.getClient(paramId(req));

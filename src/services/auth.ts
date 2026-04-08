@@ -52,16 +52,16 @@ export async function getSessionUser(token: string) {
   return safeUser;
 }
 
-export async function createUser(email: string, name: string, password: string, role: UserRole) {
+export async function createUser(email: string, name: string, password: string, role: UserRole, clientIds?: string[]) {
   if (await store.getUserByEmail(email)) throw new Error('Email already exists');
   const now = new Date().toISOString();
-  const user: User = { id: uuid(), email: email.toLowerCase().trim(), name: name.trim(), password_hash: hashPassword(password), role, active: true, created_at: now, updated_at: now };
+  const user: User = { id: uuid(), email: email.toLowerCase().trim(), name: name.trim(), password_hash: hashPassword(password), role, active: true, client_ids: clientIds ?? [], created_at: now, updated_at: now };
   await store.upsertUser(user);
   const { password_hash, ...safeUser } = user;
   return safeUser;
 }
 
-export async function updateUser(id: string, updates: { name?: string; email?: string; role?: UserRole; active?: boolean; password?: string }) {
+export async function updateUser(id: string, updates: { name?: string; email?: string; role?: UserRole; active?: boolean; password?: string; client_ids?: string[] }) {
   const user = await store.getUser(id);
   if (!user) throw new Error('User not found');
   if (updates.email && updates.email.toLowerCase() !== user.email) {
@@ -72,6 +72,7 @@ export async function updateUser(id: string, updates: { name?: string; email?: s
   if (updates.name !== undefined) user.name = updates.name.trim();
   if (updates.role !== undefined) user.role = updates.role;
   if (updates.active !== undefined) user.active = updates.active;
+  if (updates.client_ids !== undefined) user.client_ids = updates.client_ids;
   if (updates.password) user.password_hash = hashPassword(updates.password);
   user.updated_at = new Date().toISOString();
   await store.upsertUser(user);
@@ -105,7 +106,24 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
 export function requireRole(...roles: UserRole[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) { res.status(401).json({ error: 'Authentication required' }); return; }
-    if (!roles.includes(req.user.role)) { res.status(403).json({ error: 'Insufficient permissions' }); return; }
+    // client_manager has the same permissions as manager for allowed routes
+    const effectiveRole = req.user.role === 'client_manager' ? 'manager' : req.user.role;
+    if (!roles.includes(req.user.role) && !roles.includes(effectiveRole as UserRole)) {
+      res.status(403).json({ error: 'Insufficient permissions' }); return;
+    }
     next();
   };
+}
+
+/** Check that a client_manager has access to a specific client. Admins/managers pass through. */
+export function requireClientAccess(req: AuthRequest, res: Response, next: NextFunction): void {
+  if (!req.user) { res.status(401).json({ error: 'Authentication required' }); return; }
+  if (req.user.role === 'admin' || req.user.role === 'manager') { next(); return; }
+  if (req.user.role === 'client_manager') {
+    const clientId = req.params.id || req.params.clientId || req.body?.client_id;
+    const allowed = (req.user as any).client_ids || [];
+    if (clientId && allowed.includes(clientId)) { next(); return; }
+    res.status(403).json({ error: 'No access to this client' }); return;
+  }
+  res.status(403).json({ error: 'Insufficient permissions' });
 }

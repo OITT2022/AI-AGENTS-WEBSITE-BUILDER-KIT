@@ -400,13 +400,13 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 
 export async function upsertUser(user: User): Promise<User> {
   const row = await queryOne<User>(
-    `INSERT INTO users (id, email, name, password_hash, role, active, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `INSERT INTO users (id, email, name, password_hash, role, active, client_ids, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      ON CONFLICT (id) DO UPDATE SET
        email=EXCLUDED.email, name=EXCLUDED.name, password_hash=EXCLUDED.password_hash,
-       role=EXCLUDED.role, active=EXCLUDED.active, updated_at=EXCLUDED.updated_at
+       role=EXCLUDED.role, active=EXCLUDED.active, client_ids=EXCLUDED.client_ids, updated_at=EXCLUDED.updated_at
      RETURNING *`,
-    [user.id, user.email, user.name, user.password_hash, user.role, user.active, user.created_at, user.updated_at]
+    [user.id, user.email, user.name, user.password_hash, user.role, user.active, user.client_ids ?? [], user.created_at, user.updated_at]
   );
   return row!;
 }

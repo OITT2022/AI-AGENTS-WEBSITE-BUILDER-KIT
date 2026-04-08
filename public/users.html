@@ -162,9 +162,15 @@
             <select id="form-role">
               <option value="viewer">Viewer</option>
               <option value="manager">Manager</option>
+              <option value="client_manager">Client Manager</option>
               <option value="admin">Admin</option>
             </select>
           </div>
+        </div>
+        <div class="form-group" id="client-assign-group" style="display:none">
+          <label>Assigned Clients</label>
+          <div id="client-checkboxes" style="max-height:160px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px"></div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Select which clients this user can manage</div>
         </div>
       </form>
     </div>
@@ -264,7 +270,7 @@ function renderTable(users) {
                 </div>
               </div>
             </td>
-            <td><span class="badge ${roleBadge(u.role)}">${u.role}</span></td>
+            <td><span class="badge ${roleBadge(u.role)}">${u.role === 'client_manager' ? 'client mgr' : u.role}</span>${u.role === 'client_manager' && u.client_ids?.length ? ` <span style="font-size:10px;color:var(--text2)">(${u.client_ids.length} clients)</span>` : ''}</td>
             <td><span class="badge ${u.active ? 'badge-green' : 'badge-yellow'}">${u.active ? 'Active' : 'Disabled'}</span></td>
             <td style="color:var(--text2);font-size:13px">${new Date(u.created_at).toLocaleDateString()}</td>
             <td>
@@ -311,8 +317,37 @@ function openModal(user) {
     pwLabel.textContent = 'Password';
   }
 
+  // Load clients for assignment
+  loadClientCheckboxes(user?.client_ids || []);
+  toggleClientAssign();
+  document.getElementById('form-role').addEventListener('change', toggleClientAssign);
+
   document.getElementById('modal').style.display = 'flex';
   document.getElementById('form-name').focus();
+}
+
+function toggleClientAssign() {
+  const role = document.getElementById('form-role').value;
+  document.getElementById('client-assign-group').style.display = role === 'client_manager' ? 'block' : 'none';
+}
+
+async function loadClientCheckboxes(selectedIds) {
+  const el = document.getElementById('client-checkboxes');
+  try {
+    const clients = await apiCall('/api/clients');
+    if (!clients.length) { el.innerHTML = '<div style="color:var(--text2);font-size:12px">No clients</div>'; return; }
+    const set = new Set(selectedIds || []);
+    el.innerHTML = clients.map(c => `
+      <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer">
+        <input type="checkbox" value="${c.id}" ${set.has(c.id)?'checked':''} style="accent-color:var(--primary);width:16px;height:16px">
+        ${escapeHtml(c.name || c.company || c.id)}
+      </label>
+    `).join('');
+  } catch { el.innerHTML = '<div style="color:var(--text2);font-size:12px">Failed to load clients</div>'; }
+}
+
+function getSelectedClientIds() {
+  return Array.from(document.querySelectorAll('#client-checkboxes input:checked')).map(cb => cb.value);
 }
 
 function editUser(user) { openModal(user); }
@@ -344,14 +379,16 @@ async function handleSubmit(e) {
     return;
   }
 
+  const client_ids = role === 'client_manager' ? getSelectedClientIds() : [];
+
   try {
     if (editingId) {
-      const body = { name, email, role };
+      const body = { name, email, role, client_ids };
       if (password) body.password = password;
       await api(`/api/users/${editingId}`, { method: 'PUT', body: JSON.stringify(body) });
       showToast('User updated');
     } else {
-      await api('/api/users', { method: 'POST', body: JSON.stringify({ name, email, password, role }) });
+      await api('/api/users', { method: 'POST', body: JSON.stringify({ name, email, password, role, client_ids }) });
       showToast('User created');
     }
     closeModal();

@@ -19,13 +19,15 @@ export const LogoOverlay: React.FC<{
   src: string;
   width?: number;
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-}> = ({src, width = 140, position = 'top-right'}) => {
+  opacity?: number;
+}> = ({src, width = 140, position = 'top-right', opacity = 1}) => {
   return (
     <AbsoluteFill>
       <div
         style={{
           position: 'absolute',
-          ...getPositionStyle(position)
+          ...getPositionStyle(position),
+          opacity,
         }}
       >
         <Img

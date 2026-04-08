@@ -27,12 +27,28 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
   const backgroundColor = video.input.backgroundColor ?? theme.background;
   const overlay = theme.overlay;
   const rtl = video.input.rtl ?? ['he', 'ar'].includes(video.input.language);
+  const preset = video.input.preset;
 
-  const musicVolume = video.input.music?.volume ?? 0.7;
-  const audioFade = interpolate(frame, [0, 20, video.totalFrames - 20, video.totalFrames], [0, musicVolume, musicVolume, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp'
-  });
+  // Audio: use preset fade settings if available
+  const musicVolume = preset?.audio?.musicVolume ?? video.input.music?.volume ?? 0.7;
+  const fadeInFrames = preset?.audio?.fadeInFrames ?? 20;
+  const fadeOutFrames = preset?.audio?.fadeOutFrames ?? 20;
+  const audioFade = interpolate(
+    frame,
+    [0, fadeInFrames, video.totalFrames - fadeOutFrames, video.totalFrames],
+    [0, musicVolume, musicVolume, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
+
+  // Intro text sizes from preset
+  const introTitleSize = preset?.text?.headlineFontSize ?? 80;
+  const introSubSize = preset?.text?.subheadlineFontSize ?? 34;
+  const outroTitleSize = preset?.text?.headlineFontSize ? Math.round(preset.text.headlineFontSize * 0.88) : 70;
+  const outroSubSize = preset?.text?.subheadlineFontSize ?? 32;
+
+  // Logo overlay settings
+  const logoOpacity = preset?.overlay?.logoOpacity ?? 1;
+  const logoWidth = preset?.overlay?.logoWidth ?? video.input.logo?.width;
 
   return (
     <AbsoluteFill style={{backgroundColor}}>
@@ -53,9 +69,9 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
                   dir={rtl ? 'rtl' : 'ltr'}
                 >
                   <div style={{maxWidth: '82%', textAlign: rtl ? 'right' : 'left'}}>
-                    <div style={{fontSize: 80, color: textColor, fontWeight: 800, lineHeight: 1.02}}>{video.input.title}</div>
+                    <div style={{fontSize: introTitleSize, color: textColor, fontWeight: 800, lineHeight: 1.02}}>{video.input.title}</div>
                     {video.input.subtitle ? (
-                      <div style={{marginTop: 22, fontSize: 34, lineHeight: 1.35, color: textColor, opacity: 0.9}}>
+                      <div style={{marginTop: 22, fontSize: introSubSize, lineHeight: 1.35, color: textColor, opacity: 0.9}}>
                         {video.input.subtitle}
                       </div>
                     ) : null}
@@ -78,11 +94,11 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
                   dir={rtl ? 'rtl' : 'ltr'}
                 >
                   <div style={{textAlign: 'center', maxWidth: '86%'}}>
-                    <div style={{fontSize: 70, lineHeight: 1.06, color: textColor, fontWeight: 800}}>
-                      {video.input.outroTitle ?? video.input.cta ?? 'צרו קשר לפרטים'}
+                    <div style={{fontSize: outroTitleSize, lineHeight: 1.06, color: textColor, fontWeight: 800}}>
+                      {video.input.outroTitle ?? video.input.cta ?? ''}
                     </div>
                     {video.input.outroSubtitle ? (
-                      <div style={{marginTop: 20, fontSize: 32, color: textColor, opacity: 0.9, lineHeight: 1.35}}>
+                      <div style={{marginTop: 20, fontSize: outroSubSize, color: textColor, opacity: 0.9, lineHeight: 1.35}}>
                         {video.input.outroSubtitle}
                       </div>
                     ) : null}
@@ -103,12 +119,14 @@ export const SlideshowAd: React.FC<{video: PlannedVideo}> = ({video}) => {
                   accent={accent}
                   textColor={textColor}
                   rtl={rtl}
+                  preset={preset}
                 />
                 {video.input.logo ? (
                   <LogoOverlay
                     src={resolveSrc(video.input.logo.src)}
-                    width={video.input.logo.width}
+                    width={logoWidth}
                     position={video.input.logo.position}
+                    opacity={logoOpacity}
                   />
                 ) : null}
               </AbsoluteFill>

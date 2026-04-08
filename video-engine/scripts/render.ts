@@ -143,13 +143,12 @@ const main = async () => {
     }
 
     // ── Encoding quality / compression settings ──
-    // CRF 28 = great quality for social media ads, ~70-85% smaller than default
-    // Env override: VIDEO_CRF (0-51, lower = higher quality + larger file)
-    const crf = parseInt(process.env.VIDEO_CRF || '28', 10);
-    // x264 preset: fast = good balance of speed and compression
-    const x264Preset = (process.env.VIDEO_PRESET || 'fast') as 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow';
-    // Audio: AAC at 128k is sufficient for background music in ads
-    const audioBitrate = (process.env.VIDEO_AUDIO_BITRATE || '128k') as `${number}k`;
+    // Priority: job preset > env vars > defaults
+    const jobPreset = rawInput.preset as Record<string, unknown> | undefined;
+    const encoding = (jobPreset as any)?.encoding as Record<string, unknown> | undefined;
+    const crf = (encoding?.crf as number) ?? parseInt(process.env.VIDEO_CRF || '28', 10);
+    const x264Preset = ((encoding?.x264Preset as string) ?? process.env.VIDEO_PRESET ?? 'fast') as 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow';
+    const audioBitrate = ((encoding?.audioBitrate as string) ?? process.env.VIDEO_AUDIO_BITRATE ?? '128k') as `${number}k`;
 
     console.log(`[render] Encoding: crf=${crf} preset=${x264Preset} audio=${audioBitrate}`);
 

@@ -1595,16 +1595,61 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
           };
           const lang = langMap[langRaw] || 'he';
 
+          // Resolve video ad preset — use request override, client default, or system default
+          const resolvedPreset = await videoPresetService.resolvePreset(req.body.preset_id);
+          const renderConfig = buildRenderConfig(resolvedPreset);
+
           const job: videoEngineLocal.LocalVideoJob = {
             projectId: `variant-${variant.id}`,
             platform: vePlatform,
             language: lang,
             rtl: lang === 'he' || lang === 'ar',
-            style: 'luxury',
+            style: (renderConfig.style.preset as any) || 'luxury',
+            fps: renderConfig.canvas.fps,
             title,
             subtitle: subtitle !== title ? subtitle : undefined,
             cta,
+            backgroundColor: renderConfig.style.backgroundColor,
+            fitMode: renderConfig.style.fitMode as 'cover' | 'contain',
             images: veImages,
+            preset: {
+              introDurationSeconds: renderConfig.scenes.introDurationSeconds,
+              outroDurationSeconds: renderConfig.scenes.outroDurationSeconds,
+              imageDurationSeconds: renderConfig.scenes.imageDurationSeconds,
+              transitionType: renderConfig.scenes.transitionType,
+              transitionDurationMs: renderConfig.scenes.transitionDurationMs,
+              text: {
+                headlineFontSize: renderConfig.text.headline.fontSize,
+                subheadlineFontSize: renderConfig.text.subheadline.fontSize,
+                ctaFontSize: renderConfig.text.cta.fontSize,
+                fontColor: renderConfig.text.fontColor,
+                strokeColor: renderConfig.text.strokeColor,
+                strokeWidth: renderConfig.text.strokeWidth,
+                shadowEnabled: renderConfig.text.shadow.enabled,
+                shadowColor: renderConfig.text.shadow.color,
+                shadowX: renderConfig.text.shadow.x,
+                shadowY: renderConfig.text.shadow.y,
+                textAlign: renderConfig.text.textAlign,
+                safeMargins: renderConfig.text.safeMargins,
+              },
+              overlay: {
+                logoOpacity: renderConfig.overlays.logo.opacity,
+                logoWidth: renderConfig.overlays.logo.width,
+                gradientEnabled: renderConfig.overlays.gradient.enabled,
+                gradientDirection: renderConfig.overlays.gradient.direction,
+                gradientOpacity: renderConfig.overlays.gradient.opacity,
+              },
+              audio: {
+                musicVolume: renderConfig.audio.musicVolume,
+                fadeInFrames: renderConfig.audio.fadeInFrames,
+                fadeOutFrames: renderConfig.audio.fadeOutFrames,
+              },
+              encoding: {
+                crf: renderConfig.output.crf,
+                x264Preset: renderConfig.output.x264Preset,
+                audioBitrate: renderConfig.output.audioBitrate,
+              },
+            },
           };
 
           // renderLocalVideo now handles temp workspace, S3 upload, and cleanup internally

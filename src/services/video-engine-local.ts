@@ -61,6 +61,8 @@ export interface LocalVideoJob {
     trimStartSeconds?: number;
     trimEndSeconds?: number;
   };
+  /** Preset config — passed through to the video-engine for rendering */
+  preset?: Record<string, unknown>;
 }
 
 export type RenderStatus = 'pending' | 'processing' | 'completed' | 'failed';

@@ -29,6 +29,54 @@ export type LogoAsset = {
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 };
 
+/** Preset config injected from the backend VideoAdPreset system. */
+export type PresetConfig = {
+  /** Scene timing */
+  introDurationSeconds?: number;
+  outroDurationSeconds?: number;
+  imageDurationSeconds?: number;
+  transitionType?: 'none' | 'fade' | 'slide' | 'wipe';
+  transitionDurationMs?: number;
+  /** Text styling */
+  text?: {
+    headlineFontSize?: number;
+    subheadlineFontSize?: number;
+    ctaFontSize?: number;
+    fontColor?: string;
+    strokeColor?: string;
+    strokeWidth?: number;
+    shadowEnabled?: boolean;
+    shadowColor?: string;
+    shadowX?: number;
+    shadowY?: number;
+    backgroundBoxEnabled?: boolean;
+    backgroundBoxColor?: string;
+    backgroundBoxOpacity?: number;
+    textAlign?: 'left' | 'center' | 'right';
+    safeMargins?: { top: number; bottom: number; left: number; right: number };
+  };
+  /** Overlay styling */
+  overlay?: {
+    logoOpacity?: number;
+    logoWidth?: number;
+    gradientEnabled?: boolean;
+    gradientDirection?: 'top_bottom' | 'bottom_top';
+    gradientOpacity?: number;
+  };
+  /** Audio */
+  audio?: {
+    musicVolume?: number;
+    fadeInFrames?: number;
+    fadeOutFrames?: number;
+  };
+  /** Encoding (passed through to render.ts) */
+  encoding?: {
+    crf?: number;
+    x264Preset?: string;
+    audioBitrate?: string;
+  };
+};
+
 export type JobInput = {
   projectId: string;
   platform: Platform;
@@ -48,6 +96,8 @@ export type JobInput = {
   images: ImageAsset[];
   logo?: LogoAsset;
   music?: MusicAsset;
+  /** Preset overrides from the backend preset system */
+  preset?: PresetConfig;
 };
 
 export type PlannedScene = {

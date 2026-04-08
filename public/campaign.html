@@ -668,9 +668,21 @@ function openPreview(variantId, platform) {
   const fbCopy = fbV?.copy_json || buildFBFromCopy(copy);
   const igCopy = igV?.copy_json || buildIGFromCopy(copy);
   const tkCopy = tkV?.copy_json || buildTKFromCopy(copy);
-  const fbMedia = fbV?.media_plan_json || media;
-  const igMedia = igV?.media_plan_json || media;
-  const tkMedia = tkV?.media_plan_json || media;
+
+  // Use generated video in preview instead of Drive video
+  function injectGeneratedVideo(mp) {
+    const m = { ...mp };
+    const sv = m.saved_video || m.ai_generated?.local_video;
+    if (sv?.url) {
+      // Replace Drive videos with the proxy URL to the generated video
+      const vid = Object.keys(window._variants || {}).find(k => window._variants[k].media_plan_json === mp) || variantId;
+      m.videos = [`/api/media/video/${vid}`];
+    }
+    return m;
+  }
+  const fbMedia = injectGeneratedVideo(fbV?.media_plan_json || media);
+  const igMedia = injectGeneratedVideo(igV?.media_plan_json || media);
+  const tkMedia = injectGeneratedVideo(tkV?.media_plan_json || media);
 
   const overlay = document.createElement('div');
   overlay.className = 'preview-overlay';

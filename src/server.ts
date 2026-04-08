@@ -445,6 +445,36 @@ app.get('/api/media/video/:variantId/download', async (req, res) => {
   }
 });
 
+// ── Internal sound upload (called by Amplify proxy, no auth needed) ──
+app.post('/api/sound-assets/internal-upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const file = req.file;
+    const name = (req.body.name || file.originalname || 'Untitled').replace(/\.[^.]+$/, '');
+    const category = req.body.category || 'music';
+    const tags = req.body.tags ? (typeof req.body.tags === 'string' ? req.body.tags.split(',').map((t: string) => t.trim()) : req.body.tags) : [];
+    const crypto = require('crypto');
+    const fileBuffer = fs.readFileSync(file.path);
+    const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex').slice(0, 16);
+    const existing = await store.getSoundAssetByChecksum(checksum);
+    if (existing) { fs.unlinkSync(file.path); return res.json({ success: true, asset: existing, duplicate: true }); }
+    const { getStorage } = await import('./lib/storage');
+    const storage = getStorage();
+    const ext = path.extname(file.originalname || '.mp3');
+    const storageKey = `sounds/${checksum}${ext}`;
+    await storage.write(storageKey, fileBuffer, file.mimetype || 'audio/mpeg');
+    fs.unlinkSync(file.path);
+    const asset = await store.addSoundAsset({
+      id: require('uuid').v4(), name, filename: file.originalname || `${name}${ext}`,
+      storage_key: storageKey, storage_url: storage.getUrl(storageKey),
+      mime_type: file.mimetype || 'audio/mpeg', file_size: file.size,
+      duration_seconds: req.body.duration_seconds ? parseFloat(req.body.duration_seconds) : null,
+      checksum, category, tags,
+    });
+    res.json({ success: true, asset });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Protect all API routes below ──
 app.use('/api', requireAuth);
 
@@ -1858,16 +1888,42 @@ app.post('/api/sound-assets/upload', requireRole('admin', 'manager'), upload.sin
     // Check for duplicate
     const existing = await store.getSoundAssetByChecksum(checksum);
     if (existing) {
-      fs.unlinkSync(file.path); // cleanup temp file
+      fs.unlinkSync(file.path);
       return res.json({ success: true, asset: existing, duplicate: true });
     }
 
-    // Upload to storage
-    const storage = (await import('./lib/storage')).getStorage();
+    // If VIDEO_WORKER_URL is set (Amplify), proxy upload to EC2 worker
+    const workerUrl = process.env.VIDEO_WORKER_URL?.trim();
+    if (workerUrl) {
+      try {
+        const FormData = (await import('form-data')).default;
+        const form = new FormData();
+        form.append('file', fileBuffer, { filename: file.originalname, contentType: file.mimetype });
+        form.append('name', name);
+        form.append('category', category);
+        if (tags.length) form.append('tags', tags.join(','));
+        if (req.body.duration_seconds) form.append('duration_seconds', req.body.duration_seconds);
+        const workerRes = await fetch(`${workerUrl.replace(/\/+$/, '')}/api/sound-assets/internal-upload`, {
+          method: 'POST',
+          body: form as any,
+          headers: form.getHeaders(),
+        });
+        fs.unlinkSync(file.path);
+        const workerData = await workerRes.json();
+        return res.json(workerData);
+      } catch (proxyErr) {
+        // Fall through to local upload
+        console.warn('[sound-upload] Worker proxy failed, uploading locally:', (proxyErr as Error).message);
+      }
+    }
+
+    // Upload to local storage (works on EC2 and local dev)
+    const { getStorage } = await import('./lib/storage');
+    const storage = getStorage();
     const ext = path.extname(file.originalname || '.mp3');
     const storageKey = `sounds/${checksum}${ext}`;
-    const storageUrl = await storage.write(storageKey, fileBuffer, file.mimetype || 'audio/mpeg');
-    fs.unlinkSync(file.path); // cleanup temp file
+    await storage.write(storageKey, fileBuffer, file.mimetype || 'audio/mpeg');
+    fs.unlinkSync(file.path);
 
     const asset = await store.addSoundAsset({
       id: require('uuid').v4(),

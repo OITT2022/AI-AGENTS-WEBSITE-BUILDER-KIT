@@ -1247,10 +1247,7 @@ async function renderSavedMedia(el) {
         <div class="card-header">
           <div>
             <h3 style="font-size:14px">${esc(v.title)}</h3>
-            <div style="color:var(--text2);font-size:11px;margin-top:2px">
-              <span class="platform-tag platform-${v.platform}">${v.platform}</span>
-              ${v.city ? ` · ${esc(v.city)}` : ''}
-            </div>
+            ${v.city ? `<div style="color:var(--text2);font-size:11px;margin-top:2px">${esc(v.city)}</div>` : ''}
           </div>
           ${v.is_approved ? '<span class="badge badge-green" style="font-size:10px">Approved</span>' : ''}
         </div>

@@ -1262,8 +1262,17 @@ function renderGallery() {
   if (item.type === 'video') {
     const isDrive = item.url.includes('drive.google.com');
     if (isDrive) {
-      const driveEmbed = driveVideoEmbed(item.url);
-      content = `<iframe src="${esc(driveEmbed)}?autoplay=1" style="width:80vw;max-width:640px;aspect-ratio:16/9;border:none;border-radius:8px" allow="autoplay;encrypted-media" allowfullscreen></iframe>`;
+      // Drive videos can't be embedded cross-origin — show thumbnail + open link
+      const driveId = (item.url.match(/\/d\/([a-zA-Z0-9_-]+)/)||[])[1];
+      const thumbUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w800` : '';
+      const openUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : item.url;
+      content = `<div style="text-align:center">
+        ${thumbUrl ? `<img src="${esc(thumbUrl)}" style="max-width:80vw;max-height:60vh;border-radius:8px;margin-bottom:16px" onerror="this.style.display='none'">` : ''}
+        <div style="margin-top:8px">
+          <a href="${esc(openUrl)}" target="_blank" class="btn btn-primary" style="text-decoration:none;font-size:14px;padding:12px 24px">&#9654; Open Video in Google Drive</a>
+        </div>
+        <div style="font-size:11px;color:#9da3b7;margin-top:8px">Google Drive videos open in a new tab</div>
+      </div>`;
     } else {
       content = `<video src="${esc(item.url)}" controls autoplay style="max-width:90vw;max-height:80vh;border-radius:8px"></video>`;
     }

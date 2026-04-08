@@ -1573,7 +1573,7 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
         };
         const vePlatform = vePlatformMap[variant.platform] || 'tiktok';
 
-        // Collect media — images from selected_images/gallery, plus Drive videos as still frames
+        // Collect media — images + Drive video thumbnails for slideshow
         const veImages: videoEngineLocal.LocalVideoJob['images'] = [];
         if (sceneImages.length > 0) {
           for (const si of sceneImages) {
@@ -1583,12 +1583,24 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
           const heroImg = mediaPlan.hero_image as string | undefined;
           const selectedImgs = (mediaPlan.selected_images as string[] | undefined) ?? [];
           const galleryImgs = (mediaPlan.gallery as string[] | undefined) ?? [];
+          const driveVideos = (mediaPlan.videos as string[] | undefined) ?? [];
+
           // Combine: hero first, then selected, then remaining gallery (deduplicated)
           const seen = new Set<string>();
           const allImgs: string[] = [];
           for (const img of [heroImg, ...selectedImgs, ...galleryImgs].filter(Boolean) as string[]) {
             if (!seen.has(img)) { seen.add(img); allImgs.push(img); }
           }
+
+          // Add Drive video thumbnails as slideshow frames
+          for (const vidUrl of driveVideos) {
+            const driveMatch = vidUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+            if (driveMatch) {
+              const thumbUrl = `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1080`;
+              if (!seen.has(thumbUrl)) { seen.add(thumbUrl); allImgs.push(thumbUrl); }
+            }
+          }
+
           for (const imgUrl of allImgs.slice(0, 8)) {
             veImages.push({ src: imgUrl });
           }

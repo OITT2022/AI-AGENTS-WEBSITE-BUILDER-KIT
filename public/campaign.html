@@ -984,7 +984,22 @@ async function generateAiAd(vid) {
   }, 500);
 
   try {
-    const res = await apiCall(`/api/generate/ai-ad/${vid}`, { method: 'POST', body: JSON.stringify({}) });
+    // Collect current form values so the video uses the latest edits
+    const hlEl = document.getElementById('hl-' + vid);
+    const descEl = document.getElementById('desc-' + vid);
+    const ctaEl = document.getElementById('cta-' + vid);
+    const urlEl = document.getElementById('url-' + vid);
+    const tagsEl = document.getElementById('tags-' + vid);
+    const textEl = document.getElementById('text-' + vid);
+    const reqBody = {
+      headline: hlEl?.value || undefined,
+      description: descEl?.value || undefined,
+      cta: ctaEl?.value || undefined,
+      ad_url: urlEl?.value || undefined,
+      hashtags: tagsEl?.value || undefined,
+      primary_text: textEl?.innerText || undefined,
+    };
+    const res = await apiCall(`/api/generate/ai-ad/${vid}`, { method: 'POST', body: JSON.stringify(reqBody) });
 
     const modal = overlay.querySelector('.ai-gen-modal');
     if (!res.success) {

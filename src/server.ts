@@ -1586,9 +1586,10 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
         }
 
         if (veImages.length > 0) {
-          const title = String(payload.title_he || payload.title_en || '');
-          const subtitle = String(payload.subtitle_he || payload.subtitle_en || payload.city || '');
-          const cta = String(copy.cta || copy.closing_cta || 'Learn More');
+          // Use form overrides from request body, fall back to DB variant/snapshot
+          const title = String(req.body.headline || copy.headline || payload.title_he || payload.title_en || '');
+          const subtitle = String(req.body.description || copy.description || payload.subtitle_he || payload.subtitle_en || payload.city || '');
+          const cta = String(req.body.cta || copy.cta || copy.closing_cta || 'Learn More');
           const langRaw = String(payload.language || 'he');
           const langMap: Record<string, videoEngineLocal.LocalVideoJob['language']> = {
             he: 'he', en: 'en', ar: 'ar', fr: 'fr', de: 'de',
@@ -1643,6 +1644,9 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
             console.warn('[ai-ad] Preset resolution failed, using defaults:', (presetErr as Error).message);
           }
 
+          const outroTitle = cta || title;
+          const outroSubtitle = req.body.ad_url || String(copy.ad_url || entity.listing_url || '');
+
           const job: videoEngineLocal.LocalVideoJob = {
             projectId: `variant-${variant.id}`,
             platform: vePlatform,
@@ -1652,6 +1656,8 @@ app.post('/api/generate/ai-ad/:variantId', requireRole('admin', 'manager'), asyn
             title,
             subtitle: subtitle !== title ? subtitle : undefined,
             cta,
+            outroTitle,
+            outroSubtitle: outroSubtitle || undefined,
             images: veImages,
             ...(presetConfig ? { preset: presetConfig } : {}),
           };

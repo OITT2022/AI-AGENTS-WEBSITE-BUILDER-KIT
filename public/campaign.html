@@ -1278,7 +1278,7 @@ function updateCardWithSavedVideo(variantId, savedVideo) {
 }
 
 async function pollVideoStatus(variantId, attempt = 0) {
-  if (attempt > 30) {
+  if (attempt > 60) { // 60 × 5s = 5 min max
     clearInterval(window._renderProgressInterval);
     const el = document.getElementById('video-poll-status');
     if (el) el.innerHTML = '<div style="color:var(--red);padding:16px">Video render timed out. Please try again.</div>';
@@ -1319,9 +1319,20 @@ async function pollVideoStatus(variantId, attempt = 0) {
         }
       }, 800);
 
+      // Auto-save the video to the creative
       const v = window._variants?.[variantId];
       if (v?.media_plan_json) {
         v.media_plan_json.ai_generated = { ...v.media_plan_json.ai_generated, local_video: res.local_video };
+        v.media_plan_json.saved_video = {
+          url: res.local_video.url,
+          provider: res.local_video.provider || 'video-engine-local',
+          status: 'completed',
+          size_bytes: res.local_video.size_bytes || 0,
+          duration_sec: res.local_video.duration_sec || 0,
+          saved_at: new Date().toISOString(),
+        };
+        // Persist to DB
+        apiCall(`/api/creatives/${variantId}`, { method: 'PUT', body: JSON.stringify({ media_plan_json: v.media_plan_json }) }).catch(() => {});
       }
       return;
     }

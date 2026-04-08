@@ -799,6 +799,19 @@ app.put('/api/creatives/:id', async (req, res) => {
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+app.post('/api/creatives/:id/remove-video', async (req, res) => {
+  try {
+    const variant = await store.getVariant(paramId(req));
+    if (!variant) return res.status(404).json({ error: 'Variant not found' });
+    const mp = { ...(variant.media_plan_json as Record<string, unknown>) };
+    delete mp.saved_video;
+    const ai = mp.ai_generated as Record<string, unknown> | undefined;
+    if (ai) delete ai.local_video;
+    await store.updateVariant(paramId(req), { media_plan_json: mp });
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 app.delete('/api/creatives/:id', async (req, res) => {
   try {
     const deleted = await store.deleteVariant(paramId(req));

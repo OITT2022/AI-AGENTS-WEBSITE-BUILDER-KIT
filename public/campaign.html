@@ -182,6 +182,7 @@
     <button class="tab" onclick="switchTab('creatives')">Creatives</button>
     <button class="tab" onclick="switchTab('approvals')">Approvals</button>
     <button class="tab" onclick="switchTab('properties')">Properties</button>
+    <button class="tab" onclick="switchTab('saved-media')">Saved Media</button>
   </div>
   <div id="bulk-actions" style="display:none">
     <div class="bulk-bar">
@@ -247,6 +248,7 @@ async function loadTab(tab) {
     case 'creatives': return renderCreatives(el);
     case 'approvals': return renderApprovals(el);
     case 'properties': return renderProperties(el);
+    case 'saved-media': return renderSavedMedia(el);
   }
 }
 
@@ -759,6 +761,88 @@ async function renderProperties(el) {
   }).join('')}</div>`;
 }
 
+// ── Saved Media ──
+
+async function renderSavedMedia(el) {
+  const batches = await apiCall(`/api/clients/${clientId}/creatives`);
+  const videos = [];
+  for (const b of batches) {
+    for (const v of (b.variants || [])) {
+      const mp = v.media_plan_json || {};
+      const sv = mp.saved_video || mp.ai_generated?.local_video;
+      if (sv?.url) {
+        const isApproved = v.approval?.status === 'approved' || v.approval?.status === 'approved_with_edits';
+        videos.push({
+          variant_id: v.id,
+          platform: v.platform,
+          url: sv.url,
+          size_bytes: sv.size_bytes || 0,
+          duration_sec: sv.duration_sec || 0,
+          saved_at: sv.saved_at || mp.ai_generated?.generated_at || v.created_at,
+          title: b.entity?.title_he || b.entity?.title_en || 'Untitled',
+          city: b.entity?.city || '',
+          is_approved: isApproved,
+        });
+      }
+    }
+  }
+  if (!videos.length) {
+    el.innerHTML = '<div class="empty-state"><h3>No saved videos</h3><p>Generate videos from the Creatives tab using the AI Ads Generator, then save them.</p></div>';
+    return;
+  }
+  el.innerHTML = `<div style="margin-bottom:16px;color:var(--text2);font-size:13px">${videos.length} video${videos.length > 1 ? 's' : ''} saved</div>
+    <div class="card-grid">${videos.map(v => `
+      <div class="card" style="max-width:360px">
+        <div class="card-header">
+          <div>
+            <h3 style="font-size:14px">${esc(v.title)}</h3>
+            <div style="color:var(--text2);font-size:11px;margin-top:2px">
+              <span class="platform-tag platform-${v.platform}">${v.platform}</span>
+              ${v.city ? ` · ${esc(v.city)}` : ''}
+            </div>
+          </div>
+          ${v.is_approved ? '<span class="badge badge-green" style="font-size:10px">Approved</span>' : ''}
+        </div>
+        <div style="padding:12px 20px">
+          <video controls preload="metadata" style="width:100%;border-radius:8px;border:1px solid var(--border)">
+            <source src="${esc(v.url)}" type="video/mp4">
+          </video>
+          <div style="font-size:10px;color:var(--text2);margin-top:6px">
+            ${v.duration_sec ? v.duration_sec + 's' : ''} ${v.size_bytes ? '· ' + (v.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : ''}
+            ${v.saved_at ? '· ' + new Date(v.saved_at).toLocaleDateString() : ''}
+          </div>
+        </div>
+        <div class="card-footer">
+          <a href="${esc(v.url)}" download class="btn btn-sm" style="text-decoration:none">Download</a>
+          <div style="flex:1"></div>
+          <button class="btn btn-sm btn-red" onclick="deleteSavedVideo('${v.variant_id}', ${v.is_approved})">Delete</button>
+        </div>
+      </div>
+    `).join('')}</div>`;
+}
+
+async function deleteSavedVideo(variantId, isApproved) {
+  if (isApproved) {
+    if (!confirm('This video is connected to an APPROVED ad. Deleting it will remove the video from that approved creative. Continue?')) return;
+  } else {
+    if (!confirm('Delete this saved video?')) return;
+  }
+  try {
+    const res = await apiCall(`/api/creatives/${variantId}/remove-video`, { method: 'POST' });
+    if (res.success) {
+      const v = window._variants?.[variantId];
+      if (v?.media_plan_json) {
+        delete v.media_plan_json.saved_video;
+        if (v.media_plan_json.ai_generated) delete v.media_plan_json.ai_generated.local_video;
+      }
+      showToast('Video deleted');
+    } else {
+      showToast('Failed: ' + (res.error || 'Unknown'));
+    }
+  } catch (e) { showToast('Error: ' + e.message); }
+  switchTab('saved-media');
+}
+
 // ── Actions ──
 
 async function syncDrive() {
@@ -888,15 +972,15 @@ async function generateAiAd(vid) {
           <div>Video is being rendered on the server...</div>
           <div style="font-size:11px;margin-top:4px">This may take 30-60 seconds. Please wait.</div>
         </div>`;
-      // Start polling
-      setTimeout(() => pollVideoStatus(variantId), 5000);
+      // Start polling (vid is the variant ID from generateAiAd parameter)
+      setTimeout(() => pollVideoStatus(vid), 5000);
     } else if (localVideo && localVideo.url) {
       html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;text-align:left">Video (Local Slideshow)</div>
         <video controls preload="metadata" style="width:100%;max-width:360px;border-radius:8px;margin-bottom:4px">
           <source src="${esc(localVideo.url)}" type="video/mp4">
         </video>
         <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Generated locally via VideoEngine</div>
-        <button class="btn btn-sm btn-green" id="save-video-btn" onclick="saveGeneratedVideo('${variantId}')">
+        <button class="btn btn-sm btn-green" id="save-video-btn" onclick="saveGeneratedVideo('${vid}')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
           Save Video to Creative
         </button>`;

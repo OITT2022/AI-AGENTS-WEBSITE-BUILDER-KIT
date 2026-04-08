@@ -383,7 +383,7 @@ async function renderCreatives(el) {
 
         <!-- BOX 1: Edit Media -->
         <div style="padding:16px 20px;border-right:1px solid var(--border)">
-          <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">Edit Media</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:10px;color:var(--text2)">Edit Media</div>
           ${renderMediaGrid(media, vid)}
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
             <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">&#127925; Background Music</div>
@@ -396,7 +396,7 @@ async function renderCreatives(el) {
 
         <!-- BOX 2: Ad Text & Information -->
         <div style="padding:16px 20px;border-right:1px solid var(--border)">
-          <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">Ad Text & Information</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:10px;color:var(--text2)">Ad Text & Information</div>
           ${copy.headline?`<div class="detail-row"><span class="label">Headline</span><input type="text" id="hl-${vid}" value="${esc(copy.headline)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
           ${copy.description?`<div class="detail-row"><span class="label">Description</span><input type="text" id="desc-${vid}" value="${esc(copy.description)}" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>`:''}
           <div class="detail-row"><span class="label">CTA</span><input type="text" id="cta-${vid}" value="${esc(copy.cta||copy.closing_cta||'')}" placeholder="Learn More" style="flex:1;margin-left:8px;padding:4px 8px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)"></div>
@@ -416,7 +416,7 @@ async function renderCreatives(el) {
 
         <!-- BOX 3: Advplanner AI Video Gen -->
         <div style="padding:16px 20px;display:flex;flex-direction:column">
-          <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">Advplanner AI Video Gen</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:10px;color:var(--text2)">Advplanner AI Video Gen</div>
           ${hasSavedVideo ? `
             <div style="flex:1;display:flex;flex-direction:column">
               ${renderSavedVideoBox(media, vid, poster)}

@@ -24,6 +24,7 @@ frontend:
         - cp -r video-engine/src .amplify-hosting/compute/default/video-engine/src
         - cp -r video-engine/scripts .amplify-hosting/compute/default/video-engine/scripts
         - cp video-engine/package.json .amplify-hosting/compute/default/video-engine/package.json
+        - cp video-engine/package-lock.json .amplify-hosting/compute/default/video-engine/package-lock.json
         - cp video-engine/tsconfig.json .amplify-hosting/compute/default/video-engine/tsconfig.json
         - cd .amplify-hosting/compute/default/video-engine && npm ci --omit=dev && cd ../../../..
         # Debug - check if env vars exist during build

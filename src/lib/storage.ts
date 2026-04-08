@@ -52,6 +52,9 @@ class LocalStorageProvider implements StorageProvider {
   }
 
   getUrl(key: string): string {
+    // On EC2 worker, return absolute URL so browsers can reach the file
+    const baseUrl = process.env.VIDEO_WORKER_BASE_URL?.replace(/\/+$/, '');
+    if (baseUrl) return `${baseUrl}/api/media/storage/${key}`;
     return `/api/media/storage/${key}`;
   }
 

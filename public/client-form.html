@@ -132,9 +132,16 @@
       API Connection
     </h2></div>
     <div class="section-body">
+      <div class="form-group">
+        <label>API Provider</label>
+        <select id="f-api-provider" onchange="onProviderChange()">
+          <option value="">None (no API sync)</option>
+        </select>
+        <div class="hint">Select which data source to sync properties from</div>
+      </div>
       <div class="form-row">
-        <div class="form-group"><label>API Base URL</label><input type="text" id="f-api-url" placeholder="https://www.findus.co.il/api/v1" value="https://www.findus.co.il/api/v1"></div>
-        <div class="form-group"><label>API Token (Bearer)</label><input type="password" id="f-api-token" placeholder="Bearer token from provider"></div>
+        <div class="form-group"><label>API Base URL</label><input type="text" id="f-api-url" placeholder="https://api.example.com/v1"></div>
+        <div class="form-group"><label id="f-token-label">API Token</label><input type="password" id="f-api-token" placeholder="Token from provider"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Filter: City</label><input type="text" id="f-filter-city" placeholder="e.g. Larnaca (optional)"></div>
@@ -259,6 +266,31 @@
 
 <script src="/dashboard/shared.js"></script>
 <script>
+let _providerList = [];
+
+async function loadProviderDropdown(selectedId) {
+  try {
+    _providerList = await apiCall('/api/providers');
+  } catch { _providerList = []; }
+  const sel = document.getElementById('f-api-provider');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">None (no API sync)</option>' +
+    _providerList.map(p => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name} (${p.type})</option>`).join('');
+  onProviderChange();
+}
+
+function onProviderChange() {
+  const sel = document.getElementById('f-api-provider');
+  const id = sel?.value;
+  const p = _providerList.find(x => x.id === id);
+  if (p) {
+    const urlEl = document.getElementById('f-api-url');
+    if (urlEl && !urlEl.value) urlEl.value = p.default_base_url || '';
+    const labelEl = document.getElementById('f-token-label');
+    if (labelEl) labelEl.textContent = p.auth_type === 'bearer' ? 'Bearer Token' : p.auth_type === 'api_key_header' ? 'API Key' : 'Token';
+  }
+}
+
 const params = new URLSearchParams(window.location.search);
 const editId = params.get('id');
 let selectedFolders = []; // Array of {id, name, path}
@@ -326,6 +358,8 @@ async function init() {
     document.title = 'Edit Client - Marketing Agent';
     await loadClient();
     loadSocialStatus();
+  } else {
+    await loadProviderDropdown('');
   }
 
   // Check URL params for Google OAuth callback result
@@ -637,7 +671,8 @@ async function loadClient() {
   document.getElementById('f-notes').value = c.notes || '';
   // Load logo
   if (c.logo_url) { clientLogoUrl = c.logo_url; showLogoPreview(c.logo_url); }
-  document.getElementById('f-api-url').value = c.api_config?.base_url || 'https://www.findus.co.il/api/v1';
+  await loadProviderDropdown(c.api_config?.provider_id || '');
+  document.getElementById('f-api-url').value = c.api_config?.base_url || '';
   document.getElementById('f-api-token').placeholder = c.api_config?.api_token ? 'Token saved (leave blank to keep)' : 'Bearer token';
   document.getElementById('f-filter-city').value = c.api_config?.filters?.city || '';
   document.getElementById('f-filter-type').value = c.api_config?.filters?.propertyType || '';
@@ -721,8 +756,10 @@ async function saveClient() {
 
   const apiUrl = document.getElementById('f-api-url').value.trim();
   if (apiUrl || apiToken) {
+    const selectedProvider = document.getElementById('f-api-provider')?.value || '';
     body.api_config = {
-      base_url: apiUrl || 'https://www.findus.co.il/api/v1',
+      provider_id: selectedProvider || undefined,
+      base_url: apiUrl || undefined,
       api_token: apiToken || undefined,
       filters: {
         city: document.getElementById('f-filter-city').value.trim() || undefined,

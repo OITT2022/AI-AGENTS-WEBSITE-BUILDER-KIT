@@ -403,13 +403,57 @@
 
 <div class="container">
 
+  <!-- API Providers -->
+  <div class="section" id="providers-section">
+    <div class="section-header">
+      <h2>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        API Providers
+      </h2>
+      <button class="btn btn-primary btn-sm" onclick="showAddProvider()">+ Add Provider</button>
+    </div>
+    <div class="section-body" id="providers-list"><div style="color:var(--text2);font-size:13px">Loading...</div></div>
+  </div>
+
+  <!-- Add/Edit Provider Form (hidden by default) -->
+  <div class="section" id="provider-form-section" style="display:none">
+    <div class="section-header"><h2 id="provider-form-title">Add Provider</h2></div>
+    <div class="section-body">
+      <input type="hidden" id="pf-id">
+      <div class="form-row">
+        <div class="form-group"><label>Provider Name *</label><input type="text" id="pf-name" placeholder="My API Source"></div>
+        <div class="form-group"><label>Type *</label>
+          <select id="pf-type"><option value="findus">FindUS Compatible</option><option value="generic_rest">Generic REST API</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Default Base URL *</label><input type="text" id="pf-url" placeholder="https://api.example.com/v1"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Auth Type</label>
+          <select id="pf-auth"><option value="bearer">Bearer Token</option><option value="api_key_header">API Key Header</option><option value="query_param">Query Parameter</option></select>
+        </div>
+        <div class="form-group" id="pf-header-group" style="display:none"><label>Header Name</label><input type="text" id="pf-header-name" placeholder="X-API-Key"></div>
+      </div>
+      <div id="pf-endpoints-group" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label>Properties Endpoint</label><input type="text" id="pf-prop-ep" placeholder="/properties" value="/properties"></div>
+          <div class="form-group"><label>Projects Endpoint</label><input type="text" id="pf-proj-ep" placeholder="/projects" value="/projects"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>Description</label><input type="text" id="pf-desc" placeholder="Optional description"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" onclick="saveProviderForm()">Save Provider</button>
+        <button class="btn" onclick="hideProviderForm()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Status Banner -->
   <div class="status-banner disconnected" id="status-banner">
     <div class="status-dot"></div>
     <span id="status-text">Checking connection...</span>
   </div>
 
-  <!-- Connection Settings -->
+  <!-- Connection Settings (FindUS Global) -->
   <div class="section">
     <div class="section-header">
       <h2>
@@ -587,6 +631,105 @@ async function api(path, opts = {}) {
   await requireLogin();
   injectNav('connector');
 })();
+
+// ── Providers ──
+async function loadProviders() {
+  const providers = await api('/api/providers');
+  const el = document.getElementById('providers-list');
+  if (!providers.length) { el.innerHTML = '<div style="color:var(--text2)">No providers configured</div>'; return; }
+  el.innerHTML = providers.map(p => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--border)">
+      <div style="width:40px;height:40px;border-radius:8px;background:${p.type==='findus'?'rgba(99,102,241,.15)':'rgba(249,115,22,.15)'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${p.type==='findus'?'&#128279;':'&#127760;'}</div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">${esc(p.name)} ${p.is_builtin?'<span style="font-size:10px;color:var(--text2)">(built-in)</span>':''}</div>
+        <div style="font-size:12px;color:var(--text2)">${esc(p.default_base_url)} &middot; ${p.auth_type} &middot; ${p.type}</div>
+        ${p.description?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${esc(p.description)}</div>`:''}
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="editProvider('${p.id}')">Edit</button>
+        ${!p.is_builtin?`<button class="btn btn-sm" style="color:var(--red)" onclick="deleteProvider('${p.id}','${esc(p.name)}')">Delete</button>`:''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+
+let _providers = [];
+function showAddProvider() {
+  document.getElementById('provider-form-section').style.display = 'block';
+  document.getElementById('provider-form-title').textContent = 'Add Provider';
+  document.getElementById('pf-id').value = '';
+  document.getElementById('pf-name').value = '';
+  document.getElementById('pf-type').value = 'generic_rest';
+  document.getElementById('pf-url').value = '';
+  document.getElementById('pf-auth').value = 'bearer';
+  document.getElementById('pf-header-name').value = '';
+  document.getElementById('pf-prop-ep').value = '/properties';
+  document.getElementById('pf-proj-ep').value = '/projects';
+  document.getElementById('pf-desc').value = '';
+  toggleProviderFields();
+}
+
+async function editProvider(id) {
+  const providers = await api('/api/providers');
+  const p = providers.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('provider-form-section').style.display = 'block';
+  document.getElementById('provider-form-title').textContent = 'Edit Provider';
+  document.getElementById('pf-id').value = p.id;
+  document.getElementById('pf-name').value = p.name || '';
+  document.getElementById('pf-type').value = p.type || 'generic_rest';
+  document.getElementById('pf-url').value = p.default_base_url || '';
+  document.getElementById('pf-auth').value = p.auth_type || 'bearer';
+  document.getElementById('pf-header-name').value = p.auth_header_name || '';
+  document.getElementById('pf-prop-ep').value = p.endpoints?.properties || '/properties';
+  document.getElementById('pf-proj-ep').value = p.endpoints?.projects || '/projects';
+  document.getElementById('pf-desc').value = p.description || '';
+  toggleProviderFields();
+}
+
+function hideProviderForm() {
+  document.getElementById('provider-form-section').style.display = 'none';
+}
+
+function toggleProviderFields() {
+  const type = document.getElementById('pf-type').value;
+  const auth = document.getElementById('pf-auth').value;
+  document.getElementById('pf-endpoints-group').style.display = type === 'generic_rest' ? 'block' : 'none';
+  document.getElementById('pf-header-group').style.display = auth === 'api_key_header' ? 'block' : 'none';
+}
+document.getElementById('pf-type')?.addEventListener('change', toggleProviderFields);
+document.getElementById('pf-auth')?.addEventListener('change', toggleProviderFields);
+
+async function saveProviderForm() {
+  const id = document.getElementById('pf-id').value || document.getElementById('pf-name').value.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  const body = {
+    id,
+    name: document.getElementById('pf-name').value.trim(),
+    type: document.getElementById('pf-type').value,
+    default_base_url: document.getElementById('pf-url').value.trim(),
+    auth_type: document.getElementById('pf-auth').value,
+    auth_header_name: document.getElementById('pf-header-name').value.trim() || undefined,
+    endpoints: {
+      properties: document.getElementById('pf-prop-ep').value.trim() || '/properties',
+      projects: document.getElementById('pf-proj-ep').value.trim() || '/projects',
+    },
+    description: document.getElementById('pf-desc').value.trim() || undefined,
+  };
+  if (!body.name || !body.default_base_url) { showToast('Name and URL required'); return; }
+  await api('/api/providers', { method: 'POST', body: JSON.stringify(body) });
+  showToast('Provider saved');
+  hideProviderForm();
+  loadProviders();
+}
+
+async function deleteProvider(id, name) {
+  if (!confirm(`Delete provider "${name}"?`)) return;
+  await api(`/api/providers/${id}`, { method: 'DELETE' });
+  showToast('Provider deleted');
+  loadProviders();
+}
 
 // ── Load config ──
 async function loadConfig() {
@@ -806,6 +949,7 @@ function showToast(msg) {
 }
 
 // Init
+loadProviders();
 loadConfig();
 </script>
 

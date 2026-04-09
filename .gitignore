@@ -8,3 +8,4 @@ video-engine/output/*.mp4
 ffmpeg-8.1/
 .firecrawl/
 data/
+advplanner-worker.pem

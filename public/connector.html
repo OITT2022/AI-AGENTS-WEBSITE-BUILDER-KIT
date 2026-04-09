@@ -696,8 +696,8 @@ async function editProvider(id) {
   document.getElementById('pf-proj-ep').value = p.endpoints?.projects || '/projects';
   document.getElementById('pf-desc').value = p.description || '';
   toggleProviderFields();
-  // Show Connection/Sync/Reference sections for this provider
-  document.getElementById('provider-detail-panel').style.display = 'block';
+  // Show Connection/Sync/Reference only for built-in Aradre.com provider
+  document.getElementById('provider-detail-panel').style.display = p.is_builtin ? 'block' : 'none';
   window.scrollTo({ top: document.getElementById('provider-form-section').offsetTop - 80, behavior: 'smooth' });
 }
 

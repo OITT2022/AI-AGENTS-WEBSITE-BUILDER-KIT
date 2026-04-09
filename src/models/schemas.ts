@@ -277,6 +277,7 @@ export interface Session {
 // ── Clients ──
 
 export interface ClientApiConfig {
+  provider_id?: string;
   base_url: string;
   api_token: string;
   filters: {

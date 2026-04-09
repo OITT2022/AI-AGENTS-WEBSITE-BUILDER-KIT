@@ -24,6 +24,7 @@ import * as videoAi from './services/video-ai';
 import * as canva from './services/canva';
 import * as videoEngineLocal from './services/video-engine-local';
 import * as videoPresetService from './services/video-preset';
+import * as providerRegistry from './services/provider-registry';
 import { buildRenderConfig } from './services/ffmpeg-config-builder';
 
 const app = express();
@@ -711,17 +712,11 @@ app.post('/api/clients/:id/sync', async (req, res) => {
     let apiResult: any = null;
     let driveResult: any = null;
 
-    // 1. Sync from FindUS API (if configured)
+    // 1. Sync from API provider (if configured)
     if (client.api_config?.api_token) {
-      const apiConfig = {
-        base_url: String(client.api_config.base_url || ''),
-        api_token: String(client.api_config.api_token || ''),
-        filters: {
-          city: client.api_config.filters?.city ? String(client.api_config.filters.city) : undefined,
-          propertyType: client.api_config.filters?.propertyType ? String(client.api_config.filters.propertyType) : undefined,
-        },
-      };
-      apiResult = await syncFromFindUs(false, client.id, apiConfig); // Don't run pipeline yet
+      const providerId = client.api_config.provider_id || 'findus';
+      const provider = providerRegistry.getProvider(providerId);
+      apiResult = await provider.sync(client.id, client.api_config, false); // Don't run pipeline yet
     }
 
     // 2. Sync Google Drive media (if configured)
@@ -1963,6 +1958,38 @@ app.post('/api/video-ad-presets/:id/test-render', requireRole('admin', 'manager'
 app.get('/api/video-ad-presets/seed', requireRole('admin'), async (_req: AuthRequest, res) => {
   try { await videoPresetService.seedDefaultPresets(); res.json({ success: true }); }
   catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ── API Providers ──
+
+app.get('/api/providers', async (_req, res) => {
+  try { res.json(await providerRegistry.listProviders()); }
+  catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/providers', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    if (!req.body.id || !req.body.name || !req.body.type) return res.status(400).json({ error: 'id, name, type required' });
+    res.json(await providerRegistry.saveProvider(req.body));
+  } catch (err: any) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/providers/:id', requireRole('admin'), async (req: AuthRequest, res) => {
+  try {
+    const ok = await providerRegistry.deleteProvider(paramId(req));
+    if (!ok) return res.status(400).json({ error: 'Cannot delete builtin provider' });
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/providers/:id/test', requireRole('admin', 'manager'), async (req: AuthRequest, res) => {
+  try {
+    const def = await providerRegistry.getProviderDef(paramId(req));
+    if (!def) return res.status(404).json({ error: 'Provider not found' });
+    const provider = providerRegistry.getProvider(def.type);
+    const result = await provider.testConnection(req.body.api_token || '', req.body.base_url || def.default_base_url, def);
+    res.json(result);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Sound Library ──

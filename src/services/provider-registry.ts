@@ -92,11 +92,11 @@ const CONFIG_KEY = 'api_providers';
 
 const BUILTIN_FINDUS: ApiProviderDefinition = {
   id: 'findus',
-  name: 'FindUS / Aradre',
+  name: 'Aradre.com',
   type: 'findus',
   default_base_url: 'https://www.findus.co.il/api/v1',
   auth_type: 'bearer',
-  description: 'FindUS real-estate platform API (properties & projects)',
+  description: 'Aradre.com real-estate platform API (properties & projects)',
   is_builtin: true,
   created_at: '2026-01-01T00:00:00.000Z',
 };
